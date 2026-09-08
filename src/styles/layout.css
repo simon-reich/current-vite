@@ -12,6 +12,53 @@
   padding: 36px 36px 0 36px;
 }
 
+/* Narrow desktop — same breakpoint as TodoCard.vue's own tier (see its
+   "Narrow desktop" comment). Full sidebar/settings markup still shows in
+   both side columns here (unlike tablet.css, which drops to a single
+   column below 1025px), but at a trimmed width — the tag sidebar is
+   already a scrolling vertical list (see .tag-list/.tag-label's own
+   ellipsis truncation), so it copes with less width fine, and the
+   right-hand column only ever holds the settings icon in its header row
+   regardless of width. The width handed back here is exactly what lets
+   the center column's todo cards stay closer to full desktop size at
+   this range instead of needing as aggressive a per-card shrink. */
+@media (min-width: 1025px) and (max-width: 1400px) {
+  #app {
+    grid-template-columns: 150px 1fr 150px;
+  }
+
+  /* Narrowing the column alone left its contents at full desktop size —
+     the tag input, the All/Prio/Date trio and the tag chips themselves
+     still need to actually shrink to fit comfortably, the same way
+     TodoCard.vue's own tier shrinks the todo cards rather than just
+     relying on their grid cell being narrower. Scoped to .sidebar-head/
+     .sidebar (the left, tag-related column) specifically — .settings-head
+     (right column) keeps its full size, and .tag-new-input/.all-btn/
+     .tag-chip's other users (the mobile tag panel) are unaffected since
+     that markup is display:none outside the mobile/tablet breakpoints. */
+  .sidebar-head .tag-new-input {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .sidebar-head .all-btn,
+  .sidebar .all-btn {
+    font-size: 11px;
+    padding: 2px 6px;
+    width: 44px;
+  }
+
+  .sidebar .tag-chip {
+    font-size: 11px;
+    padding: 2px 6px;
+    gap: 3px;
+  }
+
+  .sidebar .tag-x {
+    font-size: 12px;
+  }
+}
+
 /* Calm, understated entrance for the app shell (side menu + top menu) on
    initial page load — these elements live outside the router views and
    only ever mount once per page load, never on navigation, so a plain

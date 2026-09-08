@@ -1,11 +1,21 @@
 /* ══ Breakpoints (canonical — keep every occurrence in sync) ══
-   Mobile:  max-width: 700px             → src/styles/mobile.css
-   Tablet:  min-width: 701px, max-width: 1024px → src/styles/tablet.css
-   Desktop: > 1024px (no media query — it's the unqualified base CSS)
+   Mobile:          max-width: 700px                    → src/styles/mobile.css
+   Tablet:          min-width: 701px, max-width: 1024px  → src/styles/tablet.css
+   Narrow desktop:  min-width: 1025px, max-width: 1400px → src/styles/layout.css (#app grid only)
+   Desktop:         > 1024px (no media query — it's the unqualified base CSS)
+
+   Narrow desktop is a lighter-touch tier nested inside the desktop range
+   above (real sidebar/keyboard-shortcut desktop layout throughout, see
+   DESKTOP_BREAKPOINT in App.vue) — it exists only to trim a couple of
+   widths (the #app side columns in layout.css, todo-card sizing inline in
+   TodoCard.vue) so Overview's grid still fits more than one card per row
+   before the viewport is wide enough for full desktop sizing. It does NOT
+   get its own dedicated stylesheet the way tablet/mobile do.
 
    Where responsive CSS lives:
    - App.vue's own markup (shell/nav/layout): overrides live in
-     mobile.css / tablet.css, never inline in App.vue's <style>.
+     mobile.css / tablet.css / layout.css, never inline in App.vue's
+     <style>.
    - Every other component/view's responsive CSS stays inline in that
      component's own <style scoped>, using the same breakpoint values
      above. Don't add a component-specific rule to mobile.css/tablet.css. */

@@ -2635,16 +2635,22 @@ onUnmounted(() => {
    (AllTodos.vue). Sized halfway between this tablet block below and the
    unqualified desktop default above it. Applies equally to Focus, since
    both share this same component/stylesheet — there's no separate
-   per-view card size to keep in sync. */
+   per-view card size to keep in sync.
+   Shrinking the card alone used to have to do all the work (max-width
+   down to 360px got uncomfortably cramped) — see the matching
+   #app-grid-template-columns override in layout.css's own "Narrow
+   desktop" block, which now narrows both side columns in this same
+   range and hands the freed-up width to the center column instead. With
+   that, the card only needs a lighter trim from the full desktop size. */
 @media (min-width: 1025px) and (max-width: 1400px) {
   .todo-card {
     font-size: 15px;
-    max-width: 500px;
+    max-width: 400px;
   }
 
   .todo-card-main {
-    padding: 9px 14px;
-    gap: 9px;
+    padding: 8px 13px;
+    gap: 8px;
   }
 
   /* Same circle-vs-bare-icon split as the tablet block below — see its
