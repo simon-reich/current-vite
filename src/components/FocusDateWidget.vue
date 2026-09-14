@@ -84,14 +84,12 @@ function pick(dateStr: string) {
   grid-row: 1;
   font-size: 10px;
   letter-spacing: 0.5px;
-  opacity: 0.7;
 }
 
 .fdw-year {
   grid-column: 1;
   grid-row: 2;
   font-size: 10px;
-  opacity: 0.7;
 }
 
 .fdw-main {
