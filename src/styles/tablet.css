@@ -223,13 +223,9 @@
 
   /* ── Focus Date widget / Lists button ── Real desktop shows the
      dedicated right-column widget (.focus-date-head) and Focus's own
-     "Lists" button instead — both hidden here, this compact icon-rail
-     slot takes over between Calendar and Settings. */
-  .focus-date-head,
-  .lists-btn-desktop {
-    display: none;
-  }
-
+     "Lists" button instead (both already hide themselves below 1024px —
+     see layout.css/Focus.vue) — this compact icon-rail slot takes over
+     between Calendar and Settings. */
   .tablet-icon-extra {
     display: flex;
   }

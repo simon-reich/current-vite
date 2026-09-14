@@ -652,6 +652,15 @@
   padding: 12px 16px;
 }
 
+/* Tablet uses .tablet-icon-extra (top-nav icon rail) instead — same
+   "own compact version below 1024px" pattern as .expand-subs-row/
+   .lists-btn-desktop in Focus.vue. */
+@media (max-width: 1024px) {
+  .focus-date-head {
+    display: none;
+  }
+}
+
 /* Tablet-only icon-rail slot (see tablet.css) — real desktop already shows
    the dedicated widget/"Lists" button elsewhere. */
 .tablet-icon-extra {

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Plus, Check, Pencil } from '@lucide/vue'
+import { computed, ref, inject } from 'vue'
+import type { Ref } from 'vue'
+import { Plus, Check, Pencil, ListChecks } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
 import CheckModal from '../components/CheckModal.vue'
 import AllChecksModal from '../components/AllChecksModal.vue'
+import ListsPanel from '../components/ListsPanel.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnRemovedFromFocusToast } from '../composables/useToast'
@@ -15,6 +17,11 @@ import { burstCheckbox } from '../composables/useCheckboxBurst'
 const store = useTodosStore()
 const checksStore = useChecksStore()
 const themeStore = useThemeStore()
+
+// Shared with App.vue's tablet/phone "Lists" trigger buttons (outside the
+// RouterView) — see App.vue's own provide for why this goes the opposite
+// direction of sortKey/listView.
+const listsPanelOpen = inject<Ref<boolean>>('listsPanelOpen')!
 
 // Priority (with or without loop) floats to the top; everything else —
 // loop or plain — sorts by when it was actually sent to Focus (oldest
@@ -121,6 +128,18 @@ function editFromAllChecks(check: CheckItem) {
       </button>
     </div>
 
+    <!-- Desktop only (CSS-hidden on tablet/phone, which use App.vue's own
+         icon-rail/bottom-nav triggers for the same listsPanelOpen ref) —
+         browse/delete other Date Lists, see ListsPanel.vue. -->
+    <button
+      v-if="themeStore.dateListsEnabled"
+      type="button"
+      class="lists-btn-desktop"
+      @click="listsPanelOpen = true"
+    >
+      <ListChecks :size="14" /> <span>Lists</span>
+    </button>
+
     <div v-if="filteredTodos.length" class="todo-wrap">
       <TodoCard
         v-for="(todo, index) in filteredTodos"
@@ -199,6 +218,8 @@ function editFromAllChecks(check: CheckItem) {
     @close="closeCheckModal"
   />
 
+  <ListsPanel v-if="listsPanelOpen" @close="listsPanelOpen = false" />
+
   <AllChecksModal
     v-if="showAllChecks"
     @close="closeAllChecks"
@@ -253,6 +274,42 @@ function editFromAllChecks(check: CheckItem) {
   color: var(--ink);
   font-family: var(--font-mono, monospace);
   opacity: 0.7;
+}
+
+/* Same fixed-corner approach as .expand-subs-row right above (which this
+   sits directly under) — Focus's Subs toggle only renders when there's a
+   list to show subs on, so this can't just be "the next row" in normal
+   flow; it needs its own fixed anchor a row's height lower. Hides below
+   1024px the same way — see the tablet/phone triggers in App.vue instead. */
+.lists-btn-desktop {
+  position: fixed;
+  top: 196px;
+  right: 52px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  opacity: 0.7;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+@media (hover: hover) {
+  .lists-btn-desktop:hover {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .lists-btn-desktop {
+    display: none;
+  }
 }
 
 /* Same switch look as Settings.vue's daily-shuffle toggle — duplicated
