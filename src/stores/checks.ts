@@ -15,8 +15,8 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-// Short reminder phrases only, not full todo-length titles — Focus's
-// check-row now stacks them one per line (see Focus.vue) instead of side
+// Short reminder phrases only, not full todo-length titles — Current's
+// check-row now stacks them one per line (see Current.vue) instead of side
 // by side, so this only needs to stay a single readable line rather than
 // fit two columns.
 export const CHECK_TITLE_MAX_LENGTH = 50
@@ -42,7 +42,7 @@ export interface Check {
   schedule: CheckSchedule
   createdAt: string
   /** ISO dates (YYYY-MM-DD), one per due day the checkbox was actually
-   *  ticked. A Check never leaves Focus when ticked (unlike a Todo's
+   *  ticked. A Check never leaves Current when ticked (unlike a Todo's
    *  Done) — it just stays visible with the box marked — so this is a
    *  plain append/remove log, not a state transition. Whether a given due
    *  day was *missed* isn't stored explicitly: it's derived later (by
@@ -72,7 +72,7 @@ export const useChecksStore = defineStore('checks', () => {
   const activeChecks = computed(() => checks.value.filter(c => !c.deletedAt))
 
   // Checks due today — purely computed from each Check's own schedule, not
-  // a stored flag (unlike Todo.inToday). A Check has no "sent to Focus"
+  // a stored flag (unlike Todo.inToday). A Check has no "sent to Current"
   // step to undo, so there's nothing here that needs Todo's
   // focusAddedAt/processedToday bookkeeping or a midnight store-mutation
   // pass (runLoopSchedule's equivalent) — it just needs to actually
@@ -140,7 +140,7 @@ export const useChecksStore = defineStore('checks', () => {
   }
 
   // Toggles a single day's completion — defaults to today, since that's
-  // the only day Focus ever shows a checkbox for, but takes an explicit
+  // the only day Current ever shows a checkbox for, but takes an explicit
   // date so tests/future callers aren't forced through the system clock.
   function toggleCompletion(id: string, dateStr: string = todayStr()) {
     const check = checks.value.find(c => c.id === id)

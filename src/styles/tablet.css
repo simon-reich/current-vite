@@ -193,7 +193,7 @@
 
   #app.is-settings .mobile-tags-btn,
   #app.is-calendar .mobile-tags-btn,
-  #app.is-focus .mobile-tags-btn {
+  #app.is-current .mobile-tags-btn {
     pointer-events: none;
     opacity: 0.35;
   }

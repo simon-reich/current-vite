@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import AllTodos from '../views/AllTodos.vue'
-import Focus from '../views/Focus.vue'
+import Current from '../views/Current.vue'
 import Calendar from '../views/Calendar.vue'
 import Settings from '../views/Settings.vue'
 
@@ -9,7 +9,7 @@ const router = createRouter({
   routes: [
     { path: '/', redirect: '/all' },
     { path: '/all', component: AllTodos },
-    { path: '/focus', component: Focus },
+    { path: '/current', component: Current },
     { path: '/calendar', component: Calendar },
     { path: '/settings', component: Settings },
   ],

@@ -11,7 +11,7 @@ import AllChecksModal from '../components/AllChecksModal.vue'
 import ListsPanel from '../components/ListsPanel.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { spawnRemovedFromFocusToast } from '../composables/useToast'
+import { spawnRemovedFromCurrentToast } from '../composables/useToast'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 
 const store = useTodosStore()
@@ -24,7 +24,7 @@ const themeStore = useThemeStore()
 const listsPanelOpen = inject<Ref<boolean>>('listsPanelOpen')!
 
 // Priority (with or without loop) floats to the top; everything else —
-// loop or plain — sorts by when it was actually sent to Focus (oldest
+// loop or plain — sorts by when it was actually sent to Current (oldest
 // addition first), not by how recently it was created.
 function rank(t: { tags: string[] }): number {
   return t.tags.includes(PRIORITY_TAG_ID) ? 0 : 1
@@ -34,29 +34,29 @@ function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-// Focus is deliberately unfilterable — it's already the curated, small
+// Current is deliberately unfilterable — it's already the curated, small
 // subset by design, and always shows every todo that's in it regardless
 // of whatever All/Prio/Loop/tag filter happens to be active in Overview
-// (see App.vue's #app.is-focus rules, which gray out that whole filter
+// (see App.vue's #app.is-current rules, which gray out that whole filter
 // UI here instead of just silently ignoring it).
-const defaultFocusTodos = computed(() => {
+const defaultCurrentTodos = computed(() => {
   return [...store.todayTodos].sort((a, b) => {
     const rankDiff = rank(a) - rank(b)
     if (rankDiff !== 0) return rankDiff
-    // Falls back to createdAt for todos already in Focus from before
+    // Falls back to createdAt for todos already in Current from before
     // focusAddedAt existed.
     return (a.focusAddedAt ?? a.createdAt).localeCompare(b.focusAddedAt ?? b.createdAt)
   })
 })
 
-// null = the default Focus list above. Set via ListsPanel.vue's picker —
+// null = the default Current list above. Set via ListsPanel.vue's picker —
 // swaps this whole view for one other Date List's todos instead of
 // stacking it in a separate cramped overlay (see ListsPanel.vue, which is
 // now purely a date picker/deleter, no embedded preview of its own).
 const viewingDate = ref<string | null>(null)
 
 const displayedTodos = computed(() => {
-  if (!viewingDate.value) return defaultFocusTodos.value
+  if (!viewingDate.value) return defaultCurrentTodos.value
   return [...store.todosForFocusDate(viewingDate.value)].sort((a, b) => {
     const rankDiff = rank(a) - rank(b)
     if (rankDiff !== 0) return rankDiff
@@ -64,12 +64,12 @@ const displayedTodos = computed(() => {
   })
 })
 
-// Only today's own Date List (if viewing one) behaves like real Focus —
+// Only today's own Date List (if viewing one) behaves like real Current —
 // any other day is still in the future, so Done/Done-for-today stay
 // locked (see TodoCard.vue's previewLocked) until it actually arrives.
 const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
 
-const viewingDateLabel = computed(() => viewingDate.value === todayStr() ? 'Today' : viewingDate.value)
+const viewingDateLabel = computed(() => viewingDate.value === todayStr() ? 'today' : viewingDate.value)
 
 function backToDefault() {
   viewingDate.value = null
@@ -85,14 +85,14 @@ const siblingIds = computed(() => displayedTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
 
-// Mirrors AllTodos.vue's sendToFocus, `obvious` included — a card leaving
+// Mirrors AllTodos.vue's sendToCurrent, `obvious` included — a card leaving
 // this list otherwise just vanishes with no explanation. Toast rises from
 // the card's own position, skipped for a direct CircleMinus click. Removing
 // from a future Date List (see viewingDate) only ever unassigns that one
 // date — removeFromToday's own "leaves however it got there" behavior is
-// specifically for today's Focus, not a day that hasn't arrived yet.
-function removeFromFocus(id: string, obvious?: boolean) {
-  if (!obvious) spawnRemovedFromFocusToast(id)
+// specifically for today's Current, not a day that hasn't arrived yet.
+function removeFromCurrent(id: string, obvious?: boolean) {
+  if (!obvious) spawnRemovedFromCurrentToast(id)
   if (viewingLockedDate.value) store.unassignFocusDate(id, viewingDate.value!)
   else store.removeFromToday(id)
 }
@@ -149,10 +149,10 @@ function editFromAllChecks(check: CheckItem) {
 </script>
 
 <template>
-  <div class="focus-view" :class="{ 'is-empty': !displayedTodos.length }">
+  <div class="current-view" :class="{ 'is-empty': !displayedTodos.length }">
     <div v-if="viewingDate" class="viewing-date-banner">
       <button type="button" class="viewing-date-back" @click="backToDefault">
-        <ChevronLeft :size="16" /> Default
+        <ChevronLeft :size="16" /> default
       </button>
       <span class="viewing-date-label">{{ viewingDateLabel }}</span>
     </div>
@@ -163,9 +163,9 @@ function editFromAllChecks(check: CheckItem) {
         type="button"
         class="switch"
         role="switch"
-        :aria-checked="themeStore.expandFocusSubs"
-        :class="{ on: themeStore.expandFocusSubs }"
-        @click="themeStore.toggleExpandFocusSubs()"
+        :aria-checked="themeStore.expandCurrentSubs"
+        :class="{ on: themeStore.expandCurrentSubs }"
+        @click="themeStore.toggleExpandCurrentSubs()"
       >
         <span class="switch-knob" />
       </button>
@@ -180,7 +180,7 @@ function editFromAllChecks(check: CheckItem) {
       class="lists-btn-desktop"
       @click="listsPanelOpen = true"
     >
-      <ListChecks :size="14" /> <span>Lists</span>
+      <ListChecks :size="14" /> <span>lists</span>
     </button>
 
     <div v-if="displayedTodos.length" class="todo-wrap">
@@ -192,16 +192,16 @@ function editFromAllChecks(check: CheckItem) {
         :font="fontMap.get(todo.id)"
         :sibling-ids="siblingIds"
         :index="index"
-        :force-expand-subs="themeStore.expandFocusSubs"
+        :force-expand-subs="themeStore.expandCurrentSubs"
         :preview-locked="viewingLockedDate"
         mode="today"
-        @remove-from-today="removeFromFocus"
+        @remove-from-today="removeFromCurrent"
         @complete="store.completeTodo($event)"
         @done-for-today="store.doneForToday($event)"
         @delete="store.deleteTodo($event)"
       />
     </div>
-    <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in focus right now.' }}</p>
+    <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in current right now.' }}</p>
 
     <div v-if="themeStore.checksEnabled" class="checks-section">
       <div class="checks-header">
@@ -277,7 +277,7 @@ function editFromAllChecks(check: CheckItem) {
 </template>
 
 <style scoped>
-.focus-view {
+.current-view {
   width: 100%;
   max-width: 640px;
 }
@@ -362,7 +362,7 @@ function editFromAllChecks(check: CheckItem) {
 }
 
 /* Same fixed-corner approach as .expand-subs-row right above (which this
-   sits directly under) — Focus's Subs toggle only renders when there's a
+   sits directly under) — Current's Subs toggle only renders when there's a
    list to show subs on, so this can't just be "the next row" in normal
    flow; it needs its own fixed anchor a row's height lower. Hides below
    1024px the same way — see the tablet/phone triggers in App.vue instead. */
@@ -609,7 +609,7 @@ function editFromAllChecks(check: CheckItem) {
    list to align against, so it stays centered like the calendar's own
    empty-day placeholder. */
 @media (min-width: 701px) and (max-width: 1024px) {
-  .focus-view:not(.is-empty) {
+  .current-view:not(.is-empty) {
     align-self: flex-start;
     margin-left: 14px;
   }

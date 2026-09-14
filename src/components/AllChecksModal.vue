@@ -30,10 +30,10 @@ onUnmounted(() => {
   <div class="modal-box all-checks-box" role="dialog" @click.stop>
     <h2 class="all-checks-title">checks</h2>
 
-    <!-- Every check, not just today's due ones (see Focus.vue's own
+    <!-- Every check, not just today's due ones (see Current.vue's own
          checksStore.todayChecks row) — this is the only place a check
          that isn't currently due can be reached to edit or delete at all.
-         Clicking a row reuses CheckModal (Focus.vue swaps this overlay for
+         Clicking a row reuses CheckModal (Current.vue swaps this overlay for
          it), which already has both Save and Delete — no need to
          duplicate either action here. -->
     <div v-if="store.activeChecks.length" class="all-checks-list">

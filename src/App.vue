@@ -10,7 +10,7 @@ import { useScrollTracking } from './composables/useScrollTracking'
 import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickExpand'
 import { activeModal } from './composables/useModalGuard'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
-import { toasts, spawnToast, spawnSentToFocusToast } from './composables/useToast'
+import { toasts, spawnToast, spawnSentToCurrentToast } from './composables/useToast'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
 import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
@@ -26,7 +26,7 @@ import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from '
 const router = useRouter()
 const route = useRoute()
 
-// Tab/Shift+Tab toggle between Overview and Focus — but only when no todo
+// Tab/Shift+Tab toggle between Overview and Current — but only when no todo
 // card is open (in which case cards are cycled instead) and focus isn't in
 // a text field (where Tab should behave normally). This is the single
 // place Tab is handled at all: previously each open card also attached its
@@ -39,7 +39,7 @@ const route = useRoute()
 // one handler, and it decides which behavior applies. Calendar isn't part
 // of this cycle — it's reached via C instead (see toggleCalendar), same
 // "toggle back to whichever main view you came from" pattern as Settings/X.
-const viewOrder = ['/all', '/focus']
+const viewOrder = ['/all', '/current']
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null
@@ -75,7 +75,7 @@ watch(() => route.path, (path, oldPath) => {
   // Arriving at Overview resets its own filters (tags/prio/date) — unless
   // it's a Settings round-trip, which reads as a quick detour rather than
   // actually leaving Overview (same exemption as the add-todo draft below).
-  // Coming back from Focus or Calendar, though, should always land on a
+  // Coming back from Current or Calendar, though, should always land on a
   // clean, unfiltered Overview rather than whatever was left dialed in
   // from before.
   if (path === '/all' && oldPath !== '/settings') clearAllFilters()
@@ -162,16 +162,16 @@ function onGlobalKeydown(e: KeyboardEvent) {
   const key = e.key.toLowerCase()
 
   // S — toggle sort (date / A–Z) on Overview, matching where the sort
-  // button itself is shown. Reused on Focus for its own "expand subs"
+  // button itself is shown. Reused on Current for its own "expand subs"
   // switch (only when Subs are actually enabled) — same letter, since the
   // two views never show both controls at once. No-op everywhere else.
   if (key === 's') {
     if (route.path === '/all') {
       e.preventDefault()
       toggleSort()
-    } else if (route.path === '/focus' && themeStore.subsEnabled) {
+    } else if (route.path === '/current' && themeStore.subsEnabled) {
       e.preventDefault()
-      themeStore.toggleExpandFocusSubs()
+      themeStore.toggleExpandCurrentSubs()
     }
     return
   }
@@ -184,18 +184,18 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // N — jump into the add-todo input ("new"). Valid on Overview and Focus,
+  // N — jump into the add-todo input ("new"). Valid on Overview and Current,
   // the only views where that input is actually enabled (dimmed/inert on
   // Settings and Calendar).
   if (key === 'n') {
-    if (route.path !== '/all' && route.path !== '/focus') return
+    if (route.path !== '/all' && route.path !== '/current') return
     e.preventDefault()
     todoInputRef.value?.focus()
     return
   }
 
   // A — the All filter (clears every active tag/prio/loop filter at
-  // once). Overview-only, like every other filter shortcut — Focus can't
+  // once). Overview-only, like every other filter shortcut — Current can't
   // be filtered at all.
   if (key === 'a') {
     if (route.path !== '/all') return
@@ -220,9 +220,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
   // T — jump into the tag input. Desktop only: below the tablet breakpoint
   // the sidebar (and its tag input) isn't even rendered — reaching it means
   // first opening the mobile tag panel, a touch-driven flow a keyboard
-  // shortcut doesn't fit anyway. Overview-only, unlike A — Focus is
+  // shortcut doesn't fit anyway. Overview-only, unlike A — Current is
   // deliberately unfilterable, so its whole tag/filter UI is grayed out
-  // and inert (see #app.is-focus), this shortcut included.
+  // and inert (see #app.is-current), this shortcut included.
   if (key === 't') {
     if (window.innerWidth <= DESKTOP_BREAKPOINT) return
     if (route.path !== '/all') return
@@ -232,7 +232,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 
   // P — toggle the priority filter (All ↔ Prio). Overview-only — see T
-  // above, Focus can't be filtered at all anymore.
+  // above, Current can't be filtered at all anymore.
   if (key === 'p') {
     if (route.path !== '/all') return
     e.preventDefault()
@@ -242,14 +242,14 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
   // Enter — open the first todo card in the current list, same as clicking
   // it. A real click (not reimplementing toggleTagMenu/toggleCheckMenu
-  // here) so Overview vs Focus's different open behavior stays exactly
+  // here) so Overview vs Current's different open behavior stays exactly
   // whatever TodoCard.vue itself already does for a click, nothing
   // duplicated. shortcutsBlocked() above already guarantees no card is
   // open yet, so there's always at most a "first" card to jump into, never
   // an already-open one to fight with its own Enter handling (accepting an
   // edit).
   if (key === 'enter') {
-    if (route.path !== '/all' && route.path !== '/focus') return
+    if (route.path !== '/all' && route.path !== '/current') return
     e.preventDefault()
     document.querySelector<HTMLElement>('.content-inner .todo-card-main')?.click()
     return
@@ -325,7 +325,7 @@ const shortcutHints = ref<ShortcutHint[]>([])
 // Enter gets its own row instead of the generic single-key pill every
 // other hint uses — it needs to show the follow-up keys that apply once
 // the card it opens is actually open (Tab/Enter/Space in Overview,
-// Tab/←→/Enter in Focus), as a plain arrow + more boxed keys alongside
+// Tab/←→/Enter in Current), as a plain arrow + more boxed keys alongside
 // it rather than crammed into one pill. Positioned the same way Enter's
 // pill used to be (bottom-center anchored above the first card).
 interface HintPart { text: string; kind: 'key' | 'arrow' | 'label' }
@@ -335,7 +335,7 @@ const enterFollowupParts = computed<HintPart[]>(() => {
   const arrow = (text: string): HintPart => ({ text, kind: 'arrow' })
   const label = (text: string): HintPart => ({ text, kind: 'label' })
   if (route.path === '/all') {
-    return [box('Enter'), arrow('→'), box('Tab'), label('(cards)'), box('Space'), label('(edit)'), box('F'), label('(focus)'), box('D'), label('(delete)')]
+    return [box('Enter'), arrow('→'), box('Tab'), label('(cards)'), box('Space'), label('(edit)'), box('F'), label('(current)'), box('D'), label('(delete)')]
   }
   return [box('Enter'), arrow('→'), box('Tab'), label('(cards)'), box('←→'), label('(select)'), box('Enter'), label('(confirm)'), box('Space'), label('(edit)'), box('D'), label('(remove)')]
 })
@@ -349,8 +349,8 @@ const calendarHintParts: HintPart[] = [
   { text: '↑↓', kind: 'key' }, { text: '(week)', kind: 'label' },
 ]
 
-// Focus's S (expand-subs switch, pinned under Settings on desktop — see
-// Focus.vue's .expand-subs-row) — same "measure the real target" approach
+// Current's S (expand-subs switch, pinned under Settings on desktop — see
+// Current.vue's .expand-subs-row) — same "measure the real target" approach
 // as calendarHintPos above, since it doesn't live in the shared header
 // line the rest of the plain-pill hints share (see the 'S' targets entry).
 const expandSubsHintPos = ref<{ x: number; y: number } | null>(null)
@@ -371,14 +371,14 @@ function computeShortcutHints() {
   const targets: { key: string; el: HTMLElement | null }[] = [
     { key: 'C', el: calendarNavRef.value?.$el ?? null },
     { key: 'G', el: route.path === '/all' ? sortListBtnRef.value : null },
-    // Focus's own S target (the expand-subs switch) is measured separately
+    // Current's own S target (the expand-subs switch) is measured separately
     // below (expandSubsHintPos) rather than folded in here — it doesn't
     // sit in the header row like every other target in this list, so
     // sharing their one computed line (see below) would float its hint at
     // the header's height with the switch's x, nowhere near the switch
     // itself.
     { key: 'S', el: route.path === '/all' ? sortOrderBtnRef.value : null },
-    { key: 'N', el: (route.path === '/all' || route.path === '/focus') ? todoInputRef.value : null },
+    { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
     { key: 'T', el: route.path === '/all' && themeStore.tagsEnabled ? tagInputRef.value : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
@@ -386,7 +386,7 @@ function computeShortcutHints() {
     .filter((t): t is { key: string; el: HTMLElement } => !!t.el)
     .map(t => ({ key: t.key, rect: t.el.getBoundingClientRect() }))
 
-  // Tab spans both All and Focus icons now (it only toggles between the
+  // Tab spans both All and Current icons now (it only toggles between the
   // two) rather than pointing at a single button like the rest — a
   // synthetic rect covering just those two instead of the old topNavRef
   // that used to span all three (back when Tab cycled through Calendar
@@ -410,11 +410,11 @@ function computeShortcutHints() {
     hints.push(...measured.map(m => ({ key: m.key, x: m.rect.left + m.rect.width / 2, y: lineY })))
   }
 
-  // Enter only applies on Overview/Focus (same restriction as the
+  // Enter only applies on Overview/Current (same restriction as the
   // shortcut itself), floated above the first card — see enterHintPos/
   // enterFollowupParts above for its own row instead of a plain pill.
   enterHintPos.value = null
-  if (route.path === '/all' || route.path === '/focus') {
+  if (route.path === '/all' || route.path === '/current') {
     const listRect = contentInnerRef.value?.getBoundingClientRect()
     if (listRect) {
       // content-inner's own top edge sits right below the header (before
@@ -441,12 +441,12 @@ function computeShortcutHints() {
   }
 
   expandSubsHintPos.value = null
-  if (route.path === '/focus' && themeStore.subsEnabled) {
+  if (route.path === '/current' && themeStore.subsEnabled) {
     const switchRect = document.querySelector('.expand-subs-row .switch')?.getBoundingClientRect()
     if (switchRect) expandSubsHintPos.value = { x: switchRect.left + switchRect.width / 2, y: switchRect.top - 13 }
   }
 
-  // A/P/D are Overview-only (Focus can't be filtered at all) and each
+  // A/P/D are Overview-only (Current can't be filtered at all) and each
   // float to the right of their own button, vertically centered —
   // they used to share one line above the whole All/Prio pair, but with
   // three of them now individually labeling separate buttons reads
@@ -517,7 +517,7 @@ onMounted(() => {
   window.addEventListener('blur', onWindowBlur)
   window.addEventListener('resize', onWindowResizeForHints)
   document.addEventListener('visibilitychange', onVisibilityChange)
-  // Sends due loop todos to Focus now, then again every midnight while
+  // Sends due loop todos to Current now, then again every midnight while
   // this tab stays open (no reload) — see useLoopSchedule.ts. The daily
   // theme rotation (see stores/theme.ts) and Checks' own due-today
   // recompute (see stores/checks.ts's refreshToday) piggyback on the same
@@ -550,7 +550,7 @@ const checksStore = useChecksStore()
 // Pre-completion celebration teaser (see TodoCard.vue's
 // showCelebrationTeaser for the why-here) — a single watcher on
 // openCheckMenuId itself, not one per TodoCard instance watching its own
-// showMenu: cycleOpenCard (Tab-cycling between open Focus cards) sets
+// showMenu: cycleOpenCard (Tab-cycling between open Current cards) sets
 // openCheckMenuId straight to the next card in one ref assignment, and
 // two *different* components' own watchers reacting to that raced each
 // other over the shared teaser state in whatever order Vue happened to
@@ -654,7 +654,7 @@ function cycleLoopFilter() {
 
 // "All" resets loop filtering back to its own starting point, "hide" —
 // not "default" (unfiltered) — for the same reason "hide" is the initial
-// state to begin with: a not-yet-due date todo sends itself to Focus once
+// state to begin with: a not-yet-due date todo sends itself to Current once
 // it's actually due, so seeing it in Overview beforehand is just clutter,
 // even after an explicit "clear everything" reset. Still reachable via D
 // if you want it. Loop's own state only resets here, on this explicit
@@ -841,11 +841,11 @@ function addTodo() {
     subs: [...newTodoSubs.value],
   })
   // A Date todo (once or loop) not actually due yet shouldn't land on
-  // Focus just because it was typed there — same rule as any other Date
-  // todo, which only ever auto-joins Focus once it's due (see
+  // Current just because it was typed there — same rule as any other Date
+  // todo, which only ever auto-joins Current once it's due (see
   // runLoopSchedule). It's created and stays in the pool instead.
   const dateTodoNotYetDue = !!todo.loopInterval && !isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))
-  if (route.path === '/focus') {
+  if (route.path === '/current') {
     if (!dateTodoNotYetDue) store.sendToToday(todo.id)
   }
   // A brand-new loop todo due today (e.g. start date = today, daily)
@@ -856,7 +856,7 @@ function addTodo() {
   // its own "+" button would, with a toast explaining where it went.
   else if (todo.loopInterval && !dateTodoNotYetDue) {
     setTimeout(() => {
-      spawnSentToFocusToast(todo.id)
+      spawnSentToCurrentToast(todo.id)
       store.sendToToday(todo.id)
     }, 600)
   }
@@ -886,7 +886,7 @@ function toggleSettings() {
 
 // ── Calendar toggle ──
 // Same pattern as toggleSettings above: Calendar sits outside the Tab
-// cycle (viewOrder is just Overview/Focus now), so the C shortcut toggles
+// cycle (viewOrder is just Overview/Current now), so the C shortcut toggles
 // it on/off, returning to whichever of the two you came from.
 function toggleCalendar() {
   showMobileTags.value = false
@@ -902,7 +902,7 @@ provide('loopFilterMode', loopFilterMode)
 provide('effectiveFilterTagIds', effectiveFilterTagIds)
 provide('sortKey', sortKey)
 
-// Shared with Focus.vue: the desktop "Lists" button lives inside Focus.vue
+// Shared with Current.vue: the desktop "lists" button lives inside Current.vue
 // itself, but the tablet/phone trigger buttons for it live here in App.vue
 // (icon rail / bottom nav, outside the RouterView) — same provide/inject
 // pattern as sortKey/listView above, just the other direction (a view
@@ -962,7 +962,7 @@ watch(() => route.path, () => {
     :class="{
       'is-settings': route.path === '/settings',
       'is-calendar': route.path === '/calendar',
-      'is-focus': route.path === '/focus',
+      'is-current': route.path === '/current',
       'mobile-tags-open': showMobileTags,
     }"
   >
@@ -1043,12 +1043,12 @@ watch(() => route.path, () => {
           </div>
 
           <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
-               when tags are off — but in Focus, tags are always inert (see
-               #app.is-focus's own dimming rules), so this slot shows the
+               when tags are off — but in Current, tags are always inert (see
+               #app.is-current's own dimming rules), so this slot shows the
                subs expand-toggle instead whenever Subs are enabled, taking
                priority over both other variants. -->
           <div
-            v-if="route.path === '/focus' && themeStore.subsEnabled"
+            v-if="route.path === '/current' && themeStore.subsEnabled"
             class="mobile-subs-toggle mobile-only"
           >
             <span class="mobile-subs-label">subs</span>
@@ -1056,9 +1056,9 @@ watch(() => route.path, () => {
               type="button"
               class="mobile-subs-switch"
               role="switch"
-              :aria-checked="themeStore.expandFocusSubs"
-              :class="{ on: themeStore.expandFocusSubs }"
-              @click="themeStore.toggleExpandFocusSubs()"
+              :aria-checked="themeStore.expandCurrentSubs"
+              :class="{ on: themeStore.expandCurrentSubs }"
+              @click="themeStore.toggleExpandCurrentSubs()"
             >
               <span class="mobile-subs-switch-knob" />
             </button>
@@ -1157,7 +1157,7 @@ watch(() => route.path, () => {
           <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
             <Globe :size="27" />
           </RouterLink>
-          <RouterLink ref="focusNavRef" to="/focus" class="nav-icon" title="Focus">
+          <RouterLink ref="focusNavRef" to="/current" class="nav-icon" title="current">
             <Sun :size="27" />
           </RouterLink>
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
@@ -1165,12 +1165,12 @@ watch(() => route.path, () => {
           </RouterLink>
         </nav>
 
-        <!-- Tablet-width only — real desktop shows the widget/"Lists"
-             button elsewhere (.focus-date-head, Focus.vue's
+        <!-- Tablet-width only — real desktop shows the widget/"lists"
+             button elsewhere (.focus-date-head, Current.vue's
              .lists-btn-desktop) and Settings in its own .settings-head, so
              both stay hidden there (see .tablet-focus-date-widget-slot/
              .tablet-settings-btn in layout.css). Settings sits flush at
-             this row's right edge; the widget/Lists button centers itself
+             this row's right edge; the widget/lists button centers itself
              in whatever space is left before it (see .tablet-header-right
              in tablet.css) — not centered against the row as a whole,
              specifically between the view icons and Settings as asked. -->
@@ -1180,9 +1180,9 @@ watch(() => route.path, () => {
               <FocusDateWidget />
             </div>
             <button
-              v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+              v-if="themeStore.dateListsEnabled && route.path === '/current'"
               class="tablet-focus-date-widget-slot nav-icon"
-              title="Lists"
+              title="lists"
               @click="listsPanelOpen = true"
             >
               <ListChecks :size="22" />
@@ -1371,12 +1371,12 @@ watch(() => route.path, () => {
       </button>
       <!-- Phone-width only (see .sort-btn/.lists-btn CSS in mobile.css) —
            same bottom-left slot the sort button uses on /all, reused here
-           for Focus's own "browse other Date Lists" entry point since it's
+           for Current's own "browse other Date Lists" entry point since it's
            otherwise unused on /focus. -->
       <button
-        v-else-if="route.path === '/focus' && themeStore.dateListsEnabled"
+        v-else-if="route.path === '/current' && themeStore.dateListsEnabled"
         class="sort-btn lists-btn"
-        title="Lists"
+        title="lists"
         @click="listsPanelOpen = true"
       >
         <ListChecks :size="22" />
@@ -1387,7 +1387,7 @@ watch(() => route.path, () => {
         <RouterLink to="/all" class="nav-icon" title="All todos" @click="showMobileTags = false">
           <Globe :size="24" />
         </RouterLink>
-        <RouterLink to="/focus" class="nav-icon" title="Focus" @click="showMobileTags = false">
+        <RouterLink to="/current" class="nav-icon" title="current" @click="showMobileTags = false">
           <Sun :size="24" />
         </RouterLink>
         <RouterLink to="/calendar" class="nav-icon" title="Calendar" @click="showMobileTags = false">
@@ -1453,7 +1453,7 @@ watch(() => route.path, () => {
       >{{ part.text }}</span>
     </div>
 
-    <!-- Focus's S (expand-subs switch) — a plain pill like the header
+    <!-- Current's S (expand-subs switch) — a plain pill like the header
          shortcuts, just floated over its own measured target instead of
          the shared header line (see expandSubsHintPos). -->
     <div

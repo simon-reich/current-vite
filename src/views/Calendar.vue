@@ -209,7 +209,7 @@ const dayEntries = computed<DayEntry[]>(() => {
 
 // Priority vs. everything else, not done vs. worked-on — priority is
 // already the app's one first-class "this mattered" signal everywhere
-// else (card fill, its own filter/sort rank in Focus), so grouping by it
+// else (card fill, its own filter/sort rank in Current), so grouping by it
 // here answers "did I get to the important stuff" instead of the more
 // bookkeeping-flavored "did I finish it or just poke at it".
 const priorityEntries = computed(() => dayEntries.value.filter(e => e.todo.tags.includes(PRIORITY_TAG_ID)))
@@ -507,7 +507,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 /* Checks read as lower-weight than Todos everywhere else in the app (see
-   Focus's own check-row) — same treatment here via opacity rather than a
+   Current's own check-row) — same treatment here via opacity rather than a
    separate color, which the app's four-value color rule doesn't allow. */
 .day-item--check {
   opacity: 0.65;

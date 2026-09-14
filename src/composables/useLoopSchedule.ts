@@ -141,11 +141,11 @@ export function nextLoopOccurrence(interval: LoopInterval, today: Date = new Dat
   return candidate
 }
 
-// Already handled today (sent to Focus today, whether that stuck — via
+// Already handled today (sent to Current today, whether that stuck — via
 // "Done for today" it can be inToday:false again by now — or not) — set
 // on every sendToToday(), manual or automatic. Reusing it instead of a
 // dedicated field means "Done for today" earlier today correctly keeps
-// this loop todo out of Focus for the rest of today, not just until the
+// this loop todo out of Current for the rest of today, not just until the
 // next scheduled check re-adds it.
 function processedToday(todo: Todo): boolean {
   return !!todo.focusAddedAt && todo.focusAddedAt.slice(0, 10) === todayStr()
@@ -158,12 +158,12 @@ export interface LoopScheduleStore {
   assignFocusDate: (id: string, dateStr: string) => void
 }
 
-// Sends every due, not-yet-completed loop todo to Focus — called once on
+// Sends every due, not-yet-completed loop todo to Current — called once on
 // load and again every midnight while the app stays open (see
 // scheduleLoopMidnightCheck below). If today already has its own Date
 // List (see stores/todos.ts's Date Lists section), a due todo joins that
 // list instead of the default `inToday` one — that list replaces default
-// Focus for the day, so due todos still need to land somewhere visible.
+// Current for the day, so due todos still need to land somewhere visible.
 export function runLoopSchedule(store: LoopScheduleStore) {
   const today = todayStr()
   const hasDateListToday = store.hasFocusDateList(today)

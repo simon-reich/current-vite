@@ -437,7 +437,7 @@ function resolveCelebrationConfig(key: CelebrationKey): CelebrationConfig {
   return ALL_CELEBRATIONS[key] ?? ALL_CELEBRATIONS[drawCelebrationKey()]
 }
 
-// Pre-completion teaser — see the Focus check-menu's showMenu watch in
+// Pre-completion teaser — see the Current check-menu's showMenu watch in
 // <script setup> below. Shows the given (already-assigned, see
 // ALL_CELEBRATIONS' own comment) celebration's very first frame, frozen
 // (not playing) and pale via opacity (not a separate color — see
@@ -546,9 +546,9 @@ const activeCardApi = vueRef<ActiveCardApi | null>(null)
 // tabbing through individual tag checkboxes — carries the current editing
 // state along: tabbing away from an actively-edited title lands in the next
 // card's edit mode too, tabbing away from a merely-open card just opens the
-// next one the same way. A Focus card whose tag/date editor is open (see
+// next one the same way. A Current card whose tag/date editor is open (see
 // openEditFromToday) counts as "open the editor" too, not "open the
-// check-menu" — otherwise tabbing out of a Focus edit landed back on the
+// check-menu" — otherwise tabbing out of a Current edit landed back on the
 // check-menu's Done/Done-for-today row instead of carrying the edit along.
 export function cycleOpenCard(direction: 1 | -1) {
   const api = activeCardApi.value
@@ -598,17 +598,17 @@ const props = defineProps<{
   /** Position in the current list — staggers the mount-in bounce so cards
    *  settle one after another instead of all at once. Ignored in grid mode. */
   index?: number
-  /** Overview (both its grid and list toggle) vs. Focus. In this mode the
+  /** Overview (both its grid and list toggle) vs. Current. In this mode the
    *  whole pool of todos surfaces together instead of marching in one-by-
    *  one — closer to how the pool concept reads: an undifferentiated
-   *  collection, not a sequence. Focus keeps the marching-in stagger since
+   *  collection, not a sequence. Current keeps the marching-in stagger since
    *  it's a deliberately curated, ordered subset instead. */
   gridMode?: boolean
-  /** Focus's own "expand all subs" toggle (see Focus.vue) — forces the
+  /** Current's own "expand all subs" toggle (see Current.vue) — forces the
    *  sub-list open even while the card itself is closed, without also
    *  opening the Done/Done-for-today menu. */
   forceExpandSubs?: boolean
-  /** Focus's "Lists" panel previewing a future Date List (see
+  /** Current's "Lists" panel previewing a future Date List (see
    *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-today are
    *  locked out until that date is actually today; removing from the list
    *  still works normally. */
@@ -681,13 +681,13 @@ function updateDraftTags(tags: string[]) {
 // it's still open. Skips the write entirely if nothing actually changed
 // (just opened and closed again, e.g. Tab-cycling past a card without
 // touching anything) — writing the same tags back still mutates the array
-// reference, which in Focus re-triggers filteredTodos' sort and, with it,
+// reference, which in Current re-triggers filteredTodos' sort and, with it,
 // useListFlip's position-shift animation on every other card for no reason
 // (a real edit's shift is expected to animate; a no-op reopen's isn't).
 // Returns whether the loopInterval itself actually changed — the caller
 // uses that to decide whether overriding processedToday is warranted (see
 // the showTagMenu watch below): just Tab-cycling past an untouched loop
-// card shouldn't re-send it to Focus every time.
+// card shouldn't re-send it to Current every time.
 function commitDraftTags(): boolean {
   const tags = draftTags.value
   const loopInterval = tags.includes(LOOP_TAG_ID) ? draftLoopInterval.value : undefined
@@ -704,9 +704,9 @@ function commitDraftTags(): boolean {
 const tagMenuTags = computed(() => themeStore.tagsEnabled ? store.tags : store.tags.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 
 
-// The `obvious` flag on the Focus move events tells the parent (see
-// AllTodos.vue/Focus.vue) whether to skip the "sent to/removed from
-// Focus" toast — a direct click on the card's own +/− button already
+// The `obvious` flag on the Current move events tells the parent (see
+// AllTodos.vue/Current.vue) whether to skip the "sent to/removed from
+// Current" toast — a direct click on the card's own +/− button already
 // shows exactly what happened, so it stays silent; the same move
 // triggered less visibly (D/Enter shortcut, swipe) gets the toast.
 const emit = defineEmits<{
@@ -721,20 +721,20 @@ const emit = defineEmits<{
 const showMenu = computed(() => openCheckMenuId.value === props.todo.id)
 const showTagMenu = computed(() => openTagMenuId.value === props.todo.id)
 
-// showTagMenu covers both Overview's tag/date editor and Focus's own
+// showTagMenu covers both Overview's tag/date editor and Current's own
 // title-edit, which reuses openTagMenuId too (see openEditFromToday) —
-// either of those, or Focus's Done/Done-for-today menu, means some editor
+// either of those, or Current's Done/Done-for-today menu, means some editor
 // surface of the card is genuinely open right now.
 const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'today' && showMenu.value))
 
 // Subs are collapsed by default — shown once the card is genuinely open
-// (see above), or forced via Focus's "expand all" toggle.
+// (see above), or forced via Current's "expand all" toggle.
 const subsVisible = computed(() =>
   themeStore.subsEnabled && (cardActuallyOpen.value || !!props.forceExpandSubs)
 )
 
 // The add-sub row only makes sense while the card is genuinely open —
-// forceExpandSubs alone (Focus's "expand all", card still closed) shows
+// forceExpandSubs alone (Current's "expand all", card still closed) shows
 // existing subs to skim, but offering an input to type into a card that
 // was never actually opened would be a stray, unreachable-by-click field.
 const subsAddVisible = computed(() => themeStore.subsEnabled && cardActuallyOpen.value)
@@ -850,7 +850,7 @@ function onSubInputKeydown(e: KeyboardEvent) {
   // not fields of their own) — so both directions of the cycle collapse
   // to the same single hop: out of the sub input, back into the title.
   // Re-enters edit mode if it isn't already (e.g. subs were opened via
-  // Focus's Done-menu or the "expand all" toggle, never through editing).
+  // Current's Done-menu or the "expand all" toggle, never through editing).
   if (e.key === 'Tab') {
     e.preventDefault()
     // Tab is handled by App.vue's document-level listener *before* its own
@@ -879,7 +879,7 @@ function onSubInputKeydown(e: KeyboardEvent) {
 }
 
 // Toggling the last open sub complete auto-opens the Done/Done-for-today
-// menu (Focus only) — a nudge to actually close the todo out, without
+// menu (Current only) — a nudge to actually close the todo out, without
 // forcing it: the todo stays put if nothing's clicked. Only fires on the
 // transition into "all done", not on every click once already all done.
 function handleToggleSub(sub: Sub, event: MouseEvent) {
@@ -899,7 +899,7 @@ function handleDeleteSub(subId: string) {
   store.deleteSub(props.todo.id, subId)
 }
 
-// Focus's check-row (Done for today / Done): defaults to "Done for today"
+// Current's check-row (Done for today / Done): defaults to "Done for today"
 // each time it opens fresh — Left/Right toggle it, Enter confirms whichever
 // is focused (see onCardKeydown below), so the pair is fully keyboard-
 // operable without a mouse.
@@ -934,7 +934,7 @@ function toggleCheckMenu() {
   }
   const willOpen = openCheckMenuId.value !== props.todo.id
   // Opening a check-menu (this card's own, or by clicking a different
-  // Focus card entirely) would otherwise leave whichever card's tag/date
+  // Current card entirely) would otherwise leave whichever card's tag/date
   // editor is currently open (see openEditFromToday) open alongside it —
   // close it first, same as opening a tag-menu already unconditionally
   // closes any open check-menu below.
@@ -957,7 +957,7 @@ function closeOnOutside(e: MouseEvent) {
 // edits (see draftTags above) actually land — every way of closing the tag
 // menu commits them (click elsewhere, Tab to the next card, Enter, a view
 // switch) except Escape, which sets discardDraftTagsOnClose first so the
-// draft is thrown away instead. Sending a freshly due loop todo to Focus is
+// draft is thrown away instead. Sending a freshly due loop todo to Current is
 // deferred to right after that same commit, for the same reason the commit
 // itself is deferred — doing it the instant Loop got checked used to yank
 // the card out of the list before the user could even see the picker.
@@ -967,7 +967,7 @@ function closeOnOutside(e: MouseEvent) {
 // automatic once-a-day check it's built for (don't undo an earlier "Done
 // for today"), but wrong for a genuine schedule edit. Explicitly changing
 // the schedule so it's due right now is a deliberate action, not the daily
-// sweep, and should win even if this same todo happened to touch Focus
+// sweep, and should win even if this same todo happened to touch Current
 // earlier today (sent, then removed; done for today; whatever left a stale
 // focusAddedAt behind) — otherwise the todo silently stays parked in the
 // pool with no sign anything's wrong, since the picker itself has no way
@@ -976,7 +976,7 @@ function closeOnOutside(e: MouseEvent) {
 // card without touching anything still closes the menu on every card it
 // passes through, and that alone shouldn't repeatedly override
 // processedToday and re-send an already-handled-today todo. Also skipped
-// if it's already in Focus (mode 'today' edits, via openEditFromToday) —
+// if it's already in Current (mode 'today' edits, via openEditFromToday) —
 // nothing to send.
 let discardDraftTagsOnClose = false
 watch(showTagMenu, (isOpen, wasOpen) => {
@@ -1025,9 +1025,9 @@ watch(showTagMenu, (isOpen, wasOpen) => {
 //
 // Escape closes the card when it's open but not being edited, and so
 // does Enter for the tag-menu (Overview) case — Enter reads as "I'm done
-// here" (e.g. after just picking tags), not "send to Focus", so that's
+// here" (e.g. after just picking tags), not "send to Current", so that's
 // F instead (below), and Space starts editing. For the check-menu
-// (Focus) case Enter still confirms whichever option is focused. The
+// (Current) case Enter still confirms whichever option is focused. The
 // textarea has its own Escape/Enter handlers for the editing case itself (cancelEdit/
 // acceptEdit), and ignoring them here (isEditing guard up top) keeps the
 // two from double-handling the same key. Left/Right toggle check-menu
@@ -1053,7 +1053,7 @@ function onCardKeydown(e: KeyboardEvent) {
   }
   // Space starts editing, in either mode (cardActuallyOpen covers both —
   // see its own comment). Overview's tag menu already has the editor UI
-  // open (showTagMenu), so a plain startEdit() is enough there. Focus's
+  // open (showTagMenu), so a plain startEdit() is enough there. Current's
   // check-menu doesn't: it needs the same swap to the tag/date editor
   // that double-clicking the title or F does (openEditFromToday), closing
   // the check-menu first, before it can start editing.
@@ -1064,7 +1064,7 @@ function onCardKeydown(e: KeyboardEvent) {
     return
   }
   // D — delete in Overview (opens the same confirm modal the Trash icon/
-  // swipe-left do, not an instant delete), remove-from-Focus in Focus
+  // swipe-left do, not an instant delete), remove-from-Current in Current
   // (mirrors the CircleMinus button/swipe-left there — no confirmation,
   // since it's just moving the todo back to Overview, not discarding it).
   if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -1073,10 +1073,10 @@ function onCardKeydown(e: KeyboardEvent) {
     else if (showMenu.value) emit('remove-from-today', props.todo.id)
     return
   }
-  // F — sends to Focus (Overview only), same move as its own "+" button.
+  // F — sends to Current (Overview only), same move as its own "+" button.
   // Split off from Enter: Enter is what people intuitively reach for
   // after just picking tags to "save and close", not to also send the
-  // todo off to Focus as a side effect.
+  // todo off to Current as a side effect.
   if (e.key.toLowerCase() === 'f' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     commitDraftTags()
@@ -1199,10 +1199,10 @@ function openForEdit() {
   startEdit()
 }
 
-// Focus's double-click equivalent: opens the same tag/date editor Overview
+// Current's double-click equivalent: opens the same tag/date editor Overview
 // uses, on top of a 'today'-mode card — closes the Done/Done-for-today
 // check-menu first if that's what was open. Picking a new date here still
-// leaves the todo in Focus throughout: commitDraftTags (see draftTags
+// leaves the todo in Current throughout: commitDraftTags (see draftTags
 // above) only ever writes tags/loopInterval, never inToday.
 function openEditFromToday() {
   openCheckMenuId.value = null
@@ -1234,9 +1234,9 @@ function handleTitleClick() {
   }, 280)
 }
 
-// Quick priority toggle for Focus's card row — the only other way to set
+// Quick priority toggle for Current's card row — the only other way to set
 // priority is opening the tag menu, which doesn't exist in 'today' mode
-// (Focus cards use the check-menu instead, see toggleCheckMenu). Reuses
+// (Current cards use the check-menu instead, see toggleCheckMenu). Reuses
 // updateTags so unchecking loop-orphan cleanup etc. stays in one place.
 function togglePriority() {
   updateTags(isPriority.value ? props.todo.tags.filter(id => id !== PRIORITY_TAG_ID) : [...props.todo.tags, PRIORITY_TAG_ID])
@@ -1395,7 +1395,7 @@ let extremeX = 0
 // The very first arm attempt of a gesture (straight from the grip's start)
 // wants a shorter distance than every subsequent Hold-to-armed transition
 // (after at least one release has already happened) — 340px felt right for
-// swinging between an already-armed Focus and Delete, but far too much for
+// swinging between an already-armed Current and Delete, but far too much for
 // the very first pull off of Hold. `everArmed` (set in onDrag/onDragStart)
 // tracks which of the two applies.
 let everArmed = false
@@ -1461,7 +1461,7 @@ const canDrag = computed(() => !isEditing.value && !showTagMenu.value && !showMe
 const swipeAction = computed(() => {
   if (armedDir.value === 1) {
     return props.mode === 'all'
-      ? { label: props.todo.inToday ? 'Remove' : 'Focus' }
+      ? { label: props.todo.inToday ? 'Remove' : 'Current' }
       : { label: 'Complete' }
   }
   if (armedDir.value === -1) {
@@ -1472,12 +1472,12 @@ const swipeAction = computed(() => {
 const swipeArmed = computed(() => armedDir.value !== 0)
 
 // Overview's swipe-right splits into two drop zones (see onDrag's Y-based
-// armedZone tracking below) — only meaningful for the "not yet in Focus"
-// case a plain swipe-right already covers; already-in-Focus swipe-right
+// armedZone tracking below) — only meaningful for the "not yet in Current"
+// case a plain swipe-right already covers; already-in-Current swipe-right
 // is a plain removal (see swipeAction above), and swipe-left/Delete never
-// splits either. Reused (not just Focus vs Focus) so a genuinely
+// splits either. Reused (not just Current vs Current) so a genuinely
 // future-dated widget selection reads as "plan ahead" rather than another
-// "Focus" button.
+// "Current" button.
 const showSwipeZoneSplit = computed(() =>
   props.mode === 'all' && !props.todo.inToday && themeStore.dateListsEnabled
 )
@@ -1511,7 +1511,7 @@ function formatShortDate(dateStr: string): string {
 // thresholds at all. 'threshold': the original horizontal-swipe-distance
 // arming model above (armedDir/armDistance/releaseMargin), left fully
 // intact rather than deleted. Flip this one constant to switch between
-// them instantly. Only affects Overview (mode 'all') — Focus's own
+// them instantly. Only affects Overview (mode 'all') — Current's own
 // swipe-left/right (remove/open the Done menu) always uses the threshold
 // model regardless, since the zone concept was specifically about
 // Overview's three-way date/delete/focus choice.
@@ -1527,16 +1527,16 @@ interface SwipeZone {
 
 // Hand-placed per-zone offsets from the card's own center, deliberately
 // *not* symmetric/on a shared orbit — an evenly-spaced arrangement (equal
-// radius, equal angle apart) read as too mechanical/static. Focus sits
+// radius, equal angle apart) read as too mechanical/static. Current sits
 // highest and slightly left; date sits below it but pulled right and
 // further out, a bit smaller; delete sits at the bottom on its own
 // distinct rightward axis (not lined up under date), smallest of the
 // three. Each is [dx, dy, radius] in px, phone/desktop pair — same
 // breakpoint armDistance()/releaseMargin() already use.
-// Focus/date swapped horizontally from an earlier version — the natural
+// Current/date swapped horizontally from an earlier version — the natural
 // first direction of a swipe-right gesture landed almost every drag
 // straight on whichever circle sat on the right, which needs to be
-// Focus (the far more common action) rather than Date. Delete pulled in
+// Current (the far more common action) rather than Date. Delete pulled in
 // closer to center horizontally too.
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
   focus:  { phone: [95, -180, 92],   desktop: [155, -270, 122] },
@@ -1549,19 +1549,19 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
 }
 
 // The three position slots (focus/date/delete) are reused as-is for
-// Focus's own swipe (mode 'today') — same geometry, different actions:
+// Current's own swipe (mode 'today') — same geometry, different actions:
 // the 'focus' slot becomes Done-for-today, the 'date' slot becomes Done,
 // the 'delete' slot becomes Remove. Keeps one single hand-tuned layout
-// instead of a second one to keep in sync, and means Focus and Overview
+// instead of a second one to keep in sync, and means Current and Overview
 // feel like the same gesture throughout the app rather than two
 // different ones that happen to look similar.
 //
-// Overview (mode 'all'): date only offered while not already in Focus
-// (mirrors showSwipeZoneSplit above) — an already-in-Focus card swiping
+// Overview (mode 'all'): date only offered while not already in Current
+// (mirrors showSwipeZoneSplit above) — an already-in-Current card swiping
 // here is a plain removal, same as the threshold model's own "Remove"
-// vs. "Focus" split.
+// vs. "Current" split.
 //
-// Focus (mode 'today'): all three always apply, except previewLocked
+// Current (mode 'today'): all three always apply, except previewLocked
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-today
 // stay locked out there same as the check-row buttons do, leaving only
 // Remove.
@@ -1580,7 +1580,7 @@ const zones = computed<SwipeZone[]>(() => {
     const [ddx, ddy, dradius] = zoneOffset('delete')
     list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
     const [fdx, fdy, fradius] = zoneOffset('focus')
-    list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+    list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Current', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
   } else {
     if (!props.previewLocked) {
       const [fdx, fdy, fradius] = zoneOffset('focus')
@@ -1645,7 +1645,7 @@ function flyOutRight(): Promise<void> {
   ]).then(() => {})
 }
 
-// Mirrors flyOutRight for throwing a card back out of Focus (swipe-left,
+// Mirrors flyOutRight for throwing a card back out of Current (swipe-left,
 // "Remove") — same continue-from-the-release-point logic, just leftward.
 function flyOutLeft(): Promise<void> {
   const targetX = (x.get() < 0 ? x.get() : 0) - window.innerWidth * 1.5
@@ -1928,7 +1928,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
       // has to close any other card's open tag/date editor too, or a
-      // swipe on a different Focus card while one was mid-edit left both
+      // swipe on a different Current card while one was mid-edit left both
       // open at once.
       if (openTagMenuId.value) openTagMenuId.value = null
       openCheckMenuId.value = props.todo.id
@@ -1980,7 +1980,7 @@ onUnmounted(() => {
   // but that's a queued job, and this component can unmount in the very
   // same flush that set showMenu/showTagMenu back to false (e.g. Done for
   // today: openCheckMenuId is nulled synchronously, then the emit removes
-  // this todo from Focus's list, unmounting it). When the parent's removal
+  // this todo from Current's list, unmounting it). When the parent's removal
   // job runs first, this component's own effect scope is stopped before
   // its pending watcher job runs, and it's silently skipped — leaving
   // these two document listeners (from a now-destroyed card, still
@@ -2017,7 +2017,7 @@ onUnmounted(() => {
     >
       <!-- Threshold model's own backdrop/indicator — see SWIPE_MODE above.
            Left fully intact, just inert while SWIPE_MODE is 'zones'
-           (applies to both Overview and Focus now). -->
+           (applies to both Overview and Current now). -->
       <Teleport to="body">
         <Transition name="swipe-indicator">
           <div
@@ -2033,7 +2033,7 @@ onUnmounted(() => {
               </div>
               <div class="swipe-zone">
                 <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'focus' }" />
-                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'focus' }">Focus</span>
+                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'focus' }">Current</span>
               </div>
             </template>
             <template v-else>
@@ -2126,7 +2126,7 @@ onUnmounted(() => {
                editing, it swaps to the accept/check button. Delete now
                only lives here — not on the closed card — so it isn't a
                single stray click away during normal browsing. Applies in
-               Focus too since double-clicking a Focus card's title opens
+               Current too since double-clicking a Current card's title opens
                this same editor (see openEditFromToday). -->
           <template v-if="showTagMenu && !isEditing">
             <button
@@ -2159,7 +2159,7 @@ onUnmounted(() => {
             <button
               v-if="!todo.inToday"
               class="card-btn"
-              title="Add to focus"
+              title="Add to current"
               @click.stop="emit('send-to-today', todo.id, true)"
             >
               <CirclePlus :size="18" />
@@ -2167,7 +2167,7 @@ onUnmounted(() => {
             <button
               v-else
               class="card-btn"
-              title="Remove from focus"
+              title="Remove from current"
               @click.stop="emit('remove-from-today', todo.id, true)"
             >
               <CircleMinus :size="18" />
@@ -2175,7 +2175,7 @@ onUnmounted(() => {
             <!-- Desktop/tablet only (CSS-hidden on phone, which uses the
                  swipe-split's top zone instead) — plans this todo onto the
                  Focus Date widget's currently selected date, independent of
-                 (and without touching) the send-to-focus button above. -->
+                 (and without touching) the send-to-current button above. -->
             <button
               v-if="themeStore.dateListsEnabled"
               class="card-btn calendar-plus-btn"
@@ -3075,7 +3075,7 @@ onUnmounted(() => {
    grid, keyboard shortcuts all stay on), just not wide enough for
    full-size cards to fit more than one or two per row in Overview's grid
    (AllTodos.vue). Sized halfway between this tablet block below and the
-   unqualified desktop default above it. Applies equally to Focus, since
+   unqualified desktop default above it. Applies equally to Current, since
    both share this same component/stylesheet — there's no separate
    per-view card size to keep in sync.
    Shrinking the card alone used to have to do all the work (max-width

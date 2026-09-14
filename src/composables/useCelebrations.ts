@@ -1,6 +1,6 @@
 // Which frame-animation celebration (see TodoCard.vue's "Celebration-
 // Animationen" section) each Todo gets is decided once, when it's sent to
-// Focus (see stores/todos.ts's sendToToday) — not re-rolled every time its
+// Current (see stores/todos.ts's sendToToday) — not re-rolled every time its
 // check-menu happens to open. Living here rather than in TodoCard.vue lets
 // the store assign a key without importing anything animation/SVG-related;
 // TodoCard.vue's own ALL_CELEBRATIONS (importer/size/duration/anchor per

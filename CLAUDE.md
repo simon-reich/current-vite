@@ -8,15 +8,15 @@ Minimalistische Single-Page Todo-App. Kein Backend, kein Server, kein Login. All
 
 Der Fokus liegt auf **Geschwindigkeit und Reibungslosigkeit** beim Anlegen und Verwalten von Todos — nicht auf Feature-Breite.
 
-**Das Pool-Konzept:** Todos leben in einem persistenten Pool. Man wählt aus diesem Pool, was aktiv bearbeitet werden soll, und baut sich eine fokussierte Focus-Liste (View: "Focus", vormals "Today"). Der Pool eignet sich auch für wiederkehrende Aufgaben, weil ein Todo nicht zwingend "erledigt" werden muss — man kann es einfach wieder zurück in den Pool legen.
+**Das Pool-Konzept:** Todos leben in einem persistenten Pool. Man wählt aus diesem Pool, was aktiv bearbeitet werden soll, und baut sich eine fokussierte Current-Liste (View: "Current", vormals "Current", davor "Today"). Der Pool eignet sich auch für wiederkehrende Aufgaben, weil ein Todo nicht zwingend "erledigt" werden muss — man kann es einfach wieder zurück in den Pool legen.
 
-**Kein Tagesreset mehr.** Die Focus-Liste ist nicht an einen Kalendertag gebunden und wird nicht mehr automatisch um 04:00 Uhr geleert. Sie bleibt bestehen, bis sie manuell leergeräumt wird (durch Abhaken oder Zurücklegen in den Pool).
+**Kein Tagesreset mehr.** Die Current-Liste ist nicht an einen Kalendertag gebunden und wird nicht mehr automatisch um 04:00 Uhr geleert. Sie bleibt bestehen, bis sie manuell leergeräumt wird (durch Abhaken oder Zurücklegen in den Pool).
 
 **Die zwei Abhak-Modi** sind der zentrale Unterschied zu normalen Todo-Apps:
 - **Done** — Todo ist wirklich erledigt, wandert ins Archiv (`completedAt` gesetzt).
 - **Done for today** — Für den Moment fertig, aber das Todo bleibt im Pool. Nächste Mal wieder verfügbar. Ideal für Routinen und wiederkehrende Tasks. (Name bewusst beibehalten, obwohl kein Tagesbezug mehr besteht.)
 
-> **Keine Sessions/Achievements.** Es gibt kein Tracking mehrtägiger Focus-Zeiträume. Jedes Todo trägt einfach sein eigenes `completedAt`/`workLog` — der Kalender liest diese Timestamps direkt und zeigt pro Tag genau das, was an diesem Tag erledigt/bearbeitet wurde. Kein Reset, kein Session-Start/-Ende, keine Range-Highlights.
+> **Keine Sessions/Achievements.** Es gibt kein Tracking mehrtägiger Current-Zeiträume. Jedes Todo trägt einfach sein eigenes `completedAt`/`workLog` — der Kalender liest diese Timestamps direkt und zeigt pro Tag genau das, was an diesem Tag erledigt/bearbeitet wurde. Kein Reset, kein Session-Start/-Ende, keine Range-Highlights.
 
 **Design-Philosophie:** Stylisch, aber nicht überladen. Jedes Feature muss sich rechtfertigen. Die App soll sich anfühlen wie ein gutes Notizbuch — immer griffbereit, nie im Weg.
 
@@ -34,6 +34,10 @@ Das gesamte UI verwendet ausschließlich diese vier Werte — keine Ausnahmen:
 | `opacity` | Dimming über Transparenz (z.B. `0.35`), niemals als eigene Farbvariante |
 
 **Verboten:** Eigene Hex-Werte, `rgba()`-Zwischenwerte, neue CSS-Variablen für Farben, Grau-Töne, Weiß, Schwarz oder jede andere Farbe die nicht aus diesen vier Werten ableitbar ist. Jede neue Farbe im CSS ist ein Fehler.
+
+### UI-Text: immer Kleinschreibung
+
+Labels, Buttons, Menüeinträge, Tooltips und Platzhaltertexte werden durchgängig kleingeschrieben (`lists`, `subs`, `tags`, `default`, `current` – nicht `Lists`, `Subs`, ...), auch wenn es sich um Eigennamen wie View-Namen handelt. Ausnahme: die Labels in den Swipe-Kreisen (`TodoCard.vue`, siehe Swipe-Gesten-Sektion unten) erscheinen immer in Großbuchstaben – das passiert rein über `text-transform: uppercase` in CSS, die Strings im Code selbst bleiben Title-Case (`Done`, `Remove`, `Delete`, `Current`, ...), konsistent mit dem Rest der App. Ganze Sätze (Fließtext wie Empty-States, z.B. "Nothing planned for this day.") folgen normaler Satzgroßschreibung – die Regel gilt für UI-*Chrome*, nicht für Prosa.
 
 ## Tech Stack
 
@@ -73,7 +77,7 @@ interface AppState {
 }
 ```
 
-> **Date-Feature.** Der System-Tag `date` (intern weiterhin die ID `__loop__`, nur das Label wurde von "loop" umbenannt) gibt einem Todo optional ein `loopInterval`-Objekt mit `mode: 'once' | 'loop'`. `'once'` ist ein einmaliges Fälligkeitsdatum (`startDate`), `'loop'` die bestehende Wiederholung (`unit`/`count`/`startDate`). Ein fälliges Todo (once ab seinem Datum, loop nach der bisherigen Logik) wird automatisch nach Focus geschickt, genau wie bisher — `'once'` bleibt dabei fällig (taucht bei Rückgabe in den Pool wieder auf), bis es tatsächlich erledigt wird.
+> **Date-Feature.** Der System-Tag `date` (intern weiterhin die ID `__loop__`, nur das Label wurde von "loop" umbenannt) gibt einem Todo optional ein `loopInterval`-Objekt mit `mode: 'once' | 'loop'`. `'once'` ist ein einmaliges Fälligkeitsdatum (`startDate`), `'loop'` die bestehende Wiederholung (`unit`/`count`/`startDate`). Ein fälliges Todo (once ab seinem Datum, loop nach der bisherigen Logik) wird automatisch nach Current geschickt, genau wie bisher — `'once'` bleibt dabei fällig (taucht bei Rückgabe in den Pool wieder auf), bis es tatsächlich erledigt wird.
 >
 > **"updates when done"-Toggle.** Optionaler Loop-Todo-Schalter (`loopInterval.rescheduleFromCompletion`, Default `false`, kein Effekt bei `'once'`/`weekdays`): lässt `doneForToday` den `startDate` auf den Abhak-Zeitpunkt verschieben, statt ihn fix zu lassen — die nächste Fälligkeit zählt dann ab dem tatsächlichen Abhaken. Checks blenden den Toggle über `:allow-reschedule="false"` aus (`CheckSchedule` hat kein passendes Feld dafür).
 
@@ -96,9 +100,9 @@ interface AppState {
 >   deletedAt?: string        // Soft-Delete, gleiches Prinzip wie Todo.deletedAt
 > }
 > ```
-> Fälligkeit wird nicht wie bei Loop-Todos in einer `inToday`-Flag festgehalten, sondern rein aus `schedule` live berechnet (`todayChecks` im Store) — ein Check hat kein "aus Focus entfernen", das rückgängig gemacht werden könnte, also keine `focusAddedAt`/`processedToday`-Buchführung nötig. Der Store hält dafür einen reaktiven `today`-Anker (`refreshToday()`), den App.vue an denselben drei Stellen wie `runLoopSchedule` aufruft (Mount, Mitternacht, Tab-Refokus) — ein `computed`, das nur `new Date()` liest, würde beim Tageswechsel sonst nie neu laufen. "Verpasst" (fällig laut `schedule`, aber nicht in `completedDates`) wird nirgends extra gespeichert, sondern von dem, der es braucht (Kalender-Tagesdetail, künftiges Analyse-Feature), aus `schedule` + `completedDates` abgeleitet.
+> Fälligkeit wird nicht wie bei Loop-Todos in einer `inToday`-Flag festgehalten, sondern rein aus `schedule` live berechnet (`todayChecks` im Store) — ein Check hat kein "aus Current entfernen", das rückgängig gemacht werden könnte, also keine `focusAddedAt`/`processedToday`-Buchführung nötig. Der Store hält dafür einen reaktiven `today`-Anker (`refreshToday()`), den App.vue an denselben drei Stellen wie `runLoopSchedule` aufruft (Mount, Mitternacht, Tab-Refokus) — ein `computed`, das nur `new Date()` liest, würde beim Tageswechsel sonst nie neu laufen. "Verpasst" (fällig laut `schedule`, aber nicht in `completedDates`) wird nirgends extra gespeichert, sondern von dem, der es braucht (Kalender-Tagesdetail, künftiges Analyse-Feature), aus `schedule` + `completedDates` abgeleitet.
 >
-> **UI:** `Focus.vue` zeigt die fälligen Checks (`todayChecks`) unterhalb der Todo-Liste — kein Trenner, nur Abstand (`.checks-section`, 66px). Einspaltig untereinander (bewusst nicht mehrspaltig — dafür ist `CHECK_TITLE_MAX_LENGTH` auch nicht mehr auf "zwei nebeneinander" gedeckelt, siehe oben). Jede Zeile: kleine eckige Checkbox (Radius an Rounded/Square gekoppelt, aber auf 3px gedeckelt statt voll `var(--radius)` — sonst wird die kleine Box im Rounded-Modus komplett rund; dazu ein dezenter Drop-Shadow wie bei den Todo-Cards) + reiner Text ohne Rahmen (anders als Tags/Todos), Font `var(--font-mono)`. Der ganze Pill ist blass (`opacity: 0.55`, abgehakt `0.3`, Hover `0.9`) statt durchgestrichen. Klick auf den Text öffnet `CheckModal.vue` (Add/Edit, wiederverwendet `LoopPicker` mit `:allow-once="false"`; auf Phones oberes Drittel statt zentriert, auf Desktop/Tablet 460px breit für die einzeilige Presets-/Weekdays-Zeile) zum Umbenennen/Neu-Kalibrieren/Löschen. Settings-Toggle `checksEnabled` (Theme-Store) blendet das gesamte Feature inkl. Kalender-Dot/-Sektion aus. `Calendar.vue` zeigt abgehakte Checks als eigenen (gedimmten) Dot-Typ und eigene Sektion am Ende der Tages-Detail-Liste.
+> **UI:** `Current.vue` zeigt die fälligen Checks (`todayChecks`) unterhalb der Todo-Liste — kein Trenner, nur Abstand (`.checks-section`, 66px). Einspaltig untereinander (bewusst nicht mehrspaltig — dafür ist `CHECK_TITLE_MAX_LENGTH` auch nicht mehr auf "zwei nebeneinander" gedeckelt, siehe oben). Jede Zeile: kleine eckige Checkbox (Radius an Rounded/Square gekoppelt, aber auf 3px gedeckelt statt voll `var(--radius)` — sonst wird die kleine Box im Rounded-Modus komplett rund; dazu ein dezenter Drop-Shadow wie bei den Todo-Cards) + reiner Text ohne Rahmen (anders als Tags/Todos), Font `var(--font-mono)`. Der ganze Pill ist blass (`opacity: 0.55`, abgehakt `0.3`, Hover `0.9`) statt durchgestrichen. Klick auf den Text öffnet `CheckModal.vue` (Add/Edit, wiederverwendet `LoopPicker` mit `:allow-once="false"`; auf Phones oberes Drittel statt zentriert, auf Desktop/Tablet 460px breit für die einzeilige Presets-/Weekdays-Zeile) zum Umbenennen/Neu-Kalibrieren/Löschen. Settings-Toggle `checksEnabled` (Theme-Store) blendet das gesamte Feature inkl. Kalender-Dot/-Sektion aus. `Calendar.vue` zeigt abgehakte Checks als eigenen (gedimmten) Dot-Typ und eigene Sektion am Ende der Tages-Detail-Liste.
 
 ## Projektstruktur
 
@@ -106,14 +110,14 @@ interface AppState {
 todo-app/
 ├── src/
 │   ├── components/
-│   │   ├── TodoCard.vue         // Karte mit Swipe-Gesten, Tag-Menü, Check-Menü (Focus)
+│   │   ├── TodoCard.vue         // Karte mit Swipe-Gesten, Tag-Menü, Check-Menü (Current)
 │   │   ├── LoopPicker.vue       // Recurrence-Picker (once/loop/weekdays/custom), von Todo + CheckModal genutzt
 │   │   ├── CheckModal.vue       // Add/Edit-Modal für Checks
 │   │   ├── ColorPicker.vue      // HSV-Farbwähler für Settings
 │   │   └── SettingsModal (entfernt – Settings ist eigene Route/View)
 │   ├── views/
-│   │   ├── AllTodos.vue         // Hauptliste (filtert: aktiv + nicht in Focus)
-│   │   ├── Focus.vue            // Focus-View (todayTodos, zwei Abhak-Modi, Checks-Zeile darunter)
+│   │   ├── AllTodos.vue         // Hauptliste (filtert: aktiv + nicht in Current)
+│   │   ├── Current.vue          // Current-View (todayTodos, zwei Abhak-Modi, Checks-Zeile darunter)
 │   │   ├── Calendar.vue         // Kalender-View (v-calendar, workLog-Dots + Checks-Dots, Tages-Detail)
 │   │   └── Settings.vue         // Farb-Theme, Corner-Style, Import/Export
 │   ├── stores/
@@ -134,7 +138,7 @@ todo-app/
 │   ├── dev/
 │   │   └── seed.ts              // Dev-only: befüllt localStorage mit Dummy-Todos
 │   ├── router/
-│   │   └── index.ts             // Hash-Router: /, /all, /focus, /calendar, /settings
+│   │   └── index.ts             // Hash-Router: /, /all, /current, /calendar, /settings
 │   ├── App.vue                  // Shell: Sidebar, Head, Nav, Mobile-Tag-Panel
 │   └── main.ts
 ├── index.html
@@ -151,7 +155,7 @@ todo-app/
 
 Ein Klick auf einen Tag öffnet eine Detail-Liste der an diesem Tag erledigten (`completedAt`) und bearbeiteten (`workLog`) Todos, unter dem normalen Tages-Label (z.B. "Tuesday, July 7, 2026"). Kein Konzept von mehrtägigen Zeiträumen — jeder Tag steht für sich. Die Overrides für v-calendar (Farben, Abstände) stehen in `src/styles/calendar.css`.
 
-Die Liste selbst ist nicht nach Done/Done-for-today gruppiert (das bleibt nur als ✓✓/✓-Icon pro Zeile erhalten), sondern nach **Priority vs. Rest** — Priority ist schon überall sonst in der App das zentrale "das war wichtig"-Signal, und beantwortet im Rückblick eher "habe ich das Wichtige geschafft" als die eher buchhalterische Done/Worked-on-Unterscheidung. Titel laufen in der Kalender-eigenen Fancy-Font (`--font-playful`), nicht in der zufälligen Todo-Font aus AllTodos/Focus — letzteres wurde kurz ausprobiert und wieder verworfen.
+Die Liste selbst ist nicht nach Done/Done-for-today gruppiert (das bleibt nur als ✓✓/✓-Icon pro Zeile erhalten), sondern nach **Priority vs. Rest** — Priority ist schon überall sonst in der App das zentrale "das war wichtig"-Signal, und beantwortet im Rückblick eher "habe ich das Wichtige geschafft" als die eher buchhalterische Done/Worked-on-Unterscheidung. Titel laufen in der Kalender-eigenen Fancy-Font (`--font-playful`), nicht in der zufälligen Todo-Font aus AllTodos/Current — letzteres wurde kurz ausprobiert und wieder verworfen.
 
 ## Typografie – Zufällige Schriftarten pro Todo
 
@@ -184,19 +188,19 @@ Beim Abhaken eines Todos (Done oder Done for today, keine Unterscheidung) spielt
 
 **Bundle-Größe:** Jede SVG wird per dynamischem `import(...?raw)` geladen (nicht statisch) — Rolldown packt sie dadurch in einen eigenen Chunk, der erst beim ersten Abspielen dieser Animation geladen und danach gecacht wird, statt das Hauptbundle aufzublähen.
 
-**Welche Celebration ein Todo bekommt** wird nicht beim Abspielen zufällig gewählt, sondern einmal beim Senden nach Focus (`sendToToday` in `stores/todos.ts`) fest zugelost und in `Todo.celebration` gespeichert (`CelebrationKey`, Shuffle-Bag `drawCelebrationKey()` in `src/composables/useCelebrations.ts`, aktueller Pool: `blackCat`, `whale`, `penguin`, `orca`). Bleibt fix, solange das Todo in Focus ist; verlässt es Focus und kommt später wieder rein, wird neu gelost. `TodoCard.vue`s `ALL_CELEBRATIONS`-Map kennt nur noch, *wie* ein Key gerendert wird (SVG-Tiers/Anchor), nicht mehr die Zufallslogik selbst — die lebt bewusst im Store, damit sie keine Kopplung an SVG-/Animations-Code braucht. Ein alter, aus `CELEBRATION_KEYS` entfernter Key (z.B. die frühere, nicht-schwarze `cat`-Celebration) kann in bereits persistierten Todos noch als `Todo.celebration`-Wert stehen — `resolveCelebrationConfig` in `TodoCard.vue` fängt das ab und lost in dem Fall einen frischen, aktuell gültigen Key nach, statt gegen ein `undefined`-Config zu laufen.
+**Welche Celebration ein Todo bekommt** wird nicht beim Abspielen zufällig gewählt, sondern einmal beim Senden nach Current (`sendToToday` in `stores/todos.ts`) fest zugelost und in `Todo.celebration` gespeichert (`CelebrationKey`, Shuffle-Bag `drawCelebrationKey()` in `src/composables/useCelebrations.ts`, aktueller Pool: `blackCat`, `whale`, `penguin`, `orca`). Bleibt fix, solange das Todo in Current ist; verlässt es Current und kommt später wieder rein, wird neu gelost. `TodoCard.vue`s `ALL_CELEBRATIONS`-Map kennt nur noch, *wie* ein Key gerendert wird (SVG-Tiers/Anchor), nicht mehr die Zufallslogik selbst — die lebt bewusst im Store, damit sie keine Kopplung an SVG-/Animations-Code braucht. Ein alter, aus `CELEBRATION_KEYS` entfernter Key (z.B. die frühere, nicht-schwarze `cat`-Celebration) kann in bereits persistierten Todos noch als `Todo.celebration`-Wert stehen — `resolveCelebrationConfig` in `TodoCard.vue` fängt das ab und lost in dem Fall einen frischen, aktuell gültigen Key nach, statt gegen ein `undefined`-Config zu laufen.
 
-**Pre-Completion-Teaser:** Solange in Focus das Done/Done-for-today-Menü einer Karte offen ist (`showMenu`), zeigt `showCelebrationTeaser(key)` bereits das erste Frame der für dieses Todo bereits fest zugelosten Celebration an — eingefroren (alle Frame-Animationen werden sofort nach dem Einfügen pausiert, bevor sie über Frame 0 hinaus laufen können) und blass über Opacity (`TEASER_OPACITY`, kein eigener Farbwert). Weil der Key am Todo hängt statt bei jedem Menü-Öffnen neu gewürfelt zu werden, zeigt jede Karte immer verlässlich *ihre eigene* Celebration — und `celebrateBackground(key)` beim tatsächlichen Abhaken spielt exakt das, was schon geteasert wurde. Ein `props.todo.celebration ?? drawCelebrationKey()`-Fallback (inkl. Nachtragen per `store.updateTodo`) fängt Alt-Todos ab, die `inToday` schon waren, bevor es dieses Feld gab.
+**Pre-Completion-Teaser:** Solange in Current das Done/Done-for-today-Menü einer Karte offen ist (`showMenu`), zeigt `showCelebrationTeaser(key)` bereits das erste Frame der für dieses Todo bereits fest zugelosten Celebration an — eingefroren (alle Frame-Animationen werden sofort nach dem Einfügen pausiert, bevor sie über Frame 0 hinaus laufen können) und blass über Opacity (`TEASER_OPACITY`, kein eigener Farbwert). Weil der Key am Todo hängt statt bei jedem Menü-Öffnen neu gewürfelt zu werden, zeigt jede Karte immer verlässlich *ihre eigene* Celebration — und `celebrateBackground(key)` beim tatsächlichen Abhaken spielt exakt das, was schon geteasert wurde. Ein `props.todo.celebration ?? drawCelebrationKey()`-Fallback (inkl. Nachtragen per `store.updateTodo`) fängt Alt-Todos ab, die `inToday` schon waren, bevor es dieses Feld gab.
 
 ## Entschiedene Design-Fragen
 
-- **Kein Tagesreset mehr:** Die Focus-Liste (`inToday`) wird nicht mehr automatisch geleert und bleibt bestehen, bis sie manuell leergeräumt wird.
+- **Kein Tagesreset mehr:** Die Current-Liste (`inToday`) wird nicht mehr automatisch geleert und bleibt bestehen, bis sie manuell leergeräumt wird.
 - **Dark/Light Toggle:** Keins. Fixes Design (eine Variante).
 - **Todo-Erstellung:** Add-Input in App.vue (Main-Head), immer sichtbar. Enter speichert. Bei vorhandenen Tags öffnet sich eine inline Checkbox-Liste zur direkten Tag-Zuweisung.
 - **Zusatzfelder:** Tags direkt im Add-Input. Klick auf den Todo-Titel in der Karte öffnet Tag-Menü + Text-Edit (siehe TodoCard.vue).
 - **Mobile:** Vollständig responsive, mobile-first CSS.
 
-## Abhaken in Focus – zwei Modi
+## Abhaken in Current – zwei Modi
 
 - **✓ Done** – Setzt `completedAt`, Todo wandert ins Archiv.
 - **◷ Done for today** – Fügt Timestamp zu `workLog[]` hinzu, setzt `inToday = false`. Todo bleibt im Pool.
@@ -205,25 +209,25 @@ Beim Abhaken eines Todos (Done oder Done for today, keine Unterscheidung) spielt
 
 Für das Ziehen/Swipen einer Karte (`TodoCard.vue`) existieren **zwei parallele, vollständig unabhängige Interaktionsmodelle** im selben Code – nicht nacheinander entwickelt und das alte gelöscht, sondern bewusst beide stehen gelassen, umschaltbar über die eine Konstante `SWIPE_MODE: 'zones' | 'threshold'` ganz oben im Swipe-Abschnitt von `TodoCard.vue`. `onDrag`/`onDragEnd` verzweigen jeweils früh (`if (SWIPE_MODE === 'zones') { ...; return }`) in die passende Logik; das jeweils andere Modell bleibt komplett unberührt im Code liegen, nicht auskommentiert.
 
-- **`'threshold'`** (ursprüngliches Modell): horizontale Distanz vom Grip-Startpunkt entscheidet, wann eine Richtung "armed" ist (`armedDir`, `armDistance()`/`releaseMargin()`, Hysterese über `extremeX`). Overview: Swipe-rechts → Focus (bzw. Remove, falls schon `inToday`) mit optionalem Split in zwei Zonen (Datum/Focus) via `armedZone`, wenn Date Lists aktiv sind und das Todo noch nicht `inToday` ist; Swipe-links → Delete (mit Bestätigung). Focus: Swipe-rechts öffnet nur das Done/Done-for-today-Menü (`openCheckMenuId`), Swipe-links → Remove from Focus (ohne Bestätigung).
+- **`'threshold'`** (ursprüngliches Modell): horizontale Distanz vom Grip-Startpunkt entscheidet, wann eine Richtung "armed" ist (`armedDir`, `armDistance()`/`releaseMargin()`, Hysterese über `extremeX`). Overview: Swipe-rechts → Current (bzw. Remove, falls schon `inToday`) mit optionalem Split in zwei Zonen (Datum/Current) via `armedZone`, wenn Date Lists aktiv sind und das Todo noch nicht `inToday` ist; Swipe-links → Delete (mit Bestätigung). Current: Swipe-rechts öffnet nur das Done/Done-for-today-Menü (`openCheckMenuId`), Swipe-links → Remove from Current (ohne Bestätigung).
 - **`'zones'`** (aktuell aktiv): keine Distanz-Schwellen mehr – drei feste, kreisförmige Drop-Zonen (`zones` computed, Positionen in `ZONE_LAYOUT`) werden beim Greifen einer Karte eingeblendet (inkl. Dim-Overlay über der ganzen App, `.swipe-zones-dim`), plus ein Punkt-in-Kreis-Hit-Test gegen die aktuelle Pointer-Position (`event.clientX/clientY`, bewusst nicht `info.point`, das ist page- statt viewport-relativ). Lässt man die Karte außerhalb aller Kreise los, passiert nichts – die Karte federt einfach zurück (großzügiger toter Bereich per Geometrie, keine Schwellwert-Tunerei). Die drei Positions-Slots (`focus`/`date`/`delete`) sind bewusst **hand-platziert, nicht symmetrisch** (kein gleichmäßiges Orbit-Layout) – wirkte zu mechanisch/statisch.
-  - **Overview (`mode="all"`):** `focus`-Slot (großer Kreis, rechts) → Focus hinzufügen/entfernen; `date`-Slot (großer Kreis, links) → auf die aktuell im Focus-Date-Widget gewählte Date List legen (nur wenn Date Lists aktiv und Todo noch nicht `inToday`), Label zeigt `List <Datum>`; `delete`-Slot (kleinerer Kreis, unten mittig) → Delete mit Bestätigung.
-  - **Focus (`mode="today"`):** **dieselben drei Positions-Slots**, aber andere Bedeutung – `focus`-Slot → Done, `date`-Slot → Done for today, `delete`-Slot → Remove from Focus (unkritisch, daher ohne Bestätigung, anders als Overviews Delete). Swipe löst die Aktion direkt aus, ohne vorher das Check-Menü zu öffnen; Tippen auf die Karte öffnet das Menü weiterhin als Alternative. Bei `previewLocked` (Lists-Panel-Vorschau eines künftigen Tages, siehe `ListsPanel.vue`) fehlen `focus`- und `date`-Slot komplett – nur Remove bleibt.
-  - Die Positions-Slots sind absichtlich reine "Ortsnamen" (nicht pro Modus neu benannt) – Overview und Focus teilen sich ein einziges, von Hand austariertes Layout statt zweier separat zu pflegender.
+  - **Overview (`mode="all"`):** `focus`-Slot (großer Kreis, rechts) → Current hinzufügen/entfernen; `date`-Slot (großer Kreis, links) → auf die aktuell im Focus-Date-Widget gewählte Date List legen (nur wenn Date Lists aktiv und Todo noch nicht `inToday`), Label zeigt `List <Datum>`; `delete`-Slot (kleinerer Kreis, unten mittig) → Delete mit Bestätigung.
+  - **Current (`mode="today"`):** **dieselben drei Positions-Slots**, aber andere Bedeutung – `focus`-Slot → Done, `date`-Slot → Done for today, `delete`-Slot → Remove from Current (unkritisch, daher ohne Bestätigung, anders als Overviews Delete). Swipe löst die Aktion direkt aus, ohne vorher das Check-Menü zu öffnen; Tippen auf die Karte öffnet das Menü weiterhin als Alternative. Bei `previewLocked` (Lists-Panel-Vorschau eines künftigen Tages, siehe `ListsPanel.vue`) fehlen `focus`- und `date`-Slot komplett – nur Remove bleibt.
+  - Die Positions-Slots sind absichtlich reine "Ortsnamen" (nicht pro Modus neu benannt) – Overview und Current teilen sich ein einziges, von Hand austariertes Layout statt zweier separat zu pflegender.
 
 ## Keyboard-Shortcuts (nur Desktop, > 1024px)
 
 Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.vue` (bewusst, siehe unten). Unterhalb der Desktop-Breite ist der komplette Handler deaktiviert – kein Tab-Cycling, keine Einzeltasten-Shortcuts.
 
-- **Tab / Shift+Tab** – kein Todo offen: togglet zwischen All und Focus (Calendar ist nicht Teil dieses Cycles, siehe **C**). Ein Todo offen: schaltet stattdessen zwischen Karten durch (`cycleOpenCard`), trägt eine laufende Bearbeitung auf die nächste Karte weiter.
-- **C** – Calendar togglen, kehrt zum vorher aktiven Haupt-View (All/Focus) zurück (nicht hart auf Overview verdrahtet) – gleiches Muster wie **X**/Settings.
+- **Tab / Shift+Tab** – kein Todo offen: togglet zwischen All und Current (Calendar ist nicht Teil dieses Cycles, siehe **C**). Ein Todo offen: schaltet stattdessen zwischen Karten durch (`cycleOpenCard`), trägt eine laufende Bearbeitung auf die nächste Karte weiter.
+- **C** – Calendar togglen, kehrt zum vorher aktiven Haupt-View (All/Current) zurück (nicht hart auf Overview verdrahtet) – gleiches Muster wie **X**/Settings.
 - **S** – Sort togglen (Datum ↔ A–Z). Nur Overview, sonst No-Op.
 - **G** – Grid/List togglen. Nur Overview, sonst No-Op.
-- **N** – Fokus ins Add-Todo-Feld ("new"). Overview + Focus.
-- **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Focus ist nicht filterbar, das gesamte Tag-/Filter-Menü ist dort ausgegraut und inert.
+- **N** – Fokus ins Add-Todo-Feld ("new"). Overview + Current.
+- **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Current ist nicht filterbar, das gesamte Tag-/Filter-Menü ist dort ausgegraut und inert.
 - **A** – All-Filter (löscht jeden aktiven Tag-/Prio-/Date-Filter auf einmal). Nur Overview.
 - **P** – Prio-Filter togglen. Nur Overview.
-- **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Focus (Focus) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei Tab (View- vs. Karten-Cycling) sind beide Zustände gegenseitig ausschließend.
+- **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Current (Current) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei Tab (View- vs. Karten-Cycling) sind beide Zustände gegenseitig ausschließend.
 - **X** – Settings togglen, kehrt zum vorher aktiven Haupt-View zurück (nicht hart auf Overview verdrahtet).
 - **Escape** – schließt/blurt immer das, was gerade offen/fokussiert ist (Add-Todo-Input, Tag-Input, offene Karte, Swipe-Delete-Bestätigung).
 

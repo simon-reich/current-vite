@@ -9,7 +9,7 @@ export interface Toast {
 }
 
 // Shared across every caller (App.vue's own duplicate-tag/auto-focus
-// toasts, AllTodos.vue's send-to-Focus toast, ...) so there's one render
+// toasts, AllTodos.vue's send-to-Current toast, ...) so there's one render
 // list and one overlay in App.vue's template, regardless of which view
 // actually triggered a toast.
 export const toasts = ref<Toast[]>([])
@@ -33,9 +33,9 @@ export function spawnToast(label: string, left: string, top: string, dupTag = fa
   }, 1400)
 }
 
-// Shared by every trigger that moves a card between Overview and Focus (a
-// due loop todo added while away from Focus, Enter/"+"/swipe on an
-// Overview card, D/CircleMinus/swipe-left on a Focus card, ...) — measures
+// Shared by every trigger that moves a card between Overview and Current (a
+// due loop todo added while away from Current, Enter/"+"/swipe on an
+// Overview card, D/CircleMinus/swipe-left on a Current card, ...) — measures
 // the card's own on-screen position right before it's moved so the toast
 // visibly rises from wherever the card actually was, instead of a generic
 // center-screen bubble with no spatial link to what just happened.
@@ -49,17 +49,17 @@ function spawnCardMoveToast(todoId: string, label: string) {
   )
 }
 
-export function spawnSentToFocusToast(todoId: string) {
-  spawnCardMoveToast(todoId, 'sent to Focus')
+export function spawnSentToCurrentToast(todoId: string) {
+  spawnCardMoveToast(todoId, 'sent to current')
 }
 
-export function spawnRemovedFromFocusToast(todoId: string) {
-  spawnCardMoveToast(todoId, 'removed from Focus')
+export function spawnRemovedFromCurrentToast(todoId: string) {
+  spawnCardMoveToast(todoId, 'removed from current')
 }
 
 // The card doesn't move anywhere (see stores/todos.ts's assignFocusDate) —
 // same "rises from the card's own position" idea as the other two above,
-// just labeled with the target date instead of "Focus".
+// just labeled with the target date instead of "Current".
 export function spawnPlannedForDateToast(todoId: string, dateStr: string) {
   const [, m, d] = dateStr.split('-')
   spawnCardMoveToast(todoId, `planned for ${d}/${m}`)

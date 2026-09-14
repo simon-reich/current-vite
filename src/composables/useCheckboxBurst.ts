@@ -2,7 +2,7 @@
 // completely flat, silent state flip, unlike completing a Todo (see
 // TodoCard.vue's celebrateBackground). Deliberately tiny and anchored to
 // the checkbox itself, not a full-viewport effect — used by both Checks
-// (Focus.vue) and Subs (TodoCard.vue), whose own checkbox-ticking is the
+// (Current.vue) and Subs (TodoCard.vue), whose own checkbox-ticking is the
 // same kind of lower-weight, background event. Both respect
 // celebrationsEnabled (the same toggle the big Todo celebration does)
 // rather than adding a second, near-identical setting.

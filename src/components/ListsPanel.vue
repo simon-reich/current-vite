@@ -4,9 +4,9 @@ import { Trash2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
 import { activeModal } from '../composables/useModalGuard'
 
-// Pure picker/deleter for Date Lists — picking a row swaps Focus.vue's
+// Pure picker/deleter for Date Lists — picking a row swaps Current.vue's
 // whole view over to that list (see its viewingDate), rather than
-// previewing it here in a cramped modal. Reached from Focus.vue's "Lists"
+// previewing it here in a cramped modal. Reached from Current.vue's "Lists"
 // button (desktop) or the tablet/phone triggers in App.vue.
 const props = defineProps<{ viewingDate: string | null }>()
 const emit = defineEmits<{ select: [dateStr: string | null]; close: [] }>()

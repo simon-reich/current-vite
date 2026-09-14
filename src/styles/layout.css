@@ -195,13 +195,13 @@
   color: var(--ink-dark);
 }
 
-/* Focus's subs expand-toggle, replacing the (otherwise inert) tag-icon
+/* Current's subs expand-toggle, replacing the (otherwise inert) tag-icon
    slot on tablet/mobile — see App.vue's mobile-subs-toggle. Visual look
    only here; display/flex-direction differ per breakpoint (tablet.css:
    switch-then-label side by side; mobile.css: label-then-switch stacked)
    — .mobile-only's own default (display:none) keeps this hidden on
    desktop, which pins its own separate version under Settings instead
-   (see Focus.vue's expand-subs-row). */
+   (see Current.vue's expand-subs-row). */
 .mobile-subs-label {
   font-size: 13px;
   font-weight: 600;
@@ -674,7 +674,7 @@
 
 /* Tablet uses .tablet-focus-date-widget-slot/.tablet-settings-btn (see
    tablet.css) instead — same "own version below 1024px" pattern as
-   .expand-subs-row/.lists-btn-desktop in Focus.vue. */
+   .expand-subs-row/.lists-btn-desktop in Current.vue. */
 @media (max-width: 1024px) {
   .focus-date-head {
     display: none;
@@ -735,15 +735,15 @@
   overflow-y: hidden;
 }
 
-/* ── Focus active: same dim + lock, but NOT .add-wrapper — Focus still
+/* ── Current active: same dim + lock, but NOT .add-wrapper — Current still
    lets you add a todo (auto-sent straight to today), so its tag-picking
-   checkbox row has to stay usable. Focus is deliberately unfilterable
-   (see AllTodos/Focus.vue), so every filter/tag control it can't affect
+   checkbox row has to stay usable. Current is deliberately unfilterable
+   (see AllTodos/Current.vue), so every filter/tag control it can't affect
    reads as visibly inert instead of just silently doing nothing. */
-#app.is-focus .sidebar-head,
-#app.is-focus .tag-list,
-#app.is-focus .all-btn,
-#app.is-focus .mobile-tags-btn {
+#app.is-current .sidebar-head,
+#app.is-current .tag-list,
+#app.is-current .all-btn,
+#app.is-current .mobile-tags-btn {
   pointer-events: none;
   opacity: 0.35;
   user-select: none;
@@ -751,7 +751,7 @@
   -webkit-touch-callout: none;
 }
 
-#app.is-focus .sidebar {
+#app.is-current .sidebar {
   overflow-y: hidden;
 }
 

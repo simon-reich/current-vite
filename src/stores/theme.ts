@@ -35,9 +35,9 @@ export const useThemeStore = defineStore('theme', () => {
   // where new "plan ahead" assignments go. Persists across reloads (see
   // plan discussion) so multi-day planning doesn't reset on every visit.
   const selectedFocusDate = ref(todayStr())
-  // Focus-only: force every card's sub-list open without having to expand
-  // each one individually — see Focus.vue's own toggle switch.
-  const expandFocusSubs = ref(false)
+  // Current-only: force every card's sub-list open without having to expand
+  // each one individually — see Current.vue's own toggle switch.
+  const expandCurrentSubs = ref(false)
   const savedThemes = ref<ColorTheme[]>([])
   const dailyThemeRotationEnabled = ref(false)
   // Last date (YYYY-MM-DD) a rotation actually happened — guards against
@@ -85,8 +85,8 @@ export const useThemeStore = defineStore('theme', () => {
     selectedFocusDate.value = dateStr
   }
 
-  function toggleExpandFocusSubs() {
-    expandFocusSubs.value = !expandFocusSubs.value
+  function toggleExpandCurrentSubs() {
+    expandCurrentSubs.value = !expandCurrentSubs.value
   }
 
   function saveTheme(name: string) {
@@ -134,9 +134,9 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   return {
-    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandFocusSubs, savedThemes,
+    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandCurrentSubs, savedThemes,
     dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate,
-    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandFocusSubs, saveTheme, deleteTheme, loadTheme,
+    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandCurrentSubs, saveTheme, deleteTheme, loadTheme,
     toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
   }
 }, { persist: true })

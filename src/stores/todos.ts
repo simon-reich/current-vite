@@ -66,7 +66,7 @@ export interface Todo {
   /** Optional sub-todos — live and die with this todo, no independent
    *  schedule/archive of their own (unlike Checks). See Sub above. */
   subs: Sub[]
-  /** When this todo was last sent to Focus — drives Focus's own sort
+  /** When this todo was last sent to Current — drives Current's own sort
    *  order (oldest addition first), separate from createdAt. */
   focusAddedAt?: string
   completedAt?: string
@@ -75,7 +75,7 @@ export interface Todo {
   /** Sorted ISO dates (YYYY-MM-DD) this todo is planned on a future/today
    *  Date List for — see CLAUDE.md's "Date Lists" section. Independent of
    *  `inToday`: a todo can sit on any number of these while still showing
-   *  normally in Overview (and can additionally be in the default Focus
+   *  normally in Overview (and can additionally be in the default Current
    *  list at the same time). Absent/empty = not planned on any list. */
   focusDates?: string[]
   /** Set when `rolloverExpiredFocusDates` auto-returns an unfinished
@@ -86,9 +86,9 @@ export interface Todo {
   poolBumpedAt?: string
   /** Which celebration (see TodoCard.vue's "Celebration-Animationen"
    *  section) plays when this todo is completed — assigned once in
-   *  sendToToday below, fixed for as long as it stays in Focus, rather
+   *  sendToToday below, fixed for as long as it stays in Current, rather
    *  than re-rolled every time its check-menu happens to open. Absent for
-   *  a todo that's never been sent to Focus since this field existed. */
+   *  a todo that's never been sent to Current since this field existed. */
   celebration?: CelebrationKey
   /** Set instead of actually removing the todo when it's deleted while it
    *  still has calendar-relevant history (a completedAt or a non-empty
@@ -152,14 +152,14 @@ export const useTodosStore = defineStore('todos', () => {
 
   // Whether a Date List exists for `dateStr` — purely derived from
   // `focusDates`, no separate list entity (see CLAUDE.md's Date Lists
-  // section). Only ever meaningful for today when deciding what Focus
+  // section). Only ever meaningful for today when deciding what Current
   // shows; kept general so runLoopSchedule can reuse it.
   function hasFocusDateList(dateStr: string): boolean {
     if (!useThemeStore().dateListsEnabled) return false
     return todos.value.some(t => !t.completedAt && !t.deletedAt && t.focusDates?.includes(dateStr))
   }
 
-  // A Date List for today, once it exists, replaces the default Focus
+  // A Date List for today, once it exists, replaces the default Current
   // list entirely for that day (explicit product decision — see plan
   // discussion) rather than merging with whatever's in `inToday`. Due
   // loop/once todos still auto-join it (runLoopSchedule routes them here
@@ -177,7 +177,7 @@ export const useTodosStore = defineStore('todos', () => {
   })
 
   // Unique future (> today) dates with at least one active todo planned on
-  // them — feeds the Calendar's Date-List markers and Focus's Lists panel.
+  // them — feeds the Calendar's Date-List markers and Current's Lists panel.
   const futureFocusDates = computed(() => {
     const today = todayStr()
     const dates = new Set<string>()
@@ -292,13 +292,13 @@ export const useTodosStore = defineStore('todos', () => {
     if (todo) {
       todo.inToday = true
       todo.focusAddedAt = new Date().toISOString()
-      // Fresh roll each time it re-enters Focus, not just once ever — see
+      // Fresh roll each time it re-enters Current, not just once ever — see
       // Todo.celebration's own comment.
       todo.celebration = drawCelebrationKey()
     }
   }
 
-  // Leaving today's Focus, however the todo got there — whether via the
+  // Leaving today's Current, however the todo got there — whether via the
   // default `inToday` flag or via today's own Date List. Callers (the
   // CircleMinus button, swipe-left, the D shortcut) don't need to know
   // which mechanism is currently showing the card.
@@ -363,7 +363,7 @@ export const useTodosStore = defineStore('todos', () => {
   }
 
   // Unfinished Date-List todos don't roll forward to the next list/default
-  // Focus — they just fall back into the pool (see plan discussion), bumped
+  // Current — they just fall back into the pool (see plan discussion), bumped
   // to the top of Overview's "date" sort via poolBumpedAt so they're easy
   // to spot again. Called from the same three App.vue hooks that already
   // drive runLoopSchedule/checksStore.refreshToday (mount, midnight, tab
