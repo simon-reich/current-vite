@@ -1092,48 +1092,56 @@ watch(() => route.path, () => {
           </div>
         </div>
 
-        <!-- Desktop nav icons -->
-        <nav class="top-nav desktop-only">
-          <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
-            <Globe :size="27" />
-          </RouterLink>
-          <RouterLink ref="focusNavRef" to="/focus" class="nav-icon" title="Focus">
-            <Sun :size="27" />
-          </RouterLink>
-          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
-            <CalendarDays :size="27" />
-          </RouterLink>
-        </nav>
+        <!-- Desktop nav icons. On tablet, this whole block is wrapped in
+             one flex row (.tablet-header-right, see tablet.css) together
+             with the widget/"Lists" button and a tablet-only Settings —
+             a single justify-content:space-between decision instead of
+             two separate, competing centering rules (one on .top-nav
+             spanning/centering across the whole row, one trying to center
+             the widget against it independently — that's what previously
+             made the widget overlap the view icons instead of sitting
+             between them and Settings). The wrapper is `display:contents`
+             outside the tablet breakpoint (see layout.css), so it has no
+             effect at all on desktop's plain flex row here. -->
+        <div class="tablet-header-right">
+          <nav class="top-nav desktop-only">
+            <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
+              <Globe :size="27" />
+            </RouterLink>
+            <RouterLink ref="focusNavRef" to="/focus" class="nav-icon" title="Focus">
+              <Sun :size="27" />
+            </RouterLink>
+            <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
+              <CalendarDays :size="27" />
+            </RouterLink>
+          </nav>
 
-        <!-- Tablet-width only (see .tablet-focus-date-widget-slot/
-             .tablet-settings-btn in tablet.css) — real desktop shows the
-             widget/"Lists" button elsewhere (.focus-date-head, Focus.vue's
-             .lists-btn-desktop) and Settings in its own .settings-head, so
-             all three of these stay hidden there. Sitting here as real
-             siblings of .top-nav within main-head-inner's own grid is what
-             lets two equal 1fr spacer columns center the widget exactly
-             between the view icons and Settings, instead of guessing an
-             offset against .settings-head's separate, independently-
-             positioned overlay. -->
-        <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
-          <FocusDateWidget />
+          <!-- Tablet-width only — real desktop shows the widget/"Lists"
+               button elsewhere (.focus-date-head, Focus.vue's
+               .lists-btn-desktop) and Settings in its own .settings-head,
+               so all three of these stay hidden there (see
+               .tablet-focus-date-widget-slot/.tablet-settings-btn in
+               layout.css). -->
+          <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
+            <FocusDateWidget />
+          </div>
+          <button
+            v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+            class="tablet-focus-date-widget-slot nav-icon"
+            title="Lists"
+            @click="listsPanelOpen = true"
+          >
+            <ListChecks :size="22" />
+          </button>
+          <button
+            class="tablet-settings-btn settings-btn"
+            :class="{ active: route.path === '/settings' }"
+            title="Settings"
+            @click="toggleSettings"
+          >
+            <Settings :size="26" />
+          </button>
         </div>
-        <button
-          v-if="themeStore.dateListsEnabled && route.path === '/focus'"
-          class="tablet-focus-date-widget-slot nav-icon"
-          title="Lists"
-          @click="listsPanelOpen = true"
-        >
-          <ListChecks :size="22" />
-        </button>
-        <button
-          class="tablet-settings-btn settings-btn"
-          :class="{ active: route.path === '/settings' }"
-          title="Settings"
-          @click="toggleSettings"
-        >
-          <Settings :size="26" />
-        </button>
 
         <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
              when tags are off — but in Focus, tags are always inert (see

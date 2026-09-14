@@ -666,11 +666,21 @@
   }
 }
 
-/* Tablet-only grid slots inside main-head-inner (see tablet.css) — hidden
-   by default so they don't also show up in desktop's own flex row here. */
+/* Tablet-only flex items inside .tablet-header-right (see tablet.css) —
+   hidden by default so they don't also show up in desktop's own flex row
+   here. */
 .tablet-focus-date-widget-slot,
 .tablet-settings-btn {
   display: none;
+}
+
+/* Purely structural on desktop/phone — `display: contents` unwraps this
+   div entirely so its children (.top-nav plus, on tablet, the widget/
+   Settings duplicates above) act as direct flex items of .main-head-inner,
+   exactly as if this wrapper wasn't there at all. Only becomes a real flex
+   row inside the tablet breakpoint (see tablet.css). */
+.tablet-header-right {
+  display: contents;
 }
 
 /* ── Settings/Calendar active: dim + lock unrelated UI ── */
