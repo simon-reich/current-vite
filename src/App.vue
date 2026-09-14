@@ -499,6 +499,7 @@ let stopLoopMidnightCheck: (() => void) | null = null
 // just after an overnight gap, is harmless.
 function onVisibilityChange() {
   if (document.visibilityState !== 'visible') return
+  store.rolloverExpiredFocusDates()
   runLoopSchedule(store)
   themeStore.runDailyThemeRotation()
   checksStore.refreshToday()
@@ -521,10 +522,12 @@ onMounted(() => {
   // recompute (see stores/checks.ts's refreshToday) piggyback on the same
   // "once now, once every midnight after" timing, just via the second
   // scheduleLoopMidnightCheck argument instead of their own timers.
+  store.rolloverExpiredFocusDates()
   runLoopSchedule(store)
   themeStore.runDailyThemeRotation()
   checksStore.refreshToday()
   stopLoopMidnightCheck = scheduleLoopMidnightCheck(store, () => {
+    store.rolloverExpiredFocusDates()
     themeStore.runDailyThemeRotation()
     checksStore.refreshToday()
   })

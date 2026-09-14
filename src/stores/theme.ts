@@ -2,6 +2,10 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { applyTheme } from '../composables/useTheme'
 
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function uuid(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -26,6 +30,11 @@ export const useThemeStore = defineStore('theme', () => {
   const tagsEnabled = ref(true)
   const checksEnabled = ref(true)
   const subsEnabled = ref(true)
+  const dateListsEnabled = ref(true)
+  // The Focus Date widget's currently selected target date (YYYY-MM-DD) —
+  // where new "plan ahead" assignments go. Persists across reloads (see
+  // plan discussion) so multi-day planning doesn't reset on every visit.
+  const selectedFocusDate = ref(todayStr())
   // Focus-only: force every card's sub-list open without having to expand
   // each one individually — see Focus.vue's own toggle switch.
   const expandFocusSubs = ref(false)
@@ -66,6 +75,14 @@ export const useThemeStore = defineStore('theme', () => {
 
   function toggleSubs() {
     subsEnabled.value = !subsEnabled.value
+  }
+
+  function toggleDateLists() {
+    dateListsEnabled.value = !dateListsEnabled.value
+  }
+
+  function setSelectedFocusDate(dateStr: string) {
+    selectedFocusDate.value = dateStr
   }
 
   function toggleExpandFocusSubs() {
@@ -118,8 +135,8 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandFocusSubs, savedThemes,
-    dailyThemeRotationEnabled, lastThemeRotationDate,
+    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate,
     apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandFocusSubs, saveTheme, deleteTheme, loadTheme,
-    toggleDailyThemeRotation, runDailyThemeRotation,
+    toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
   }
 }, { persist: true })

@@ -154,12 +154,19 @@ function processedToday(todo: Todo): boolean {
 export interface LoopScheduleStore {
   todos: Todo[]
   sendToToday: (id: string) => void
+  hasFocusDateList: (dateStr: string) => boolean
+  assignFocusDate: (id: string, dateStr: string) => void
 }
 
 // Sends every due, not-yet-completed loop todo to Focus — called once on
 // load and again every midnight while the app stays open (see
-// scheduleLoopMidnightCheck below).
+// scheduleLoopMidnightCheck below). If today already has its own Date
+// List (see stores/todos.ts's Date Lists section), a due todo joins that
+// list instead of the default `inToday` one — that list replaces default
+// Focus for the day, so due todos still need to land somewhere visible.
 export function runLoopSchedule(store: LoopScheduleStore) {
+  const today = todayStr()
+  const hasDateListToday = store.hasFocusDateList(today)
   for (const todo of store.todos) {
     if (!todo.loopInterval || !todo.tags.includes(LOOP_TAG_ID) || todo.completedAt || todo.deletedAt) continue
     if (processedToday(todo)) continue
@@ -167,7 +174,17 @@ export function runLoopSchedule(store: LoopScheduleStore) {
     // rest of the list from being checked, or bubble up into App.vue's
     // onMounted and cut off whatever runs after it there.
     try {
-      if (isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))) store.sendToToday(todo.id)
+      if (isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))) {
+        if (hasDateListToday) {
+          store.assignFocusDate(todo.id, today)
+          // assignFocusDate doesn't touch focusAddedAt (it's an inToday-
+          // flow concept) — set it directly so processedToday's "already
+          // handled today" guard still works for this branch too.
+          todo.focusAddedAt = new Date().toISOString()
+        } else {
+          store.sendToToday(todo.id)
+        }
+      }
     } catch (err) {
       console.error('[loop schedule] skipping todo', todo.id, err)
     }
