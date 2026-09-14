@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { Globe, Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X } from '@lucide/vue'
+import { Globe, Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks } from '@lucide/vue'
+import FocusDateWidget from './components/FocusDateWidget.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval } from './stores/todos'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
@@ -901,6 +902,14 @@ provide('loopFilterMode', loopFilterMode)
 provide('effectiveFilterTagIds', effectiveFilterTagIds)
 provide('sortKey', sortKey)
 
+// Shared with Focus.vue: the desktop "Lists" button lives inside Focus.vue
+// itself, but the tablet/phone trigger buttons for it live here in App.vue
+// (icon rail / bottom nav, outside the RouterView) — same provide/inject
+// pattern as sortKey/listView above, just the other direction (a view
+// reading a ref App.vue owns vs. one App.vue reads back).
+const listsPanelOpen = ref(false)
+provide('listsPanelOpen', listsPanelOpen)
+
 // ── Scroll dividers ──
 const mainContentRef = useTemplateRef<HTMLElement>('mainContent')
 const contentInnerRef = useTemplateRef<HTMLElement>('contentInner')
@@ -1094,6 +1103,19 @@ watch(() => route.path, () => {
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
             <CalendarDays :size="27" />
           </RouterLink>
+          <!-- Tablet-width only (see .tablet-icon-extra in tablet.css) —
+               sits between Calendar and Settings. Real desktop already
+               shows the full widget/"Lists" button elsewhere, so these
+               stay hidden there. -->
+          <FocusDateWidget v-if="themeStore.dateListsEnabled && route.path === '/all'" compact class="tablet-icon-extra" />
+          <button
+            v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+            class="nav-icon tablet-icon-extra"
+            title="Lists"
+            @click="listsPanelOpen = true"
+          >
+            <ListChecks :size="24" />
+          </button>
         </nav>
 
         <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
@@ -1196,6 +1218,12 @@ watch(() => route.path, () => {
       </button>
     </div>
 
+    <!-- ══ DESKTOP: Focus Date widget — Overview only, right column under
+         Settings, level with the all/prio/date filter row on the left ══ -->
+    <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="focus-date-head desktop-only">
+      <FocusDateWidget />
+    </div>
+
     <!-- ══ MOBILE: Tag panel (full screen, replaces main-head + content) ══ -->
     <template v-if="themeStore.tagsEnabled">
     <Transition name="tags-panel">
@@ -1277,13 +1305,26 @@ watch(() => route.path, () => {
     <!-- ══ MOBILE: Bottom nav ══ -->
     <nav class="mobile-bottom-nav mobile-only">
       <button
+        v-if="route.path === '/all'"
         class="sort-btn"
-        :style="{ visibility: route.path === '/all' ? 'visible' : 'hidden' }"
         :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
         @click="toggleSort"
       >
         <ArrowUpDown :size="22" />
       </button>
+      <!-- Phone-width only (see .sort-btn/.lists-btn CSS in mobile.css) —
+           same bottom-left slot the sort button uses on /all, reused here
+           for Focus's own "browse other Date Lists" entry point since it's
+           otherwise unused on /focus. -->
+      <button
+        v-else-if="route.path === '/focus' && themeStore.dateListsEnabled"
+        class="sort-btn lists-btn"
+        title="Lists"
+        @click="listsPanelOpen = true"
+      >
+        <ListChecks :size="22" />
+      </button>
+      <div v-else class="sort-btn" style="visibility: hidden" />
 
       <div class="mobile-nav-views">
         <RouterLink to="/all" class="nav-icon" title="All todos" @click="showMobileTags = false">

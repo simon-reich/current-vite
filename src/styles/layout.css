@@ -643,6 +643,21 @@
   padding: 4px;
 }
 
+/* ── Focus Date widget head (Overview only) ── */
+.focus-date-head {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+}
+
+/* Tablet-only icon-rail slot (see tablet.css) — real desktop already shows
+   the dedicated widget/"Lists" button elsewhere. */
+.tablet-icon-extra {
+  display: none;
+}
+
 /* ── Settings/Calendar active: dim + lock unrelated UI ── */
 #app.is-settings .sidebar-head,
 #app.is-settings .tag-list,

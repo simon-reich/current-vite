@@ -578,7 +578,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Pencil, Check, Flag, RefreshCw } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Pencil, Check, Flag, RefreshCw, CalendarPlus } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -608,6 +608,11 @@ const props = defineProps<{
    *  sub-list open even while the card itself is closed, without also
    *  opening the Done/Done-for-today menu. */
   forceExpandSubs?: boolean
+  /** Focus's "Lists" panel previewing a future Date List (see
+   *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-today are
+   *  locked out until that date is actually today; removing from the list
+   *  still works normally. */
+  previewLocked?: boolean
 }>()
 
 // Entrance bounce when a card first mounts (a fresh view, a newly created
@@ -707,6 +712,7 @@ const tagMenuTags = computed(() => themeStore.tagsEnabled ? store.tags : store.t
 const emit = defineEmits<{
   'send-to-today': [id: string, obvious?: boolean]
   'remove-from-today': [id: string, obvious?: boolean]
+  'send-to-focus-date': [id: string]
   'complete': [id: string]
   'done-for-today': [id: string]
   'delete': [id: string]
@@ -1465,6 +1471,28 @@ const swipeAction = computed(() => {
 })
 const swipeArmed = computed(() => armedDir.value !== 0)
 
+// Overview's swipe-right splits into two drop zones (see onDrag's Y-based
+// armedZone tracking below) — only meaningful for the "not yet in Focus"
+// case a plain swipe-right already covers; already-in-Focus swipe-right
+// is a plain removal (see swipeAction above), and swipe-left/Delete never
+// splits either. Reused (not just Focus vs Focus) so a genuinely
+// future-dated widget selection reads as "plan ahead" rather than another
+// "Focus" button.
+const showSwipeZoneSplit = computed(() =>
+  props.mode === 'all' && !props.todo.inToday && themeStore.dateListsEnabled
+)
+
+// Which half of the backdrop the pointer is currently over while a
+// rightward swipe is armed — top = plan onto the widget's selected date,
+// bottom = today's default Focus. Read by onDragEnd, same "whatever's on
+// screen when the finger lifts is what fires" contract as armedDir itself.
+const armedZone = ref<'date' | 'focus'>('focus')
+
+function formatShortDate(dateStr: string): string {
+  const [, m, d] = dateStr.split('-')
+  return `${d}/${m}`
+}
+
 function animateOutPuff(): Promise<void> {
   const el = swipeContainerRef.value
   if (!el) return Promise.resolve()
@@ -1584,6 +1612,7 @@ function onDragStart() {
   extremeX = 0
   armedDir.value = 0
   swipeRelX.value = 0
+  armedZone.value = 'focus'
   everArmed = false
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
@@ -1641,6 +1670,11 @@ function onDrag(_event: PointerEvent, info: PanInfo) {
   if (Math.abs(rawX) > DRAG_ENGAGE_THRESHOLD) {
     y.set(info.offset.y)
   }
+
+  if (showSwipeZoneSplit.value && backdropRect.value) {
+    const mid = backdropRect.value.top + backdropRect.value.height / 2
+    armedZone.value = info.point.y < mid ? 'date' : 'focus'
+  }
 }
 
 function springBackToCenter() {
@@ -1683,8 +1717,12 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
   } else if (swipedRight) {
     if (props.mode === 'all') {
       await flyOutRight()
-      if (!props.todo.inToday) emit('send-to-today', props.todo.id)
-      else emit('remove-from-today', props.todo.id)
+      if (!props.todo.inToday) {
+        if (showSwipeZoneSplit.value && armedZone.value === 'date') emit('send-to-focus-date', props.todo.id)
+        else emit('send-to-today', props.todo.id)
+      } else {
+        emit('remove-from-today', props.todo.id)
+      }
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
       // has to close any other card's open tag/date editor too, or a
@@ -1780,10 +1818,23 @@ onUnmounted(() => {
           <div
             v-if="isGripped && backdropRect"
             class="swipe-backdrop"
+            :class="{ split: showSwipeZoneSplit && armedDir !== -1 }"
             :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
           >
-            <div class="swipe-backdrop-fill" :class="{ visible: swipeArmed }" />
-            <span class="swipe-indicator" :class="{ armed: swipeArmed }">{{ swipeAction.label }}</span>
+            <template v-if="showSwipeZoneSplit && armedDir !== -1">
+              <div class="swipe-zone">
+                <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'date' }" />
+                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'date' }">{{ formatShortDate(themeStore.selectedFocusDate) }}</span>
+              </div>
+              <div class="swipe-zone">
+                <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'focus' }" />
+                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'focus' }">Focus</span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="swipe-backdrop-fill" :class="{ visible: swipeArmed }" />
+              <span class="swipe-indicator" :class="{ armed: swipeArmed }">{{ swipeAction.label }}</span>
+            </template>
           </div>
         </Transition>
       </Teleport>
@@ -1838,6 +1889,16 @@ onUnmounted(() => {
             @click.stop="handleTitleClick"
           >{{ todo.title }}</span>
 
+          <!-- Overview-only: this todo is already planned on at least one
+               future/today Date List — see stores/todos.ts's focusDates.
+               Doesn't say which date(s); just that it's worth checking
+               Focus's "Lists" panel. -->
+          <span
+            v-if="mode === 'all' && themeStore.dateListsEnabled && todo.focusDates?.length"
+            class="focus-date-dot"
+            :title="`Planned: ${todo.focusDates.join(', ')}`"
+          />
+
           <!-- When card is open (either mode): pencil starts editing; once
                editing, it swaps to the accept/check button. Delete now
                only lives here — not on the closed card — so it isn't a
@@ -1887,6 +1948,18 @@ onUnmounted(() => {
               @click.stop="emit('remove-from-today', todo.id, true)"
             >
               <CircleMinus :size="18" />
+            </button>
+            <!-- Desktop/tablet only (CSS-hidden on phone, which uses the
+                 swipe-split's top zone instead) — plans this todo onto the
+                 Focus Date widget's currently selected date, independent of
+                 (and without touching) the send-to-focus button above. -->
+            <button
+              v-if="themeStore.dateListsEnabled"
+              class="card-btn calendar-plus-btn"
+              :title="`Plan for ${themeStore.selectedFocusDate}`"
+              @click.stop="emit('send-to-focus-date', todo.id)"
+            >
+              <CalendarPlus :size="18" />
             </button>
           </template>
 
@@ -2007,20 +2080,25 @@ onUnmounted(() => {
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
           <div v-if="showMenu && mode === 'today'" class="check-row">
-            <button
-              class="check-opt"
-              :class="{ 'is-focused': focusedCheckOption === 'today' }"
-              @click.stop="handleDoneForToday(todo.id)"
-            >
-              <Clock :size="16" /> <span>Done for today</span>
-            </button>
-            <button
-              class="check-opt"
-              :class="{ 'is-focused': focusedCheckOption === 'done' }"
-              @click.stop="handleComplete(todo.id)"
-            >
-              <CheckCheck :size="16" /> <span>Done</span>
-            </button>
+            <span v-if="previewLocked" class="check-opt check-opt--locked" title="This day hasn't arrived yet">
+              <Clock :size="16" /> <span>Not due yet</span>
+            </span>
+            <template v-else>
+              <button
+                class="check-opt"
+                :class="{ 'is-focused': focusedCheckOption === 'today' }"
+                @click.stop="handleDoneForToday(todo.id)"
+              >
+                <Clock :size="16" /> <span>Done for today</span>
+              </button>
+              <button
+                class="check-opt"
+                :class="{ 'is-focused': focusedCheckOption === 'done' }"
+                @click.stop="handleComplete(todo.id)"
+              >
+                <CheckCheck :size="16" /> <span>Done</span>
+              </button>
+            </template>
           </div>
         </Transition>
 
@@ -2145,6 +2223,27 @@ onUnmounted(() => {
   justify-content: center;
   overflow: hidden;
   pointer-events: none;
+}
+
+/* Split mode (Overview, plan-ahead swipe — see showSwipeZoneSplit): two
+   equal-height drop zones stacked instead of one centered label, each
+   with its own independently-armable fill/label pair. */
+.swipe-backdrop.split {
+  flex-direction: column;
+}
+
+.swipe-zone {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.swipe-zone + .swipe-zone {
+  border-top: 2px solid var(--bg);
 }
 
 .swipe-backdrop-fill {
@@ -2438,6 +2537,15 @@ onUnmounted(() => {
 
 .card-btn.active { color: var(--ink-dark); }
 
+/* Desktop/tablet only — phone plans ahead via the swipe-split's top zone
+   instead (see onDragEnd/armedZone below), same "no room for a third icon
+   row" reasoning as elsewhere in this file. */
+@media (max-width: 700px) {
+  .calendar-plus-btn {
+    display: none;
+  }
+}
+
 /* Hover swaps the icon to the card's own background color, same idea as
    priority's bg<->ink swap below — the icon blends into the card itself
    rather than just shifting to a nearby shade of ink, which barely read
@@ -2515,6 +2623,27 @@ onUnmounted(() => {
   .check-opt:hover {
     color: var(--ink-dark);
   }
+}
+
+.check-opt--locked {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.focus-date-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: 0.5;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.priority .focus-date-dot {
+  background: var(--bg);
 }
 
 /* Default keyboard focus (Left/Right toggle it, Enter confirms it — see

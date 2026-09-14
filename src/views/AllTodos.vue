@@ -2,13 +2,16 @@
 import { inject, computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useTodosStore, LOOP_TAG_ID, type Todo } from '../stores/todos'
+import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
+import FocusDateWidget from '../components/FocusDateWidget.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnSentToFocusToast } from '../composables/useToast'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
 
 const store = useTodosStore()
+const themeStore = useThemeStore()
 // Already unions loop in when loopFilterMode is "only" — see App.vue,
 // which also drives the All/Prio/tag-chip active/dimmed state off this
 // exact same computed, so what's highlighted always matches what's
@@ -103,10 +106,25 @@ function sendToFocus(id: string, obvious?: boolean) {
   if (!obvious) spawnSentToFocusToast(id)
   store.sendToToday(id)
 }
+
+// Per-card calendar-icon quick-assign (see TodoCard.vue's CalendarPlus
+// button) and the swipe-split's top zone both plan a todo onto the
+// widget's currently selected date — see stores/todos.ts's Date Lists
+// section. Doesn't touch `inToday`, so the card stays right here in
+// Overview (see the plan's "Overview bleibt unberührt" guarantee).
+function sendToFocusDate(id: string) {
+  store.assignFocusDate(id, themeStore.selectedFocusDate)
+}
 </script>
 
 <template>
   <div class="all-todos" :class="{ 'list-view': listView }">
+    <!-- Phone only (desktop/tablet render their own instance in App.vue) —
+         scrolls away with the list instead of staying fixed. -->
+    <div v-if="themeStore.dateListsEnabled" class="focus-date-widget-phone-row mobile-only">
+      <FocusDateWidget />
+    </div>
+
     <div v-if="filteredTodos.length" class="todo-wrap" :class="{ 'list-view': listView }">
       <TodoCard
         v-for="(todo, index) in filteredTodos"
@@ -119,6 +137,7 @@ function sendToFocus(id: string, obvious?: boolean) {
         :grid-mode="true"
         mode="all"
         @send-to-today="sendToFocus"
+        @send-to-focus-date="sendToFocusDate"
         @remove-from-today="store.removeFromToday($event)"
         @delete="store.deleteTodo($event)"
       />
@@ -133,6 +152,12 @@ function sendToFocus(id: string, obvious?: boolean) {
 .all-todos {
   width: 100%;
   max-width: min(70vw, 1100px);
+}
+
+.focus-date-widget-phone-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
 }
 
 .all-todos.list-view {
