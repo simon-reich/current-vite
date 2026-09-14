@@ -773,11 +773,13 @@ function cancelEditSub() {
 function onEditSubKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
+    e.stopPropagation()
     saveEditSub()
     return
   }
   if (e.key === 'Escape') {
     e.preventDefault()
+    e.stopPropagation()
     cancelEditSub()
     return
   }
