@@ -155,6 +155,7 @@ export const useTodosStore = defineStore('todos', () => {
   // section). Only ever meaningful for today when deciding what Focus
   // shows; kept general so runLoopSchedule can reuse it.
   function hasFocusDateList(dateStr: string): boolean {
+    if (!useThemeStore().dateListsEnabled) return false
     return todos.value.some(t => !t.completedAt && !t.deletedAt && t.focusDates?.includes(dateStr))
   }
 
@@ -164,9 +165,8 @@ export const useTodosStore = defineStore('todos', () => {
   // loop/once todos still auto-join it (runLoopSchedule routes them here
   // instead of into `inToday` on such a day — see useLoopSchedule.ts).
   const todayTodos = computed(() => {
-    const themeStore = useThemeStore()
     const today = todayStr()
-    if (themeStore.dateListsEnabled && hasFocusDateList(today)) {
+    if (hasFocusDateList(today)) {
       return todos.value.filter(t =>
         !t.completedAt && !t.deletedAt &&
         (t.focusDates?.includes(today) ||
