@@ -200,6 +200,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         :attributes="attributes"
         expanded
         locale="en"
+        :first-day-of-week="2"
         @dayclick="onDayClick"
       />
     </motion.div>
