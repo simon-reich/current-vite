@@ -1540,7 +1540,7 @@ interface SwipeZone {
 // closer to center horizontally too.
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
   focus:  { phone: [95, -180, 92],  desktop: [155, -270, 122] },
-  date:   { phone: [-24, -55, 72],  desktop: [-40, -75, 96] },
+  date:   { phone: [-95, -150, 72], desktop: [-150, -220, 96] },
   delete: { phone: [25, 175, 48],   desktop: [40, 260, 62] },
 }
 
