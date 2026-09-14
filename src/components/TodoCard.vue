@@ -1533,10 +1533,15 @@ interface SwipeZone {
 // distinct rightward axis (not lined up under date), smallest of the
 // three. Each is [dx, dy, radius] in px, phone/desktop pair — same
 // breakpoint armDistance()/releaseMargin() already use.
+// Focus/date swapped horizontally from an earlier version — the natural
+// first direction of a swipe-right gesture landed almost every drag
+// straight on whichever circle sat on the right, which needs to be
+// Focus (the far more common action) rather than Date. Delete pulled in
+// closer to center horizontally too.
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
-  focus:  { phone: [-24, -180, 92], desktop: [-40, -270, 122] },
-  date:   { phone: [95, -55, 72],   desktop: [155, -75, 96] },
-  delete: { phone: [55, 175, 48],   desktop: [95, 260, 62] },
+  focus:  { phone: [95, -180, 92],  desktop: [155, -270, 122] },
+  date:   { phone: [-24, -55, 72],  desktop: [-40, -75, 96] },
+  delete: { phone: [25, 175, 48],   desktop: [40, 260, 62] },
 }
 
 function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
