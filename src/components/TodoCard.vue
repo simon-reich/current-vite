@@ -1541,7 +1541,7 @@ interface SwipeZone {
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
   focus:  { phone: [95, -180, 92],   desktop: [155, -270, 122] },
   date:   { phone: [-95, -150, 92],  desktop: [-150, -220, 122] },
-  delete: { phone: [-25, 170, 48],   desktop: [-40, 245, 62] },
+  delete: { phone: [0, 210, 48],     desktop: [0, 300, 62] },
 }
 
 function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
@@ -1559,7 +1559,7 @@ const zones = computed<SwipeZone[]>(() => {
   const list: SwipeZone[] = []
   if (!props.todo.inToday && themeStore.dateListsEnabled) {
     const [dx, dy, radius] = zoneOffset('date')
-    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: centerX + dx, cy: centerY + dy, radius })
+    list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
   }
   const [ddx, ddy, dradius] = zoneOffset('delete')
   list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
@@ -1979,7 +1979,7 @@ onUnmounted(() => {
             <template v-if="showSwipeZoneSplit && armedDir !== -1">
               <div class="swipe-zone">
                 <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'date' }" />
-                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'date' }">{{ formatShortDate(themeStore.selectedFocusDate) }}</span>
+                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'date' }">List {{ formatShortDate(themeStore.selectedFocusDate) }}</span>
               </div>
               <div class="swipe-zone">
                 <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'focus' }" />
