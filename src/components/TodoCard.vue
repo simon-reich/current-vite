@@ -1527,18 +1527,18 @@ interface SwipeZone {
 
 // Smaller on phone (less room, and a touch grip is more precise than a
 // mouse cursor anyway) — same breakpoint armDistance()/releaseMargin()
-// already use. Insets are deliberately generous relative to the radii —
-// that's what leaves a genuinely large, easy-to-hit "drop without firing
-// anything" dead zone in the middle/elsewhere, rather than tuning a
-// separate neutral-zone margin the way the threshold model needs to.
+// already use. The inset pulls the circles in from the edges toward the
+// center — smaller means less travel to reach one, at the cost of a
+// smaller safe "drop without firing anything" gap between them; still
+// plenty of room left over at these values.
 function zoneRadius(): number {
-  return window.innerWidth <= 700 ? 56 : 72
+  return window.innerWidth <= 700 ? 68 : 90
 }
 function zoneRadiusSmall(): number {
-  return window.innerWidth <= 700 ? 46 : 58
+  return window.innerWidth <= 700 ? 56 : 74
 }
 function zoneInset(): number {
-  return window.innerWidth <= 700 ? 70 : 110
+  return window.innerWidth <= 700 ? 48 : 80
 }
 
 // Date only offered while not already in Focus (mirrors showSwipeZoneSplit
@@ -1993,6 +1993,11 @@ onUnmounted(() => {
       <Teleport to="body">
         <Transition name="swipe-indicator">
           <div v-if="isGripped && SWIPE_MODE === 'zones' && mode === 'all'" class="swipe-zones-layer">
+            <div
+              v-if="backdropRect"
+              class="swipe-zones-dim"
+              :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
+            />
             <div
               v-for="zone in zones"
               :key="zone.key"
@@ -2460,15 +2465,24 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* ── Zones model (see SWIPE_MODE) ── No full-page dim behind these —
-   unlike the threshold model's single centered label, three separate
-   targets read better against the actual list than a darkened one, and
-   each circle is its own fill/armed indicator anyway. */
+/* ── Zones model (see SWIPE_MODE) ── */
 .swipe-zones-layer {
   position: fixed;
   inset: 0;
   z-index: 5000;
   pointer-events: none;
+}
+
+/* Same weight/opacity as the threshold model's own backdrop fill (see
+   .swipe-backdrop-fill.visible) — but constant rather than toggled by an
+   armed state, so the rest of the app recedes as soon as a card is
+   gripped, not only once a specific circle is hit. The dragged card
+   itself stays on top of this (z-index:9999, see the wrapper's
+   fixedOrigin style), same as before. */
+.swipe-zones-dim {
+  position: fixed;
+  background: var(--ink);
+  opacity: 0.35;
 }
 
 .swipe-zone-circle {
