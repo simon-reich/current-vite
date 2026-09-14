@@ -1506,9 +1506,9 @@ function formatShortDate(dateStr: string): string {
 
 // Planning a todo onto a Date List doesn't move it anywhere (it stays put
 // in Overview — see onDragEnd's swipedRight branch above) — this brief
-// pulse is the only on-card feedback that anything happened at all, since
-// nothing else about the card visually changes besides the small badge
-// dot (see .focus-date-dot) gaining a new date.
+// pulse plus the toast (see AllTodos.vue's sendToFocusDate) are the only
+// on-card feedback that anything happened at all, since nothing else
+// about the card visually changes.
 const justPlanned = ref(false)
 function triggerPlannedPulse() {
   justPlanned.value = false
@@ -1923,16 +1923,6 @@ onUnmounted(() => {
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
           >{{ todo.title }}</span>
-
-          <!-- Overview-only: this todo is already planned on at least one
-               future/today Date List — see stores/todos.ts's focusDates.
-               Doesn't say which date(s); just that it's worth checking
-               Focus's "Lists" panel. -->
-          <span
-            v-if="mode === 'all' && themeStore.dateListsEnabled && todo.focusDates?.length"
-            class="focus-date-dot"
-            :title="`Planned: ${todo.focusDates.join(', ')}`"
-          />
 
           <!-- When card is open (either mode): pencil starts editing; once
                editing, it swaps to the accept/check button. Delete now
@@ -2677,22 +2667,6 @@ onUnmounted(() => {
 .check-opt--locked {
   cursor: default;
   opacity: 0.4;
-}
-
-.focus-date-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: var(--ink);
-  opacity: 0.5;
-  flex-shrink: 0;
-  vertical-align: middle;
-}
-
-.priority .focus-date-dot {
-  background: var(--bg);
 }
 
 /* Default keyboard focus (Left/Right toggle it, Enter confirms it — see
