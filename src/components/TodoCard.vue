@@ -1527,18 +1527,20 @@ interface SwipeZone {
 
 // Smaller on phone (less room, and a touch grip is more precise than a
 // mouse cursor anyway) — same breakpoint armDistance()/releaseMargin()
-// already use. The inset pulls the circles in from the edges toward the
-// center — smaller means less travel to reach one, at the cost of a
-// smaller safe "drop without firing anything" gap between them; still
-// plenty of room left over at these values.
+// already use. The inset is measured *in* from each edge — a *bigger*
+// inset pulls a circle further away from the corner/edge and toward the
+// center (less travel to reach it), the opposite of what a first guess
+// suggests. Delete stays noticeably smaller than date/focus — it's the
+// one destructive action of the three, worth being a harder target to
+// hit by accident.
 function zoneRadius(): number {
-  return window.innerWidth <= 700 ? 68 : 90
+  return window.innerWidth <= 700 ? 78 : 104
 }
 function zoneRadiusSmall(): number {
-  return window.innerWidth <= 700 ? 56 : 74
+  return window.innerWidth <= 700 ? 46 : 60
 }
 function zoneInset(): number {
-  return window.innerWidth <= 700 ? 48 : 80
+  return window.innerWidth <= 700 ? 92 : 150
 }
 
 // Date only offered while not already in Focus (mirrors showSwipeZoneSplit
