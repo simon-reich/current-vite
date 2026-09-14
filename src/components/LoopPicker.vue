@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { activeModal } from '../composables/useModalGuard'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
 import type { LoopInterval, LoopUnit } from '../stores/todos'
+import DatePickerModal from './DatePickerModal.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: LoopInterval
@@ -164,26 +164,9 @@ function toggleReschedule() {
   emit('update:modelValue', { ...props.modelValue, rescheduleFromCompletion: !props.modelValue.rescheduleFromCompletion })
 }
 
-// The "from" date picker opens as a centered modal (same pattern as the
-// delete-confirmation modal) rather than a popover anchored to the
-// trigger — v-calendar's own popover isn't teleported anywhere, and
-// nested inside a todo card's own overflow:hidden + transformed
-// stacking context (see .todo-card.loop's z-index tricks elsewhere) it
-// ended up clipped/misstacked. A centered modal sidesteps that entirely
-// and reads better on mobile too, where an anchored popover would have
-// had little room to work with anyway.
+// The "from" date picker opens as a centered modal (see DatePickerModal.vue
+// for why) rather than a popover anchored to the trigger.
 const showDateModal = ref(false)
-
-function pickDate(day: { id: string }) {
-  updateStartDate(day.id)
-  showDateModal.value = false
-}
-
-// No separate "confirm" action here — clicking a day already applies and
-// closes it (pickDate above). Enter just closes, same as Escape/Cancel.
-watch(showDateModal, (open) => {
-  activeModal.value = open ? { onCancel: () => { showDateModal.value = false }, onConfirm: () => { showDateModal.value = false } } : null
-})
 
 // Next due date given the currently selected values — recomputed on every
 // unit/count/startDate change so a stale interval (startDate far in the
@@ -214,15 +197,6 @@ const loopNextText = computed(() => {
   if (isWeekdaysMode.value && !selectedWeekdays.value.length) return 'select at least one day'
   return nextOccurrenceRelative.value
 })
-
-const dateAttributes = computed(() => [{
-  key: 'selected',
-  highlight: {
-    style: { backgroundColor: 'var(--ink-dark)', borderRadius: '4px' },
-    contentStyle: { color: 'var(--bg)' },
-  },
-  dates: new Date(startDate.value + 'T12:00:00'),
-}])
 </script>
 
 <template>
@@ -340,17 +314,12 @@ const dateAttributes = computed(() => [{
       </div>
     </template>
 
-    <Teleport to="body">
-      <template v-if="showDateModal">
-        <div class="modal-backdrop" @mousedown.prevent @click="showDateModal = false" />
-        <div class="modal-box" role="dialog" @mousedown.prevent @click.stop>
-          <VCalendar :attributes="dateAttributes" expanded locale="en" @dayclick="pickDate" />
-          <div class="modal-actions">
-            <button class="modal-btn modal-btn--cancel" @click="showDateModal = false">Close</button>
-          </div>
-        </div>
-      </template>
-    </Teleport>
+    <DatePickerModal
+      v-if="showDateModal"
+      :model-value="startDate"
+      @update:model-value="updateStartDate"
+      @close="showDateModal = false"
+    />
   </div>
 </template>
 
