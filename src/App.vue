@@ -1199,9 +1199,9 @@ watch(() => route.path, () => {
            tablet (see tablet.css's own .settings-head override), so this
            just rides along right before the Settings icon instead of
            needing its own separate placement/offsets. Real desktop shows
-           the dedicated widget/"Lists" button elsewhere (.focus-date-head,
-           Focus.vue's .lists-btn-desktop), so these stay hidden there. -->
-      <FocusDateWidget v-if="themeStore.dateListsEnabled && route.path === '/all'" compact class="tablet-icon-extra" />
+           Focus.vue's own "Lists" button elsewhere, so this stays hidden
+           there. No date-picker icon here at all — picking the date is
+           the widget itself (.focus-date-head), never a separate icon. -->
       <button
         v-if="themeStore.dateListsEnabled && route.path === '/focus'"
         class="nav-icon tablet-icon-extra"

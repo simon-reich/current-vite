@@ -1,21 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { CalendarClock } from '@lucide/vue'
 import { useThemeStore } from '../stores/theme'
 import DatePickerModal from './DatePickerModal.vue'
 
 // The Overview-only control for picking which date new "plan ahead"
 // assignments (swipe-split top zone, the per-card calendar icon) go to —
-// see CLAUDE.md's Date Lists section. Rendered at up to three different
-// places in App.vue/AllTodos.vue depending on breakpoint (desktop/tablet/
-// phone) — this component itself is breakpoint-agnostic, callers control
-// visibility/position via CSS.
-const props = withDefaults(defineProps<{
-  /** Icon-only rendering for cramped spots (tablet's nav-icon rail)
-   *  instead of the full mockup-style pill. */
-  compact?: boolean
-}>(), { compact: false })
-
+// see CLAUDE.md's Date Lists section. There is deliberately only this one
+// pill rendering — no separate icon-only trigger anywhere, on any
+// breakpoint; the widget itself is always the one and only way to open
+// the date picker. Rendered at whichever spots App.vue/AllTodos.vue place
+// it per breakpoint (desktop/tablet/phone) — this component itself is
+// breakpoint-agnostic, callers control visibility/position via CSS.
 const themeStore = useThemeStore()
 const showModal = ref(false)
 
@@ -41,16 +36,6 @@ function pick(dateStr: string) {
 
 <template>
   <button
-    v-if="compact"
-    type="button"
-    class="nav-icon focus-date-widget-compact"
-    :title="`Plan-ahead target: ${display.day}/${display.month}/${display.year} — click to change`"
-    @click="showModal = true"
-  >
-    <CalendarClock :size="24" />
-  </button>
-  <button
-    v-else
     type="button"
     class="focus-date-widget"
     title="Change the plan-ahead target date"
