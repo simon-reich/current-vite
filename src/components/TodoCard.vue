@@ -1584,9 +1584,9 @@ const zones = computed<SwipeZone[]>(() => {
   } else {
     if (!props.previewLocked) {
       const [fdx, fdy, fradius] = zoneOffset('focus')
-      list.push({ key: 'focus', label: 'For today', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+      list.push({ key: 'focus', label: 'Done', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
       const [dx, dy, radius] = zoneOffset('date')
-      list.push({ key: 'date', label: 'Done', cx: centerX + dx, cy: centerY + dy, radius })
+      list.push({ key: 'date', label: 'For today', cx: centerX + dx, cy: centerY + dy, radius })
     }
     const [ddx, ddy, dradius] = zoneOffset('delete')
     list.push({ key: 'delete', label: 'Remove', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
@@ -1866,7 +1866,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
 
   if (SWIPE_MODE === 'zones' && props.mode === 'today') {
     // Same three slots as Overview (see zones computed) — 'focus' is
-    // Done-for-today, 'date' is Done, 'delete' is Remove. Remove is
+    // Done, 'date' is Done-for-today, 'delete' is Remove. Remove is
     // non-destructive (the todo just goes back to the pool), unlike
     // Overview's Delete, so no confirmation here, same as the threshold
     // model's own swipe-left-to-remove.
@@ -1877,10 +1877,10 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       emit('remove-from-today', props.todo.id)
     } else if (hit === 'date') {
       springBackToCenter()
-      handleComplete(props.todo.id)
+      handleDoneForToday(props.todo.id)
     } else if (hit === 'focus') {
       springBackToCenter()
-      handleDoneForToday(props.todo.id)
+      handleComplete(props.todo.id)
     } else {
       springBackToCenter()
     }
