@@ -55,6 +55,9 @@ function pick(dateStr: string) {
 </template>
 
 <style scoped>
+/* Same look as the add-todo input (see .add-input in layout.css) — bg
+   fill, ink border/text, shadow only downward (no x-offset) in ink —
+   rather than its own separate style. */
 .focus-date-widget {
   display: inline-grid;
   grid-template-columns: auto auto;
@@ -62,19 +65,18 @@ function pick(dateStr: string) {
   column-gap: 8px;
   align-items: center;
   padding: 6px 12px;
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--bg);
+  color: var(--ink);
   border: 2px solid var(--ink);
   border-radius: var(--radius);
-  box-shadow: 5px 5px 0 var(--ink-dark);
+  box-shadow: 0 5px 0 var(--ink);
   cursor: pointer;
   font-family: var(--font-mono, monospace);
-  transition: box-shadow 0.12s, transform 0.12s;
+  transition: border-color 0.15s;
 }
 
 .focus-date-widget:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 6px 6px 0 var(--ink-dark);
+  border-color: var(--ink-dark);
 }
 
 .fdw-weekday {
@@ -99,6 +101,6 @@ function pick(dateStr: string) {
   font-weight: 700;
   line-height: 1;
   padding-left: 4px;
-  border-left: 2px solid var(--bg);
+  border-left: 2px solid var(--ink);
 }
 </style>
