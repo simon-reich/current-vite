@@ -94,16 +94,25 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    /* Lives inside .tablet-left-cluster in the template now, alongside
+       .sort-nav, so tablet's grid can treat both as one left-hand block
+       (see tablet.css) — that wrapper is `display:contents` on phone, so
+       this becomes a direct flex child of .main-head-inner again, just
+       earlier in DOM order than before (ahead of .add-wrapper instead of
+       after it). `order` restores its original spot to the right of the
+       input without needing a duplicate element, same idea as .sort-nav's
+       own `order: -1` in layout.css. */
+    order: 1;
   }
 
-  /* Same slot the tag icon sits in — label on top, switch below, DOM
-     order already matches (no reverse needed, unlike tablet.css). */
+  /* Same slot the tag icon sits in — label on top, switch below. */
   .mobile-subs-toggle {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
+    order: 1;
   }
 
   /* ── Tag panel (full screen overlay; shared bits in layout.css) ──

@@ -81,6 +81,17 @@
     justify-content: flex-start;
   }
 
+  /* .sort-nav's `order: -1` (layout.css) is what keeps it visually first
+     on desktop despite living later in the DOM here — but taken at face
+     value inside .tablet-left-cluster's own flex row, it would also pull
+     sort-nav ahead of the tag-panel toggle, reversing this row's intended
+     left-to-right reading (tags, then sort). Two-class selector so it
+     reliably outranks that single-class rule regardless of stylesheet
+     order. */
+  .tablet-left-cluster .sort-nav {
+    order: 1;
+  }
+
   .top-nav {
     grid-area: center;
   }
