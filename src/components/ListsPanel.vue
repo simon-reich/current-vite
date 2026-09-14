@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
-import { Trash2, ChevronLeft } from '@lucide/vue'
+import { computed, onUnmounted } from 'vue'
+import { Trash2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
 import { activeModal } from '../composables/useModalGuard'
-import TodoCard from './TodoCard.vue'
-import { assignFonts } from '../composables/useTodoFonts'
 
-// Browses every Date List that isn't the plain pool — today's own (if one
-// exists) plus every future one (see stores/todos.ts's futureFocusDates/
-// todosForFocusDate). Reached from Focus.vue's "Lists" button (desktop) or
-// the tablet/phone triggers in App.vue (see listsPanelOpen, provided from
-// App.vue and injected here would be redundant — this component is only
-// ever rendered while open, so a plain `close` emit is enough).
-const emit = defineEmits<{ close: [] }>()
+// Pure picker/deleter for Date Lists — picking a row swaps Focus.vue's
+// whole view over to that list (see its viewingDate), rather than
+// previewing it here in a cramped modal. Reached from Focus.vue's "Lists"
+// button (desktop) or the tablet/phone triggers in App.vue.
+const props = defineProps<{ viewingDate: string | null }>()
+const emit = defineEmits<{ select: [dateStr: string | null]; close: [] }>()
 
 const store = useTodosStore()
 
@@ -26,97 +23,61 @@ const allDates = computed(() => {
   return dates.map(d => ({ date: d, count: store.todosForFocusDate(d).length, isToday: d === today }))
 })
 
-const selectedDate = ref<string | null>(null)
-
-const previewTodos = computed(() => selectedDate.value ? store.todosForFocusDate(selectedDate.value) : [])
-const fontMap = computed(() => assignFonts(previewTodos.value.map(t => t.id)))
-const siblingIds = computed(() => previewTodos.value.map(t => t.id))
-
-function openDate(dateStr: string) {
-  selectedDate.value = dateStr
-}
-
-function backToList() {
-  selectedDate.value = null
+function select(dateStr: string | null) {
+  emit('select', dateStr)
 }
 
 function deleteList(dateStr: string) {
   store.deleteFocusDateList(dateStr)
-  if (selectedDate.value === dateStr) selectedDate.value = null
-}
-
-function removeFromPreview(id: string) {
-  if (selectedDate.value) store.unassignFocusDate(id, selectedDate.value)
+  if (props.viewingDate === dateStr) select(null)
 }
 
 function close() {
   emit('close')
 }
 
-// Same app-wide modal guard every other overlay uses — Escape closes this
-// (or steps back to the list from a date's preview), no single primary
-// Enter action.
-activeModal.value = { onCancel: () => { if (selectedDate.value) backToList(); else close() } }
+// Same app-wide modal guard every other overlay uses — Escape closes this,
+// no single primary Enter action (picking a row already applies and
+// closes it, mirroring DatePickerModal's own dayclick).
+activeModal.value = { onCancel: close }
 onUnmounted(() => {
-  if (activeModal.value?.onCancel) activeModal.value = null
+  if (activeModal.value?.onCancel === close) activeModal.value = null
 })
 </script>
 
 <template>
   <div class="modal-backdrop" @click="close" />
   <div class="modal-box lists-panel-box" role="dialog" @click.stop>
-    <template v-if="!selectedDate">
-      <h2 class="lists-panel-title">lists</h2>
-      <div v-if="allDates.length" class="lists-panel-list">
-        <div v-for="entry in allDates" :key="entry.date" class="lists-panel-row">
-          <button type="button" class="lists-panel-row-main" @click="openDate(entry.date)">
-            <span class="lists-panel-row-date">{{ entry.isToday ? 'Today' : entry.date }}</span>
-            <span class="lists-panel-row-count">{{ entry.count }}</span>
-          </button>
-          <button type="button" class="lists-panel-row-delete" title="Delete list" @click="deleteList(entry.date)">
-            <Trash2 :size="14" />
-          </button>
-        </div>
-      </div>
-      <p v-else class="lists-panel-empty">No upcoming lists planned yet.</p>
-
-      <div class="modal-actions">
-        <button class="modal-btn modal-btn--cancel" @click="close">close</button>
-      </div>
-    </template>
-
-    <template v-else>
-      <div class="lists-panel-detail-head">
-        <button type="button" class="lists-panel-back" title="Back to lists" @click="backToList">
-          <ChevronLeft :size="18" />
+    <h2 class="lists-panel-title">lists</h2>
+    <div class="lists-panel-list">
+      <button
+        type="button"
+        class="lists-panel-row-main"
+        :class="{ active: !viewingDate }"
+        @click="select(null)"
+      >
+        <span class="lists-panel-row-date">Default</span>
+      </button>
+      <div v-for="entry in allDates" :key="entry.date" class="lists-panel-row">
+        <button
+          type="button"
+          class="lists-panel-row-main"
+          :class="{ active: viewingDate === entry.date }"
+          @click="select(entry.date)"
+        >
+          <span class="lists-panel-row-date">{{ entry.isToday ? 'Today' : entry.date }}</span>
+          <span class="lists-panel-row-count">{{ entry.count }}</span>
         </button>
-        <h2 class="lists-panel-title">{{ selectedDate === todayStr() ? 'Today' : selectedDate }}</h2>
+        <button type="button" class="lists-panel-row-delete" title="Delete list" @click="deleteList(entry.date)">
+          <Trash2 :size="14" />
+        </button>
       </div>
-      <p v-if="selectedDate !== todayStr()" class="lists-panel-hint">
-        Preview only — Done/Done-for-today unlock once this day arrives.
-      </p>
-      <div v-if="previewTodos.length" class="lists-panel-preview">
-        <TodoCard
-          v-for="(todo, index) in previewTodos"
-          :key="todo.id"
-          :todo="todo"
-          :font="fontMap.get(todo.id)"
-          :sibling-ids="siblingIds"
-          :index="index"
-          mode="today"
-          :preview-locked="selectedDate !== todayStr()"
-          @remove-from-today="removeFromPreview"
-          @complete="store.completeTodo($event)"
-          @done-for-today="store.doneForToday($event)"
-          @delete="store.deleteTodo($event)"
-        />
-      </div>
-      <p v-else class="lists-panel-empty">Nothing planned for this day.</p>
+    </div>
+    <p v-if="!allDates.length" class="lists-panel-empty">No upcoming lists planned yet.</p>
 
-      <div class="modal-actions">
-        <button class="modal-btn modal-btn--cancel" @click="close">close</button>
-      </div>
-    </template>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn--cancel" @click="close">close</button>
+    </div>
   </div>
 </template>
 
@@ -130,7 +91,7 @@ onUnmounted(() => {
 
 @media (min-width: 701px) {
   .lists-panel-box {
-    width: 420px;
+    width: 380px;
   }
 }
 
@@ -187,6 +148,11 @@ onUnmounted(() => {
   transition: opacity 0.1s;
 }
 
+.lists-panel-row-main.active {
+  opacity: 1;
+  color: var(--ink-dark);
+}
+
 @media (hover: hover) {
   .lists-panel-row-main:hover {
     opacity: 1;
@@ -219,39 +185,5 @@ onUnmounted(() => {
   font-size: 14px;
   color: var(--ink);
   opacity: 0.6;
-}
-
-.lists-panel-detail-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lists-panel-back {
-  background: none;
-  border: none;
-  color: var(--ink);
-  cursor: pointer;
-  padding: 2px;
-}
-
-.lists-panel-hint {
-  font-size: 12px;
-  color: var(--ink);
-  opacity: 0.55;
-  font-family: var(--font-mono, monospace);
-}
-
-.lists-panel-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 50vh;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.lists-panel-preview::-webkit-scrollbar {
-  display: none;
 }
 </style>

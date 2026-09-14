@@ -1103,19 +1103,6 @@ watch(() => route.path, () => {
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
             <CalendarDays :size="27" />
           </RouterLink>
-          <!-- Tablet-width only (see .tablet-icon-extra in tablet.css) —
-               sits between Calendar and Settings. Real desktop already
-               shows the full widget/"Lists" button elsewhere, so these
-               stay hidden there. -->
-          <FocusDateWidget v-if="themeStore.dateListsEnabled && route.path === '/all'" compact class="tablet-icon-extra" />
-          <button
-            v-if="themeStore.dateListsEnabled && route.path === '/focus'"
-            class="nav-icon tablet-icon-extra"
-            title="Lists"
-            @click="listsPanelOpen = true"
-          >
-            <ListChecks :size="24" />
-          </button>
         </nav>
 
         <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
@@ -1207,6 +1194,22 @@ watch(() => route.path, () => {
 
     <!-- ══ DESKTOP: Settings head ══ -->
     <div class="settings-head desktop-only">
+      <!-- Tablet-width only (see .tablet-icon-extra in tablet.css) — this
+           container is already correctly positioned on both desktop and
+           tablet (see tablet.css's own .settings-head override), so this
+           just rides along right before the Settings icon instead of
+           needing its own separate placement/offsets. Real desktop shows
+           the dedicated widget/"Lists" button elsewhere (.focus-date-head,
+           Focus.vue's .lists-btn-desktop), so these stay hidden there. -->
+      <FocusDateWidget v-if="themeStore.dateListsEnabled && route.path === '/all'" compact class="tablet-icon-extra" />
+      <button
+        v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+        class="nav-icon tablet-icon-extra"
+        title="Lists"
+        @click="listsPanelOpen = true"
+      >
+        <ListChecks :size="24" />
+      </button>
       <button
         ref="settingsBtnRef"
         class="settings-btn"

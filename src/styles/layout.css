@@ -634,6 +634,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 10px;
   padding: 12px 16px;
 }
 
@@ -648,6 +649,10 @@
   grid-column: 3;
   grid-row: 2;
   display: flex;
+  /* Without an explicit align-items, this flex item defaults to `stretch`
+     — the widget button then filled the entire 1fr content row (nearly
+     the full viewport height) instead of sizing to its own content. */
+  align-items: flex-start;
   justify-content: flex-end;
   padding: 12px 16px;
 }

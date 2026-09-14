@@ -56,3 +56,11 @@ export function spawnSentToFocusToast(todoId: string) {
 export function spawnRemovedFromFocusToast(todoId: string) {
   spawnCardMoveToast(todoId, 'removed from Focus')
 }
+
+// The card doesn't move anywhere (see stores/todos.ts's assignFocusDate) —
+// same "rises from the card's own position" idea as the other two above,
+// just labeled with the target date instead of "Focus".
+export function spawnPlannedForDateToast(todoId: string, dateStr: string) {
+  const [, m, d] = dateStr.split('-')
+  spawnCardMoveToast(todoId, `planned for ${d}/${m}`)
+}

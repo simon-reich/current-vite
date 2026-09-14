@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, inject } from 'vue'
 import type { Ref } from 'vue'
-import { Plus, Check, Pencil, ListChecks } from '@lucide/vue'
+import { Plus, Check, Pencil, ListChecks, ChevronLeft } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -30,12 +30,16 @@ function rank(t: { tags: string[] }): number {
   return t.tags.includes(PRIORITY_TAG_ID) ? 0 : 1
 }
 
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 // Focus is deliberately unfilterable — it's already the curated, small
 // subset by design, and always shows every todo that's in it regardless
 // of whatever All/Prio/Loop/tag filter happens to be active in Overview
 // (see App.vue's #app.is-focus rules, which gray out that whole filter
 // UI here instead of just silently ignoring it).
-const filteredTodos = computed(() => {
+const defaultFocusTodos = computed(() => {
   return [...store.todayTodos].sort((a, b) => {
     const rankDiff = rank(a) - rank(b)
     if (rankDiff !== 0) return rankDiff
@@ -45,25 +49,57 @@ const filteredTodos = computed(() => {
   })
 })
 
-const fontMap = computed(() => assignFonts(filteredTodos.value.map(t => t.id)))
-const siblingIds = computed(() => filteredTodos.value.map(t => t.id))
+// null = the default Focus list above. Set via ListsPanel.vue's picker —
+// swaps this whole view for one other Date List's todos instead of
+// stacking it in a separate cramped overlay (see ListsPanel.vue, which is
+// now purely a date picker/deleter, no embedded preview of its own).
+const viewingDate = ref<string | null>(null)
+
+const displayedTodos = computed(() => {
+  if (!viewingDate.value) return defaultFocusTodos.value
+  return [...store.todosForFocusDate(viewingDate.value)].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b)
+    if (rankDiff !== 0) return rankDiff
+    return a.createdAt.localeCompare(b.createdAt)
+  })
+})
+
+// Only today's own Date List (if viewing one) behaves like real Focus —
+// any other day is still in the future, so Done/Done-for-today stay
+// locked (see TodoCard.vue's previewLocked) until it actually arrives.
+const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
+
+const viewingDateLabel = computed(() => viewingDate.value === todayStr() ? 'Today' : viewingDate.value)
+
+function backToDefault() {
+  viewingDate.value = null
+}
+
+function onListSelected(dateStr: string | null) {
+  viewingDate.value = dateStr
+  listsPanelOpen.value = false
+}
+
+const fontMap = computed(() => assignFonts(displayedTodos.value.map(t => t.id)))
+const siblingIds = computed(() => displayedTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
 
 // Mirrors AllTodos.vue's sendToFocus, `obvious` included — a card leaving
 // this list otherwise just vanishes with no explanation. Toast rises from
-// the card's own position, skipped for a direct CircleMinus click.
+// the card's own position, skipped for a direct CircleMinus click. Removing
+// from a future Date List (see viewingDate) only ever unassigns that one
+// date — removeFromToday's own "leaves however it got there" behavior is
+// specifically for today's Focus, not a day that hasn't arrived yet.
 function removeFromFocus(id: string, obvious?: boolean) {
   if (!obvious) spawnRemovedFromFocusToast(id)
-  store.removeFromToday(id)
+  if (viewingLockedDate.value) store.unassignFocusDate(id, viewingDate.value!)
+  else store.removeFromToday(id)
 }
 
 // ── Checks ──
 // Below the todo list, no divider — see CLAUDE.md's Checks section for the
 // full design rationale (background reminders, lower weight than a Todo).
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 function onToggleCheck(check: CheckItem, event: MouseEvent) {
   const becomingChecked = !checksStore.isCompletedOn(check, todayStr())
@@ -113,8 +149,15 @@ function editFromAllChecks(check: CheckItem) {
 </script>
 
 <template>
-  <div class="focus-view" :class="{ 'is-empty': !filteredTodos.length }">
-    <div v-if="themeStore.subsEnabled && filteredTodos.length" class="expand-subs-row">
+  <div class="focus-view" :class="{ 'is-empty': !displayedTodos.length }">
+    <div v-if="viewingDate" class="viewing-date-banner">
+      <button type="button" class="viewing-date-back" @click="backToDefault">
+        <ChevronLeft :size="16" /> Default
+      </button>
+      <span class="viewing-date-label">{{ viewingDateLabel }}</span>
+    </div>
+
+    <div v-if="themeStore.subsEnabled && displayedTodos.length" class="expand-subs-row">
       <span class="expand-subs-label">subs</span>
       <button
         type="button"
@@ -140,9 +183,9 @@ function editFromAllChecks(check: CheckItem) {
       <ListChecks :size="14" /> <span>Lists</span>
     </button>
 
-    <div v-if="filteredTodos.length" class="todo-wrap">
+    <div v-if="displayedTodos.length" class="todo-wrap">
       <TodoCard
-        v-for="(todo, index) in filteredTodos"
+        v-for="(todo, index) in displayedTodos"
         :key="todo.id"
         :data-flip-id="todo.id"
         :todo="todo"
@@ -150,6 +193,7 @@ function editFromAllChecks(check: CheckItem) {
         :sibling-ids="siblingIds"
         :index="index"
         :force-expand-subs="themeStore.expandFocusSubs"
+        :preview-locked="viewingLockedDate"
         mode="today"
         @remove-from-today="removeFromFocus"
         @complete="store.completeTodo($event)"
@@ -157,7 +201,7 @@ function editFromAllChecks(check: CheckItem) {
         @delete="store.deleteTodo($event)"
       />
     </div>
-    <p v-else class="empty">Nothing in focus right now.</p>
+    <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in focus right now.' }}</p>
 
     <div v-if="themeStore.checksEnabled" class="checks-section">
       <div class="checks-header">
@@ -218,7 +262,12 @@ function editFromAllChecks(check: CheckItem) {
     @close="closeCheckModal"
   />
 
-  <ListsPanel v-if="listsPanelOpen" @close="listsPanelOpen = false" />
+  <ListsPanel
+    v-if="listsPanelOpen"
+    :viewing-date="viewingDate"
+    @select="onListSelected"
+    @close="listsPanelOpen = false"
+  />
 
   <AllChecksModal
     v-if="showAllChecks"
@@ -238,6 +287,42 @@ function editFromAllChecks(check: CheckItem) {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+}
+
+.viewing-date-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.viewing-date-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--ink);
+  opacity: 0.6;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.1s;
+}
+
+@media (hover: hover) {
+  .viewing-date-back:hover {
+    opacity: 1;
+  }
+}
+
+.viewing-date-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-dark);
+  font-family: var(--font-mono, monospace);
 }
 
 /* Desktop (unqualified — see base.css's breakpoint convention): pinned

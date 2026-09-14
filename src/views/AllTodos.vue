@@ -7,7 +7,7 @@ import TodoCard from '../components/TodoCard.vue'
 import FocusDateWidget from '../components/FocusDateWidget.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { spawnSentToFocusToast } from '../composables/useToast'
+import { spawnSentToFocusToast, spawnPlannedForDateToast } from '../composables/useToast'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
 
 const store = useTodosStore()
@@ -114,14 +114,19 @@ function sendToFocus(id: string, obvious?: boolean) {
 // Overview (see the plan's "Overview bleibt unberührt" guarantee).
 function sendToFocusDate(id: string) {
   store.assignFocusDate(id, themeStore.selectedFocusDate)
+  spawnPlannedForDateToast(id, themeStore.selectedFocusDate)
 }
 </script>
 
 <template>
   <div class="all-todos" :class="{ 'list-view': listView }">
     <!-- Phone only (desktop/tablet render their own instance in App.vue) —
-         scrolls away with the list instead of staying fixed. -->
-    <div v-if="themeStore.dateListsEnabled" class="focus-date-widget-phone-row mobile-only">
+         scrolls away with the list instead of staying fixed. Hidden via
+         its own media query below (max-width:700px), not the shared
+         .mobile-only utility class — that class's plain selector loses to
+         this component's scoped, higher-specificity one and would show it
+         everywhere instead. -->
+    <div v-if="themeStore.dateListsEnabled" class="focus-date-widget-phone-row">
       <FocusDateWidget />
     </div>
 
@@ -155,9 +160,15 @@ function sendToFocusDate(id: string) {
 }
 
 .focus-date-widget-phone-row {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .focus-date-widget-phone-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
 }
 
 .all-todos.list-view {

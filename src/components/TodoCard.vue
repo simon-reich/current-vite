@@ -1482,15 +1482,40 @@ const showSwipeZoneSplit = computed(() =>
   props.mode === 'all' && !props.todo.inToday && themeStore.dateListsEnabled
 )
 
-// Which half of the backdrop the pointer is currently over while a
-// rightward swipe is armed — top = plan onto the widget's selected date,
-// bottom = today's default Focus. Read by onDragEnd, same "whatever's on
-// screen when the finger lifts is what fires" contract as armedDir itself.
+// Which of the two zones a rightward swipe currently targets — top (date)
+// vs. bottom (focus). Driven by the drag's own relative vertical offset
+// from where the gesture started (info.offset.y), the same "relative, not
+// absolute" approach armedDir itself already uses for the horizontal
+// arm/release thresholds — an absolute-position version (comparing
+// info.point.y, which is page- not viewport-relative, against a
+// backdropRect cached once at drag start) tracked the pointer inconsistently
+// once the gesture moved. A small deadzone (rather than a bare sign check)
+// stops it flickering right at the midpoint. Read by onDragEnd, same
+// "whatever's on screen when the finger lifts is what fires" contract as
+// armedDir itself.
 const armedZone = ref<'date' | 'focus'>('focus')
+// Two distinct thresholds (not one shared boundary) — real hysteresis, so
+// hovering exactly at the switch point can't flicker back and forth.
+const ZONE_ENTER_DATE_OFFSET = -24
+const ZONE_EXIT_DATE_OFFSET = -8
 
 function formatShortDate(dateStr: string): string {
   const [, m, d] = dateStr.split('-')
   return `${d}/${m}`
+}
+
+// Planning a todo onto a Date List doesn't move it anywhere (it stays put
+// in Overview — see onDragEnd's swipedRight branch above) — this brief
+// pulse is the only on-card feedback that anything happened at all, since
+// nothing else about the card visually changes besides the small badge
+// dot (see .focus-date-dot) gaining a new date.
+const justPlanned = ref(false)
+function triggerPlannedPulse() {
+  justPlanned.value = false
+  requestAnimationFrame(() => {
+    justPlanned.value = true
+    setTimeout(() => { justPlanned.value = false }, 500)
+  })
 }
 
 function animateOutPuff(): Promise<void> {
@@ -1671,9 +1696,9 @@ function onDrag(_event: PointerEvent, info: PanInfo) {
     y.set(info.offset.y)
   }
 
-  if (showSwipeZoneSplit.value && backdropRect.value) {
-    const mid = backdropRect.value.top + backdropRect.value.height / 2
-    armedZone.value = info.point.y < mid ? 'date' : 'focus'
+  if (showSwipeZoneSplit.value) {
+    if (armedZone.value === 'focus' && info.offset.y < ZONE_ENTER_DATE_OFFSET) armedZone.value = 'date'
+    else if (armedZone.value === 'date' && info.offset.y > ZONE_EXIT_DATE_OFFSET) armedZone.value = 'focus'
   }
 }
 
@@ -1716,12 +1741,22 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
     }
   } else if (swipedRight) {
     if (props.mode === 'all') {
-      await flyOutRight()
-      if (!props.todo.inToday) {
-        if (showSwipeZoneSplit.value && armedZone.value === 'date') emit('send-to-focus-date', props.todo.id)
-        else emit('send-to-today', props.todo.id)
+      // Planning onto a Date List never removes the card from Overview
+      // (see stores/todos.ts's assignFocusDate) — flying it out like the
+      // other two branches below (which really do leave this list) left a
+      // permanently blank gap: the array never actually loses this todo,
+      // so nothing ever re-triggers an entrance to replace the flown-out
+      // motion values. Spring back in place instead and let the caller's
+      // toast + this card's own "just planned" pulse (see plannedPulse)
+      // carry the "yes, that worked" feedback.
+      if (!props.todo.inToday && showSwipeZoneSplit.value && armedZone.value === 'date') {
+        springBackToCenter()
+        triggerPlannedPulse()
+        emit('send-to-focus-date', props.todo.id)
       } else {
-        emit('remove-from-today', props.todo.id)
+        await flyOutRight()
+        if (!props.todo.inToday) emit('send-to-today', props.todo.id)
+        else emit('remove-from-today', props.todo.id)
       }
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
@@ -1811,7 +1846,7 @@ onUnmounted(() => {
     <div
       ref="swipeContainerRef"
       class="swipe-container"
-      :class="{ open: showMenu || showTagMenu, loop: previewIsLoop }"
+      :class="{ open: showMenu || showTagMenu, loop: previewIsLoop, 'just-planned': justPlanned }"
     >
       <Teleport to="body">
         <Transition name="swipe-indicator">
@@ -1957,7 +1992,7 @@ onUnmounted(() => {
               v-if="themeStore.dateListsEnabled"
               class="card-btn calendar-plus-btn"
               :title="`Plan for ${themeStore.selectedFocusDate}`"
-              @click.stop="emit('send-to-focus-date', todo.id)"
+              @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
             >
               <CalendarPlus :size="18" />
             </button>
@@ -2200,6 +2235,20 @@ onUnmounted(() => {
   .swipe-container:not(.open):hover {
     transform: scale(1.035);
   }
+}
+
+/* The only on-card feedback that planning onto a Date List actually did
+   something (see justPlanned/triggerPlannedPulse) — the card itself never
+   moves or leaves Overview, so this has to read as "yes, that landed"
+   entirely on its own. */
+@keyframes planned-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+.swipe-container.just-planned .todo-card {
+  animation: planned-pulse 0.4s ease-out;
 }
 
 /* What-would-happen layer (see swipeAction/swipeArmed) — teleported to body,
