@@ -1504,6 +1504,67 @@ function formatShortDate(dateStr: string): string {
   return `${d}/${m}`
 }
 
+// ── Swipe interaction mode ──────────────────────────────────────────
+// 'zones': Overview's drop-in-a-circle model below (date/delete/focus,
+// see zoneHit/onDrag/onDragEnd's early-return branches) — absolute-
+// position hit-testing against three fixed circles, no arm/release
+// thresholds at all. 'threshold': the original horizontal-swipe-distance
+// arming model above (armedDir/armDistance/releaseMargin), left fully
+// intact rather than deleted. Flip this one constant to switch between
+// them instantly. Only affects Overview (mode 'all') — Focus's own
+// swipe-left/right (remove/open the Done menu) always uses the threshold
+// model regardless, since the zone concept was specifically about
+// Overview's three-way date/delete/focus choice.
+const SWIPE_MODE: 'zones' | 'threshold' = 'zones'
+
+interface SwipeZone {
+  key: 'date' | 'delete' | 'focus'
+  label: string
+  cx: number
+  cy: number
+  radius: number
+}
+
+// Smaller on phone (less room, and a touch grip is more precise than a
+// mouse cursor anyway) — same breakpoint armDistance()/releaseMargin()
+// already use. Insets are deliberately generous relative to the radii —
+// that's what leaves a genuinely large, easy-to-hit "drop without firing
+// anything" dead zone in the middle/elsewhere, rather than tuning a
+// separate neutral-zone margin the way the threshold model needs to.
+function zoneRadius(): number {
+  return window.innerWidth <= 700 ? 56 : 72
+}
+function zoneRadiusSmall(): number {
+  return window.innerWidth <= 700 ? 46 : 58
+}
+function zoneInset(): number {
+  return window.innerWidth <= 700 ? 70 : 110
+}
+
+// Date only offered while not already in Focus (mirrors showSwipeZoneSplit
+// above) — an already-in-Focus card swiping here is a plain removal, same
+// as the threshold model's own "Remove" vs. "Focus" split.
+const zones = computed<SwipeZone[]>(() => {
+  const rect = backdropRect.value
+  if (!rect) return []
+  const inset = zoneInset()
+  const list: SwipeZone[] = []
+  if (!props.todo.inToday && themeStore.dateListsEnabled) {
+    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: rect.left + rect.width - inset, cy: rect.top + inset, radius: zoneRadius() })
+  }
+  list.push({ key: 'delete', label: 'Delete', cx: rect.left + inset, cy: rect.top + rect.height / 2, radius: zoneRadiusSmall() })
+  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: rect.left + rect.width - inset, cy: rect.top + rect.height - inset, radius: zoneRadius() })
+  return list
+})
+
+// The one authoritative "what would happen on release" state for zones
+// mode — same role armedDir/armedZone play for the threshold model.
+const zoneHit = ref<'date' | 'delete' | 'focus' | null>(null)
+
+watch(zoneHit, (hit, prev) => {
+  if (hit !== prev) navigator.vibrate?.(hit === null ? 8 : 12)
+})
+
 // Planning a todo onto a Date List doesn't move it anywhere (it stays put
 // in Overview — see onDragEnd's swipedRight branch above) — this brief
 // pulse plus the toast (see AllTodos.vue's sendToFocusDate) are the only
@@ -1638,6 +1699,7 @@ function onDragStart() {
   armedDir.value = 0
   swipeRelX.value = 0
   armedZone.value = 'focus'
+  zoneHit.value = null
   everArmed = false
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
@@ -1664,7 +1726,27 @@ function onDragStart() {
   }
 }
 
-function onDrag(_event: PointerEvent, info: PanInfo) {
+function onDrag(event: PointerEvent, info: PanInfo) {
+  if (SWIPE_MODE === 'zones' && props.mode === 'all') {
+    // Same engage-then-follow gating as the threshold model's own y.set
+    // below — keeps a mostly-vertical touch free to scroll the list
+    // natively instead of being claimed the instant any drag starts.
+    if (Math.abs(info.offset.x) > DRAG_ENGAGE_THRESHOLD) y.set(info.offset.y)
+    // clientX/clientY (viewport-relative), not info.point (page-relative,
+    // includes scroll offset) — the exact mismatch that made the old
+    // armedZone tracking drift once the list had scrolled (see its own
+    // comment above). backdropRect is viewport-relative too (getBoundingClientRect),
+    // so both sides of this comparison now agree.
+    let hit: typeof zoneHit.value = null
+    for (const zone of zones.value) {
+      const dx = event.clientX - zone.cx
+      const dy = event.clientY - zone.cy
+      if (dx * dx + dy * dy <= zone.radius * zone.radius) { hit = zone.key; break }
+    }
+    zoneHit.value = hit
+    return
+  }
+
   const rawX = info.offset.x
   const rel = rawX - refX
   if (Math.abs(rel) > Math.abs(extremeX - refX)) extremeX = rawX
@@ -1720,6 +1802,30 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
   window.removeEventListener('pointercancel', releaseGripFallback)
   unlockScroll()
   isGripped.value = false
+
+  if (SWIPE_MODE === 'zones' && props.mode === 'all') {
+    const hit = zoneHit.value
+    zoneHit.value = null
+    if (hit === 'delete') {
+      // Same as the threshold model's own delete path — snap back first
+      // (no fly/puff yet), confirm, only then animate.
+      x.set(0)
+      y.set(0)
+      pendingDelete.value = true
+    } else if (hit === 'date') {
+      springBackToCenter()
+      triggerPlannedPulse()
+      emit('send-to-focus-date', props.todo.id)
+    } else if (hit === 'focus') {
+      await flyOutRight()
+      if (!props.todo.inToday) emit('send-to-today', props.todo.id)
+      else emit('remove-from-today', props.todo.id)
+    } else {
+      springBackToCenter()
+    }
+    return
+  }
+
   const swipedLeft = armedDir.value === -1
   const swipedRight = armedDir.value === 1
   refX = 0
@@ -1848,10 +1954,13 @@ onUnmounted(() => {
       class="swipe-container"
       :class="{ open: showMenu || showTagMenu, loop: previewIsLoop, 'just-planned': justPlanned }"
     >
+      <!-- Threshold model's own backdrop/indicator — see SWIPE_MODE above.
+           Left fully intact, just inert while SWIPE_MODE is 'zones' (for
+           Overview; Focus's swipe always uses this one regardless). -->
       <Teleport to="body">
         <Transition name="swipe-indicator">
           <div
-            v-if="isGripped && backdropRect"
+            v-if="isGripped && backdropRect && !(SWIPE_MODE === 'zones' && mode === 'all')"
             class="swipe-backdrop"
             :class="{ split: showSwipeZoneSplit && armedDir !== -1 }"
             :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
@@ -1870,6 +1979,29 @@ onUnmounted(() => {
               <div class="swipe-backdrop-fill" :class="{ visible: swipeArmed }" />
               <span class="swipe-indicator" :class="{ armed: swipeArmed }">{{ swipeAction.label }}</span>
             </template>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- Zones model — see SWIPE_MODE above. Each circle is its own
+           position:fixed element in the same viewport coordinate space
+           onDrag's hit-testing uses (event.clientX/clientY), rather than
+           living inside a single backdrop box — sidesteps any risk of an
+           ancestor's overflow/stacking context clipping or mispositioning
+           them, and keeps the geometry (zones computed) as the one single
+           source of truth for both hit-testing and rendering. -->
+      <Teleport to="body">
+        <Transition name="swipe-indicator">
+          <div v-if="isGripped && SWIPE_MODE === 'zones' && mode === 'all'" class="swipe-zones-layer">
+            <div
+              v-for="zone in zones"
+              :key="zone.key"
+              class="swipe-zone-circle"
+              :class="{ armed: zoneHit === zone.key }"
+              :style="{ left: zone.cx + 'px', top: zone.cy + 'px', width: zone.radius * 2 + 'px', height: zone.radius * 2 + 'px' }"
+            >
+              <span class="swipe-zone-label">{{ zone.label }}</span>
+            </div>
           </div>
         </Transition>
       </Teleport>
@@ -2326,6 +2458,50 @@ onUnmounted(() => {
 .swipe-indicator-enter-from,
 .swipe-indicator-leave-to {
   opacity: 0;
+}
+
+/* ── Zones model (see SWIPE_MODE) ── No full-page dim behind these —
+   unlike the threshold model's single centered label, three separate
+   targets read better against the actual list than a darkened one, and
+   each circle is its own fill/armed indicator anyway. */
+.swipe-zones-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  pointer-events: none;
+}
+
+.swipe-zone-circle {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--bg);
+  opacity: 0.6;
+  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+}
+
+.swipe-zone-circle.armed {
+  opacity: 1;
+  background: var(--ink);
+  transform: translate(-50%, -50%) scale(1.12);
+}
+
+.swipe-zone-label {
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.swipe-zone-circle.armed .swipe-zone-label {
+  color: var(--bg);
 }
 
 .todo-card {
