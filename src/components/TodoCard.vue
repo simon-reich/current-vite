@@ -829,6 +829,14 @@ function onTitleTabKeydown(e: KeyboardEvent) {
 function onSubInputKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
+    // Enter on an empty draft isn't "add an empty sub" (submitNewSub already
+    // no-ops on that) — it reads as "never mind", so it should back out of
+    // the input entirely instead of just sitting there, landing back on the
+    // still-open card one level up rather than closing it outright.
+    if (!newSubTitle.value.trim()) {
+      newSubInputRef.value?.blur()
+      return
+    }
     submitNewSub()
     return
   }
