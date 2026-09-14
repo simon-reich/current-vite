@@ -1527,21 +1527,28 @@ interface SwipeZone {
 
 // Smaller on phone (less room, and a touch grip is more precise than a
 // mouse cursor anyway) — same breakpoint armDistance()/releaseMargin()
-// already use. The inset is measured *in* from each edge — a *bigger*
-// inset pulls a circle further away from the corner/edge and toward the
-// center (less travel to reach it), the opposite of what a first guess
-// suggests. Delete stays noticeably smaller than date/focus — it's the
-// one destructive action of the three, worth being a harder target to
-// hit by accident.
+// already use. Delete stays noticeably smaller than date/focus — it's
+// the one destructive action of the three, worth being a harder target
+// to hit by accident.
 function zoneRadius(): number {
-  return window.innerWidth <= 700 ? 78 : 104
+  return window.innerWidth <= 700 ? 90 : 120
 }
 function zoneRadiusSmall(): number {
-  return window.innerWidth <= 700 ? 46 : 60
+  return window.innerWidth <= 700 ? 48 : 62
 }
-function zoneInset(): number {
-  return window.innerWidth <= 700 ? 92 : 150
+
+// Distance from the card's own center each zone sits at — an orbit
+// around the middle rather than three corners, so all three read as
+// "arranged around where the card already is" instead of "pinned to the
+// edges of the screen." Date/focus sit up-right/down-right on that
+// orbit (55° off the horizontal — mostly toward their own corner, but
+// pulled well in from it), delete sits due left at the same distance;
+// the three still keep real separation from each other (125°/125°/110°
+// apart) without needing to hug a corner to get it.
+function zoneOrbitRadius(): number {
+  return window.innerWidth <= 700 ? 150 : 230
 }
+const ZONE_ANGLE_DEG = 55
 
 // Date only offered while not already in Focus (mirrors showSwipeZoneSplit
 // above) — an already-in-Focus card swiping here is a plain removal, same
@@ -1549,13 +1556,18 @@ function zoneInset(): number {
 const zones = computed<SwipeZone[]>(() => {
   const rect = backdropRect.value
   if (!rect) return []
-  const inset = zoneInset()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const orbit = zoneOrbitRadius()
+  const angle = ZONE_ANGLE_DEG * (Math.PI / 180)
+  const dx = orbit * Math.cos(angle)
+  const dy = orbit * Math.sin(angle)
   const list: SwipeZone[] = []
   if (!props.todo.inToday && themeStore.dateListsEnabled) {
-    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: rect.left + rect.width - inset, cy: rect.top + inset, radius: zoneRadius() })
+    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: centerX + dx, cy: centerY - dy, radius: zoneRadius() })
   }
-  list.push({ key: 'delete', label: 'Delete', cx: rect.left + inset, cy: rect.top + rect.height / 2, radius: zoneRadiusSmall() })
-  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: rect.left + rect.width - inset, cy: rect.top + rect.height - inset, radius: zoneRadius() })
+  list.push({ key: 'delete', label: 'Delete', cx: centerX - orbit, cy: centerY, radius: zoneRadiusSmall() })
+  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + dx, cy: centerY + dy, radius: zoneRadius() })
   return list
 })
 
