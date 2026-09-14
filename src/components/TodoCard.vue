@@ -1539,9 +1539,9 @@ interface SwipeZone {
 // Focus (the far more common action) rather than Date. Delete pulled in
 // closer to center horizontally too.
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
-  focus:  { phone: [95, -180, 92],  desktop: [155, -270, 122] },
-  date:   { phone: [-95, -150, 72], desktop: [-150, -220, 96] },
-  delete: { phone: [25, 175, 48],   desktop: [40, 260, 62] },
+  focus:  { phone: [95, -180, 92],   desktop: [155, -270, 122] },
+  date:   { phone: [-95, -150, 92],  desktop: [-150, -220, 122] },
+  delete: { phone: [0, 210, 48],     desktop: [0, 300, 62] },
 }
 
 function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
