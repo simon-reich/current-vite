@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
+import { CalendarPlus } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -9,6 +10,7 @@ import { useScrollTracking } from '../composables/useScrollTracking'
 import ScrollDivider from '../components/ScrollDivider.vue'
 
 const store = useTodosStore()
+const router = useRouter()
 const checksStore = useChecksStore()
 const themeStore = useThemeStore()
 const calendarRef = ref<any>(null)
@@ -76,6 +78,14 @@ const checksActiveDates = computed(() => {
   return [...days].map(d => new Date(d + 'T12:00:00'))
 })
 
+// Future days already carrying a planned Date List (see stores/todos.ts's
+// futureFocusDates) — its own dot type, dimmer than the solid "done/
+// worked" one above since nothing has actually happened on these days yet.
+const plannedActiveDates = computed(() => {
+  if (!themeStore.dateListsEnabled) return []
+  return store.futureFocusDates.map(d => new Date(d + 'T12:00:00'))
+})
+
 const attributes = computed(() => {
   const attrs: object[] = []
   if (selectedDate.value) {
@@ -115,6 +125,9 @@ const attributes = computed(() => {
   if (checksActiveDates.value.length) {
     attrs.push({ key: 'checksActive', dot: { style: { backgroundColor: 'var(--ink)', opacity: 0.4 } }, dates: checksActiveDates.value })
   }
+  if (plannedActiveDates.value.length) {
+    attrs.push({ key: 'plannedActive', dot: { style: { backgroundColor: 'var(--ink)', opacity: 0.2 } }, dates: plannedActiveDates.value })
+  }
   return attrs
 })
 
@@ -145,6 +158,23 @@ const checksOnDay = computed(() => selectedDate.value && themeStore.checksEnable
 // on a day it was never itself Done/Done-for-today (see dayEntries below),
 // which is exactly why subs-only progress still lands on the calendar.
 const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? store.subsCompletedOn(selectedDate.value) : [])
+
+// Todos already planned onto the selected day's Date List (see
+// stores/todos.ts's focusDates) — meaningful for today or any future day,
+// shown in its own section since nothing here has actually happened yet
+// (unlike dayEntries/checksOnDay, which are all history).
+const plannedOnDay = computed(() => selectedDate.value && themeStore.dateListsEnabled ? store.todosForFocusDate(selectedDate.value) : [])
+
+const isFutureDate = computed(() => !!selectedDate.value && selectedDate.value > todayStr())
+
+// Jumps to Overview with the widget already pointed at this day, ready to
+// assign todos to it without a separate date-picker step — see
+// FocusDateWidget.vue/stores/theme.ts's selectedFocusDate.
+function planThisDay() {
+  if (!selectedDate.value) return
+  themeStore.setSelectedFocusDate(selectedDate.value)
+  router.push('/all')
+}
 
 const hasActivity = computed(() => dayEntries.value.length > 0 || checksOnDay.value.length > 0)
 
@@ -217,7 +247,25 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           appear-from-class="unfold-appear-from"
         >
           <div :key="selectedDate" class="day-detail-content">
-            <p class="day-label">{{ selectedDateLabel }}</p>
+            <div class="day-label-row">
+              <p class="day-label">{{ selectedDateLabel }}</p>
+              <button
+                v-if="themeStore.dateListsEnabled && isFutureDate"
+                type="button"
+                class="plan-day-btn"
+                title="Plan this day in Overview"
+                @click="planThisDay"
+              >
+                <CalendarPlus :size="16" />
+              </button>
+            </div>
+
+            <div v-if="themeStore.dateListsEnabled && plannedOnDay.length" class="day-items planned-items">
+              <p class="planned-items-label">planned</p>
+              <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item day-item--planned">
+                {{ todo.title }}
+              </div>
+            </div>
 
             <div v-if="hasActivity" class="day-items">
               <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
@@ -243,7 +291,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               </div>
             </div>
 
-            <p v-else class="no-activity">No activity for this day.</p>
+            <p v-else-if="!plannedOnDay.length" class="no-activity">No activity for this day.</p>
           </div>
         </transition>
 
@@ -355,6 +403,44 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-family: var(--font-playful, sans-serif);
+}
+
+.day-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-day-btn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink);
+  opacity: 0.5;
+  cursor: pointer;
+  padding: 2px;
+  transition: opacity 0.1s;
+}
+
+@media (hover: hover) {
+  .plan-day-btn:hover {
+    opacity: 1;
+  }
+}
+
+.planned-items-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono, monospace);
+}
+
+.day-item--planned {
+  opacity: 0.7;
 }
 
 .day-items {

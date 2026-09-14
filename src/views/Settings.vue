@@ -188,6 +188,17 @@ watch(deleteThemeConfirm, (open) => {
       </section>
     </div>
 
+    <!-- Date lists -->
+    <div class="section-row">
+      <section class="section">
+        <h2 class="section-title">date lists</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled || themeStore.toggleDateLists()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled && themeStore.toggleDateLists()">off</button>
+        </div>
+      </section>
+    </div>
+
     <!-- Data -->
     <section class="section">
       <h2 class="section-title">data</h2>
