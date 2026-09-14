@@ -4,7 +4,6 @@ import type { Ref } from 'vue'
 import { useTodosStore, LOOP_TAG_ID, type Todo } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
-import FocusDateWidget from '../components/FocusDateWidget.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnSentToFocusToast, spawnPlannedForDateToast } from '../composables/useToast'
@@ -120,16 +119,6 @@ function sendToFocusDate(id: string) {
 
 <template>
   <div class="all-todos" :class="{ 'list-view': listView }">
-    <!-- Phone only (desktop/tablet render their own instance in App.vue) —
-         scrolls away with the list instead of staying fixed. Hidden via
-         its own media query below (max-width:700px), not the shared
-         .mobile-only utility class — that class's plain selector loses to
-         this component's scoped, higher-specificity one and would show it
-         everywhere instead. -->
-    <div v-if="themeStore.dateListsEnabled" class="focus-date-widget-phone-row">
-      <FocusDateWidget />
-    </div>
-
     <div v-if="filteredTodos.length" class="todo-wrap" :class="{ 'list-view': listView }">
       <TodoCard
         v-for="(todo, index) in filteredTodos"
@@ -157,18 +146,6 @@ function sendToFocusDate(id: string) {
 .all-todos {
   width: 100%;
   max-width: min(70vw, 1100px);
-}
-
-.focus-date-widget-phone-row {
-  display: none;
-}
-
-@media (max-width: 700px) {
-  .focus-date-widget-phone-row {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 16px;
-  }
 }
 
 .all-todos.list-view {

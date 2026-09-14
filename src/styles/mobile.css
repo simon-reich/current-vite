@@ -26,6 +26,20 @@
     z-index: 20;
   }
 
+  /* Sits right at .main-head's own bottom edge (position:absolute here
+     works because `position: sticky` on .main-head above already
+     establishes a containing block for it, same as `position: relative`
+     would) — rides along with .main-head while the list scrolls
+     underneath, no fixed pixel offset computed anywhere. z-index between
+     .scroll-divider's (5) and .main-head's own (20) so it stays above the
+     scrolling list without competing with the header itself. */
+  .phone-focus-date-widget {
+    position: absolute;
+    top: 100%;
+    right: 14px;
+    z-index: 19;
+  }
+
   #app.is-settings .main-head,
   #app.is-calendar .main-head,
   #app.mobile-tags-open .main-head {

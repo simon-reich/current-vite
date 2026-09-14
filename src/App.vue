@@ -1198,6 +1198,18 @@ watch(() => route.path, () => {
           </button>
         </div>
       </div>
+
+      <!-- Phone only — sits right at .main-head's own bottom edge (same
+           "position:absolute; top:100%" trick already used for the
+           add-todo tag dropdown, see .add-tag-row in layout.css), which
+           lands it directly below the scroll-divider line since that's
+           exactly where .main-content (and its sticky divider) begins
+           too. .main-head is itself `position:sticky` (mobile.css), so
+           this rides along with it while the list scrolls underneath —
+           no fixed pixel offset computed or guessed anywhere. -->
+      <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="phone-focus-date-widget mobile-only">
+        <FocusDateWidget />
+      </div>
     </div>
 
     <!-- ══ DESKTOP: Sidebar body (tag list) ══ -->
