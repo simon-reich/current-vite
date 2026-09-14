@@ -1525,30 +1525,23 @@ interface SwipeZone {
   radius: number
 }
 
-// Smaller on phone (less room, and a touch grip is more precise than a
-// mouse cursor anyway) — same breakpoint armDistance()/releaseMargin()
-// already use. Delete stays noticeably smaller than date/focus — it's
-// the one destructive action of the three, worth being a harder target
-// to hit by accident.
-function zoneRadius(): number {
-  return window.innerWidth <= 700 ? 90 : 120
-}
-function zoneRadiusSmall(): number {
-  return window.innerWidth <= 700 ? 48 : 62
+// Hand-placed per-zone offsets from the card's own center, deliberately
+// *not* symmetric/on a shared orbit — an evenly-spaced arrangement (equal
+// radius, equal angle apart) read as too mechanical/static. Focus sits
+// highest and slightly left; date sits below it but pulled right and
+// further out, a bit smaller; delete sits at the bottom on its own
+// distinct rightward axis (not lined up under date), smallest of the
+// three. Each is [dx, dy, radius] in px, phone/desktop pair — same
+// breakpoint armDistance()/releaseMargin() already use.
+const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
+  focus:  { phone: [-24, -180, 92], desktop: [-40, -270, 122] },
+  date:   { phone: [95, -55, 72],   desktop: [155, -75, 96] },
+  delete: { phone: [55, 175, 48],   desktop: [95, 260, 62] },
 }
 
-// Distance from the card's own center each zone sits at — an orbit
-// around the middle rather than three corners, so all three read as
-// "arranged around where the card already is" instead of "pinned to the
-// edges of the screen." Date/focus sit up-right/down-right on that
-// orbit (55° off the horizontal — mostly toward their own corner, but
-// pulled well in from it), delete sits due left at the same distance;
-// the three still keep real separation from each other (125°/125°/110°
-// apart) without needing to hug a corner to get it.
-function zoneOrbitRadius(): number {
-  return window.innerWidth <= 700 ? 150 : 230
+function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
+  return window.innerWidth <= 700 ? ZONE_LAYOUT[key].phone : ZONE_LAYOUT[key].desktop
 }
-const ZONE_ANGLE_DEG = 55
 
 // Date only offered while not already in Focus (mirrors showSwipeZoneSplit
 // above) — an already-in-Focus card swiping here is a plain removal, same
@@ -1558,16 +1551,15 @@ const zones = computed<SwipeZone[]>(() => {
   if (!rect) return []
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
-  const orbit = zoneOrbitRadius()
-  const angle = ZONE_ANGLE_DEG * (Math.PI / 180)
-  const dx = orbit * Math.cos(angle)
-  const dy = orbit * Math.sin(angle)
   const list: SwipeZone[] = []
   if (!props.todo.inToday && themeStore.dateListsEnabled) {
-    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: centerX + dx, cy: centerY - dy, radius: zoneRadius() })
+    const [dx, dy, radius] = zoneOffset('date')
+    list.push({ key: 'date', label: formatShortDate(themeStore.selectedFocusDate), cx: centerX + dx, cy: centerY + dy, radius })
   }
-  list.push({ key: 'delete', label: 'Delete', cx: centerX - orbit, cy: centerY, radius: zoneRadiusSmall() })
-  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + dx, cy: centerY + dy, radius: zoneRadius() })
+  const [ddx, ddy, dradius] = zoneOffset('delete')
+  list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
+  const [fdx, fdy, fradius] = zoneOffset('focus')
+  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
   return list
 })
 
