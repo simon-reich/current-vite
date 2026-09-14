@@ -12,10 +12,14 @@
 // body's first child instead relies on plain DOM paint order: earlier
 // siblings paint first (further back), so this paints after body's
 // background but before #app, with no z-index needed at all.
-/* Old particle-based celebrations (hearts/confetti/balloons/fireworks) —
-kept here, not deleted, while the cat animation is being tried out as a
-replacement. See celebrateBackground below for the one-line swap back.
-
+// Old particle-based celebrations (hearts/confetti/balloons/fireworks) —
+// active again (see celebrateBackground's swap below): the frame-based SVG
+// animations (cat/whale/penguin/orca etc., further down this file) didn't
+// feel right yet, so this is a temporary swap back while those get
+// reworked, not a removal. Their own mechanics (playFrameCelebration,
+// resolveCelebrationConfig, the pre-completion teaser in App.vue) are
+// commented out rather than deleted for the same reason — see
+// celebrateBackground's own comment for the full swap-back-again path.
 function particle(cx: number, cy: number, content: string, css: string): HTMLElement {
   const el = document.createElement('span')
   el.textContent = content
@@ -214,8 +218,6 @@ function bgFireworks() {
   }
 }
 
-*/
-
 // Inlined (not <img>) so the fill can be overridden per path below — an
 // <img src="...svg"> is opaque to CSS/JS, the markup has to actually be
 // in the DOM. All paths render with the default SVG fill (black), so a
@@ -327,7 +329,10 @@ function buildFrameOverlay(svgRaw: string, config: CelebrationConfig): { overlay
 // src/assets/animations/ (see the "Celebration-Animationen" section in
 // CLAUDE.md for how new ones are added) as a full-viewport background
 // overlay, then removes it once the animation completes.
-async function playFrameCelebration(config: CelebrationConfig) {
+// Exported (not otherwise necessary) only so it survives noUnusedLocals
+// while celebrateBackground's own call to it is commented out — see that
+// function's comment.
+export async function playFrameCelebration(config: CelebrationConfig) {
   const variant = config.variants[currentCelebrationTier()]
   const svgRaw = await loadFrameSvg(variant.importer)
   const { overlay, svg } = buildFrameOverlay(svgRaw, config)
@@ -415,6 +420,13 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
     },
     verticalAnchor: 'bottom',
   },
+  orca: {
+    variants: {
+      desktop: { importer: () => import('../assets/animations/svg/orca-01_1920.svg?raw'), fallbackCycleMs: 8760 },
+      tablet: { importer: () => import('../assets/animations/svg/orca-01_810.svg?raw'), fallbackCycleMs: 8760 },
+      phone: { importer: () => import('../assets/animations/svg/orca-01_486.svg?raw'), fallbackCycleMs: 8760 },
+    },
+  },
 }
 
 // Old persisted todos can still carry a celebration key retired from
@@ -481,17 +493,22 @@ export function hideCelebrationTeaser() {
 // ALL_CELEBRATIONS' comment) — not drawn here, so it always matches
 // whatever the pre-completion teaser just showed for that same todo.
 //
-// The old shuffle-bag of four particle effects (hearts/confetti/balloons/
-// fireworks) is commented out below rather than deleted, so it's a
-// one-line swap to bring back if the frame animations don't stick.
-export function celebrateBackground(key: CelebrationKey) {
-  hideCelebrationTeaser()
-  playFrameCelebration(resolveCelebrationConfig(key))
-  // const effect = nextBgEffect()
-  // if (effect === 'hearts') bgHearts()
-  // else if (effect === 'confetti') bgConfetti()
-  // else if (effect === 'balloons') bgBalloons()
-  // else bgFireworks()
+// Swapped back to the old particle-based shuffle-bag (hearts/confetti/
+// balloons/fireworks) — not deleted, the frame-animation mechanics
+// (playFrameCelebration/resolveCelebrationConfig/the pre-completion teaser
+// in App.vue) are just commented out for now, the same swap in reverse
+// from when the frame animations first replaced these. `key`'s parameter
+// stays unused while frame celebrations are off; nothing currently reads
+// Todo.celebration either, but neither is worth ripping out for what's
+// meant to be a temporary switch back.
+export function celebrateBackground(_key: CelebrationKey) {
+  // hideCelebrationTeaser()
+  // playFrameCelebration(resolveCelebrationConfig(key))
+  const effect = nextBgEffect()
+  if (effect === 'hearts') bgHearts()
+  else if (effect === 'confetti') bgConfetti()
+  else if (effect === 'balloons') bgBalloons()
+  else bgFireworks()
 }
 
 import { ref as vueRef } from 'vue'

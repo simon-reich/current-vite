@@ -12,8 +12,15 @@ import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './co
 import { toasts, spawnToast, spawnSentToFocusToast } from './composables/useToast'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
-import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard, showCelebrationTeaser, hideCelebrationTeaser } from './components/TodoCard.vue'
-import { drawCelebrationKey } from './composables/useCelebrations'
+import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
+// Frame-celebration pre-completion teaser — commented out together with
+// the watch(openCheckMenuId, ...) block below and celebrateBackground's
+// own swap in TodoCard.vue while the old particle celebrations are back
+// in use (see that file's own comment for why). The teaser is meaningless
+// for the particle effects, which have no single frozen "first frame" to
+// preview.
+// import { showCelebrationTeaser, hideCelebrationTeaser } from './components/TodoCard.vue'
+// import { drawCelebrationKey } from './composables/useCelebrations'
 
 const router = useRouter()
 const route = useRoute()
@@ -546,22 +553,26 @@ const checksStore = useChecksStore()
 // flush them — cycling backward reliably lost that race. One watcher
 // owned by one place, driven by the one ref every transition shares, has
 // nothing left to race.
-watch(openCheckMenuId, (id) => {
-  // Always clear the previous teaser first — cycleOpenCard jumps
-  // openCheckMenuId straight from one card's id to the next in one ref
-  // assignment (never passing through null in between), so without this
-  // every direct card-to-card cycle just piled another teaser overlay on
-  // top of the last instead of replacing it.
-  hideCelebrationTeaser()
-  const todo = id ? store.todos.find(t => t.id === id) : undefined
-  if (!todo || !themeStore.celebrationsEnabled) return
-  // Falls back to drawing (and persisting) a fresh key here for a todo
-  // that was already inToday before Todo.celebration existed —
-  // sendToToday normally assigns it.
-  const key = todo.celebration ?? drawCelebrationKey()
-  if (!todo.celebration) store.updateTodo(todo.id, { celebration: key })
-  showCelebrationTeaser(key)
-})
+//
+// Commented out (not deleted) together with the frame-celebration imports
+// above and celebrateBackground's swap in TodoCard.vue — see that file's
+// comment. Re-enable both together if the frame animations come back.
+// watch(openCheckMenuId, (id) => {
+//   // Always clear the previous teaser first — cycleOpenCard jumps
+//   // openCheckMenuId straight from one card's id to the next in one ref
+//   // assignment (never passing through null in between), so without this
+//   // every direct card-to-card cycle just piled another teaser overlay on
+//   // top of the last instead of replacing it.
+//   hideCelebrationTeaser()
+//   const todo = id ? store.todos.find(t => t.id === id) : undefined
+//   if (!todo || !themeStore.celebrationsEnabled) return
+//   // Falls back to drawing (and persisting) a fresh key here for a todo
+//   // that was already inToday before Todo.celebration existed —
+//   // sendToToday normally assigns it.
+//   const key = todo.celebration ?? drawCelebrationKey()
+//   if (!todo.celebration) store.updateTodo(todo.id, { celebration: key })
+//   showCelebrationTeaser(key)
+// })
 
 // ── Tag sidebar ──
 const tagInput = ref('')
