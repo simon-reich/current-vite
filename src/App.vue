@@ -1105,6 +1105,36 @@ watch(() => route.path, () => {
           </RouterLink>
         </nav>
 
+        <!-- Tablet-width only (see .tablet-focus-date-widget-slot/
+             .tablet-settings-btn in tablet.css) — real desktop shows the
+             widget/"Lists" button elsewhere (.focus-date-head, Focus.vue's
+             .lists-btn-desktop) and Settings in its own .settings-head, so
+             all three of these stay hidden there. Sitting here as real
+             siblings of .top-nav within main-head-inner's own grid is what
+             lets two equal 1fr spacer columns center the widget exactly
+             between the view icons and Settings, instead of guessing an
+             offset against .settings-head's separate, independently-
+             positioned overlay. -->
+        <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
+          <FocusDateWidget />
+        </div>
+        <button
+          v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+          class="tablet-focus-date-widget-slot nav-icon"
+          title="Lists"
+          @click="listsPanelOpen = true"
+        >
+          <ListChecks :size="22" />
+        </button>
+        <button
+          class="tablet-settings-btn settings-btn"
+          :class="{ active: route.path === '/settings' }"
+          title="Settings"
+          @click="toggleSettings"
+        >
+          <Settings :size="26" />
+        </button>
+
         <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
              when tags are off — but in Focus, tags are always inert (see
              #app.is-focus's own dimming rules), so this slot shows the
@@ -1192,24 +1222,12 @@ watch(() => route.path, () => {
       </div>
     </aside>
 
-    <!-- ══ DESKTOP: Settings head ══ -->
+    <!-- ══ DESKTOP: Settings head ══ (hidden on tablet — see
+         .tablet-focus-date-widget-slot/.tablet-settings-btn below for its
+         tablet-width equivalent, positioned inside main-head-inner's own
+         grid instead so it can share exact centering math with the
+         widget) ══ -->
     <div class="settings-head desktop-only">
-      <!-- Tablet-width only (see .tablet-icon-extra in tablet.css) — this
-           container is already correctly positioned on both desktop and
-           tablet (see tablet.css's own .settings-head override), so this
-           just rides along right before the Settings icon instead of
-           needing its own separate placement/offsets. Real desktop shows
-           Focus.vue's own "Lists" button elsewhere, so this stays hidden
-           there. No date-picker icon here at all — picking the date is
-           the widget itself (.focus-date-head), never a separate icon. -->
-      <button
-        v-if="themeStore.dateListsEnabled && route.path === '/focus'"
-        class="nav-icon tablet-icon-extra"
-        title="Lists"
-        @click="listsPanelOpen = true"
-      >
-        <ListChecks :size="24" />
-      </button>
       <button
         ref="settingsBtnRef"
         class="settings-btn"
