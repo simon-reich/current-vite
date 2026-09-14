@@ -1548,23 +1548,50 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
   return window.innerWidth <= 700 ? ZONE_LAYOUT[key].phone : ZONE_LAYOUT[key].desktop
 }
 
-// Date only offered while not already in Focus (mirrors showSwipeZoneSplit
-// above) — an already-in-Focus card swiping here is a plain removal, same
-// as the threshold model's own "Remove" vs. "Focus" split.
+// The three position slots (focus/date/delete) are reused as-is for
+// Focus's own swipe (mode 'today') — same geometry, different actions:
+// the 'focus' slot becomes Done-for-today, the 'date' slot becomes Done,
+// the 'delete' slot becomes Remove. Keeps one single hand-tuned layout
+// instead of a second one to keep in sync, and means Focus and Overview
+// feel like the same gesture throughout the app rather than two
+// different ones that happen to look similar.
+//
+// Overview (mode 'all'): date only offered while not already in Focus
+// (mirrors showSwipeZoneSplit above) — an already-in-Focus card swiping
+// here is a plain removal, same as the threshold model's own "Remove"
+// vs. "Focus" split.
+//
+// Focus (mode 'today'): all three always apply, except previewLocked
+// (browsing a future Date List via ListsPanel.vue) — Done/Done-for-today
+// stay locked out there same as the check-row buttons do, leaving only
+// Remove.
 const zones = computed<SwipeZone[]>(() => {
   const rect = backdropRect.value
   if (!rect) return []
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
   const list: SwipeZone[] = []
-  if (!props.todo.inToday && themeStore.dateListsEnabled) {
-    const [dx, dy, radius] = zoneOffset('date')
-    list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
+
+  if (props.mode === 'all') {
+    if (!props.todo.inToday && themeStore.dateListsEnabled) {
+      const [dx, dy, radius] = zoneOffset('date')
+      list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
+    }
+    const [ddx, ddy, dradius] = zoneOffset('delete')
+    list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
+    const [fdx, fdy, fradius] = zoneOffset('focus')
+    list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+  } else {
+    if (!props.previewLocked) {
+      const [fdx, fdy, fradius] = zoneOffset('focus')
+      list.push({ key: 'focus', label: 'For today', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+      const [dx, dy, radius] = zoneOffset('date')
+      list.push({ key: 'date', label: 'Done', cx: centerX + dx, cy: centerY + dy, radius })
+    }
+    const [ddx, ddy, dradius] = zoneOffset('delete')
+    list.push({ key: 'delete', label: 'Remove', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
   }
-  const [ddx, ddy, dradius] = zoneOffset('delete')
-  list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
-  const [fdx, fdy, fradius] = zoneOffset('focus')
-  list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Focus', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+
   return list
 })
 
@@ -1738,7 +1765,7 @@ function onDragStart() {
 }
 
 function onDrag(event: PointerEvent, info: PanInfo) {
-  if (SWIPE_MODE === 'zones' && props.mode === 'all') {
+  if (SWIPE_MODE === 'zones') {
     // Same engage-then-follow gating as the threshold model's own y.set
     // below — keeps a mostly-vertical touch free to scroll the list
     // natively instead of being claimed the instant any drag starts.
@@ -1831,6 +1858,29 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       await flyOutRight()
       if (!props.todo.inToday) emit('send-to-today', props.todo.id)
       else emit('remove-from-today', props.todo.id)
+    } else {
+      springBackToCenter()
+    }
+    return
+  }
+
+  if (SWIPE_MODE === 'zones' && props.mode === 'today') {
+    // Same three slots as Overview (see zones computed) — 'focus' is
+    // Done-for-today, 'date' is Done, 'delete' is Remove. Remove is
+    // non-destructive (the todo just goes back to the pool), unlike
+    // Overview's Delete, so no confirmation here, same as the threshold
+    // model's own swipe-left-to-remove.
+    const hit = zoneHit.value
+    zoneHit.value = null
+    if (hit === 'delete') {
+      await flyOutLeft()
+      emit('remove-from-today', props.todo.id)
+    } else if (hit === 'date') {
+      springBackToCenter()
+      handleComplete(props.todo.id)
+    } else if (hit === 'focus') {
+      springBackToCenter()
+      handleDoneForToday(props.todo.id)
     } else {
       springBackToCenter()
     }
@@ -1966,12 +2016,12 @@ onUnmounted(() => {
       :class="{ open: showMenu || showTagMenu, loop: previewIsLoop, 'just-planned': justPlanned }"
     >
       <!-- Threshold model's own backdrop/indicator — see SWIPE_MODE above.
-           Left fully intact, just inert while SWIPE_MODE is 'zones' (for
-           Overview; Focus's swipe always uses this one regardless). -->
+           Left fully intact, just inert while SWIPE_MODE is 'zones'
+           (applies to both Overview and Focus now). -->
       <Teleport to="body">
         <Transition name="swipe-indicator">
           <div
-            v-if="isGripped && backdropRect && !(SWIPE_MODE === 'zones' && mode === 'all')"
+            v-if="isGripped && backdropRect && SWIPE_MODE !== 'zones'"
             class="swipe-backdrop"
             :class="{ split: showSwipeZoneSplit && armedDir !== -1 }"
             :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
@@ -2003,7 +2053,7 @@ onUnmounted(() => {
            source of truth for both hit-testing and rendering. -->
       <Teleport to="body">
         <Transition name="swipe-indicator">
-          <div v-if="isGripped && SWIPE_MODE === 'zones' && mode === 'all'" class="swipe-zones-layer">
+          <div v-if="isGripped && SWIPE_MODE === 'zones'" class="swipe-zones-layer">
             <div
               v-if="backdropRect"
               class="swipe-zones-dim"
