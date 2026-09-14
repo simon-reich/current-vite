@@ -1541,7 +1541,7 @@ interface SwipeZone {
 const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
   focus:  { phone: [95, -180, 92],   desktop: [155, -270, 122] },
   date:   { phone: [-95, -150, 92],  desktop: [-150, -220, 122] },
-  delete: { phone: [0, 210, 48],     desktop: [0, 300, 62] },
+  delete: { phone: [-25, 170, 48],   desktop: [-40, 245, 62] },
 }
 
 function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
