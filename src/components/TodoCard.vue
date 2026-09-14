@@ -906,6 +906,18 @@ let justDragged = false
 
 function toggleCheckMenu() {
   if (justDragged) { justDragged = false; return }
+  // This card's own tag/date editor (openEditFromToday) is already open —
+  // a plain click on the card body here means "I'm done with this edit",
+  // same as toggleTagMenu's re-click-to-close in Overview. Without this,
+  // it fell through to the willOpen branch below and swapped straight into
+  // the check-menu instead, so the very next Enter (meant to just finish
+  // the edit) landed on the check-menu's own Enter handling and marked the
+  // todo done/done-for-today instead of simply closing the card.
+  if (showTagMenu.value) {
+    if (isEditing.value) saveEdit()
+    openTagMenuId.value = null
+    return
+  }
   const willOpen = openCheckMenuId.value !== props.todo.id
   // Opening a check-menu (this card's own, or by clicking a different
   // Focus card entirely) would otherwise leave whichever card's tag/date
