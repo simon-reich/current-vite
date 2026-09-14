@@ -663,7 +663,13 @@
      the full viewport height) instead of sizing to its own content. */
   align-items: flex-start;
   justify-content: flex-end;
-  padding: 12px 16px;
+  /* Same top offset as .content-inner's own 36px padding-top (see below)
+     — .focus-date-head is a plain grid-row:2 item with no other vertical
+     offset in play (unlike .sidebar, whose "all" button needs the extra
+     .tag-list margin-top documented there to cancel out the scroll-
+     divider's own negative margin) — matching content-inner's top padding
+     directly is what actually lines this up with it. */
+  padding: 36px 16px 0;
 }
 
 /* Tablet uses .tablet-focus-date-widget-slot/.tablet-settings-btn (see
