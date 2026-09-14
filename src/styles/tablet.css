@@ -38,21 +38,23 @@
     padding: 14px 20px 10px;
   }
 
-  /* Three columns in the icon row (tags, sort, and one flexible "right"
-     column) instead of the earlier six-column version, which tried to
-     center the widget against .top-nav's own full-row-span-and-center
-     rule — two centering strategies fighting over the same width, which
-     is exactly why the widget ended up overlapping the view icons instead
-     of sitting cleanly between them and Settings. Fix: .top-nav stops
-     spanning/centering across the whole row and instead becomes a plain
-     flex child inside .tablet-header-right (see below) — one flex row,
-     one layout decision, not two grids overlapping. */
+  /* Three columns — left / center / right, the standard "truly centered
+     regardless of what's on either side" header pattern: two flanking
+     tracks that are *both* `1fr` are always exactly equal width no matter
+     what's inside them, so the auto-sized center column between them is
+     always exactly centered across the whole row. The earlier six-column
+     version instead had .top-nav spanning/centering itself across every
+     column while a *separate* pair of 1fr spacers tried to center the
+     widget within that same width — two independent centering
+     calculations landing in roughly the same spot, which is why the
+     widget overlapped the view icons instead of sitting between them and
+     Settings. This is one calculation. */
   .main-head-inner {
     display: grid;
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: 1fr auto 1fr;
     grid-template-areas:
-      "input input input"
-      "tags  sort  right";
+      "input  input  input"
+      "left   center right";
     align-items: center;
     row-gap: 22px;
     column-gap: 14px;
@@ -64,70 +66,88 @@
     grid-area: input;
   }
 
-  .mobile-tags-btn {
-    grid-area: tags;
+  /* Tags/sort's actual rendered width comes entirely out of this column's
+     own 1fr share (nothing painted outside it) — that's what keeps it
+     genuinely equal to .tablet-header-right's 1fr on the other side,
+     rather than adding extra width beyond a spacer that would then bias
+     "center" off-true-center. See .sort-nav's `order: -1` in layout.css
+     for why moving it here (from its old separate grid-area) doesn't
+     change anything about its own position on desktop. */
+  .tablet-left-cluster {
+    display: flex;
+    grid-area: left;
+    align-items: center;
+    gap: 14px;
+    justify-content: flex-start;
   }
 
-  .sort-nav {
-    grid-area: sort;
+  .top-nav {
+    grid-area: center;
   }
 
-  /* Everything right of tags/sort — view icons, the Focus Date widget (or
-     Focus's "Lists" button) and Settings — lives in one shared flex row
-     instead of a second overlapping grid. justify-content:space-between
-     puts the view icons flush at this column's left edge and Settings at
-     its right edge, then splits whatever's left into two equal gaps
-     around the widget in the middle: real, content-width-independent
-     centering, from one single layout mechanism instead of two competing
-     ones. When the widget/Lists button isn't rendered at all (wrong
-     route, or the feature's off), it degrades to exactly the plain
-     "icons left, Settings right" two-item row this had before Date Lists
-     existed — nothing extra to account for. */
+  /* Settings sits flush at this column's right edge; .tablet-header-
+     right-center is the *only* other child and gets `flex: 1`, so it
+     naturally consumes exactly (this column's width − Settings' width)
+     — centering the widget/Lists button within precisely the space
+     between the view icons and Settings, not within this column's full
+     width (which would drift right by half of Settings' own width). When
+     neither the widget nor Lists renders at all (wrong route, feature
+     off), this collapses to the plain "Settings, flush right" row this
+     had before Date Lists existed. */
   .tablet-header-right {
     display: flex;
     grid-area: right;
     align-items: center;
-    justify-content: space-between;
+    width: 100%;
   }
 
-  /* Real desktop shows the dedicated widget/"Lists" button elsewhere
-     (.focus-date-head, Focus.vue's .lists-btn-desktop) and Settings in
-     its own .settings-head — kept smaller here too (see
-     .focus-date-widget-compact-tablet) since this row is noticeably
-     tighter than desktop's own dedicated corner. */
-  /* tablet.css is a plain global stylesheet, not a scoped SFC block, so a
-     bare descendant selector already reaches into FocusDateWidget.vue's
-     own scoped markup fine — no :deep() needed (that's only meaningful
-     from inside a component's own <style scoped>). */
-  .tablet-header-right .focus-date-widget {
+  .tablet-header-right-center {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .tablet-settings-btn {
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  /* Kept smaller here than desktop's own dedicated corner (.focus-date-
+     head) — this row is noticeably tighter. tablet.css is a plain global
+     stylesheet, not a scoped SFC block, so a bare descendant selector
+     already reaches into FocusDateWidget.vue's own scoped markup fine —
+     no :deep() needed (that's only meaningful inside a component's own
+     <style scoped>). */
+  .tablet-header-right-center .focus-date-widget {
     padding: 4px 9px;
   }
 
-  .tablet-header-right .fdw-main {
+  .tablet-header-right-center .fdw-main {
     font-size: 17px;
   }
 
-  .tablet-header-right .fdw-weekday,
-  .tablet-header-right .fdw-year {
+  .tablet-header-right-center .fdw-weekday,
+  .tablet-header-right-center .fdw-year {
     font-size: 8px;
   }
 
   /* main-head-inner's grid spans the full row width, including the
-     flexible "right" column, which has to reach all the way to Settings
-     without anything painted across most of its own width — a real,
-     hit-testable box that would otherwise swallow clicks meant for
-     whatever's underneath it. Disabling hit-testing on the empty shell
-     and re-enabling it only on the actual controls fixes that without
-     touching paint/stacking order at all — the add-todo tag dropdown
-     (z-index:30, scoped inside .main-head's own z-index:20 stacking
-     context) still needs to render above this row when open, which an
-     actual z-index bump here would have broken. */
+     flexible left/right 1fr columns, most of which has nothing painted
+     across it — a real, hit-testable box that would otherwise swallow
+     clicks meant for whatever's underneath it. Disabling hit-testing on
+     the empty shell and re-enabling it only on the actual controls fixes
+     that without touching paint/stacking order at all — the add-todo tag
+     dropdown (z-index:30, scoped inside .main-head's own z-index:20
+     stacking context) still needs to render above this row when open,
+     which an actual z-index bump here would have broken. */
   .main-head {
     pointer-events: none;
   }
 
   .main-head-inner > *,
-  .tablet-header-right > * {
+  .tablet-left-cluster > *,
+  .tablet-header-right > *,
+  .tablet-header-right-center > * {
     pointer-events: auto;
   }
 
@@ -136,16 +156,11 @@
      .tablet-header-right's own flex row (see above), the same "duplicate
      per breakpoint" pattern this file already uses for the Globe/Sun/
      Calendar icons (top-nav vs. mobile-bottom-nav). Sharing one flex row
-     with the widget is what makes justify-content:space-between able to
-     center it at all — .settings-head's own separate #app-level overlay
-     position couldn't ever participate in that. */
+     with the widget is what makes the flex:1 trick above able to center
+     it at all — .settings-head's own separate #app-level overlay position
+     couldn't ever participate in that. */
   .settings-head {
     display: none;
-  }
-
-  .tablet-focus-date-widget-slot,
-  .tablet-settings-btn {
-    display: flex;
   }
 
   /* ── Content: near-edge-to-edge, more cards fit per row ── */
@@ -172,12 +187,12 @@
     opacity: 0.35;
   }
 
-  /* Same grid slot the tag icon sits in — row-reverse so the switch
-     (visually first, per its own DOM order it's second) sits where the
-     icon used to, with the "subs" label to its right. */
+  /* Same spot the tag icon sits in (both live inside .tablet-left-cluster
+     now, see above) — row-reverse so the switch (visually first, per its
+     own DOM order it's second) sits where the icon used to, with the
+     "subs" label to its right. */
   .mobile-subs-toggle {
     display: flex;
-    grid-area: tags;
     align-items: center;
     flex-direction: row-reverse;
     gap: 6px;
@@ -265,12 +280,7 @@
     gap: 20px;
   }
 
-  /* ── Focus Date widget / Lists button ── Real desktop shows the
-     dedicated right-column widget (.focus-date-head) and Focus's own
-     "Lists" button instead (both already hide themselves below 1024px —
-     see layout.css/Focus.vue) — this compact icon-rail slot takes over
-     between Calendar and Settings. */
-  .tablet-icon-extra {
+  .tablet-focus-date-widget-slot {
     display: flex;
   }
 }

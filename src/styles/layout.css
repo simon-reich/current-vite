@@ -457,6 +457,15 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  /* Lives inside .tablet-left-cluster in the template now (grouped with
+     the tag-panel toggle so tablet's grid can treat both as one 1fr-sized
+     left-hand block — see tablet.css) — on desktop that wrapper is
+     `display:contents`, so .sort-nav becomes a direct flex child of
+     .main-head-inner again, just later in DOM order than before (after
+     the tag-cluster elements, which .mobile-only hides on desktop anyway).
+     This restores its original "first, before the add-input" position
+     without needing a duplicate element. */
+  order: -1;
 }
 
 .top-nav {
@@ -674,12 +683,15 @@
   display: none;
 }
 
-/* Purely structural on desktop/phone — `display: contents` unwraps this
-   div entirely so its children (.top-nav plus, on tablet, the widget/
-   Settings duplicates above) act as direct flex items of .main-head-inner,
-   exactly as if this wrapper wasn't there at all. Only becomes a real flex
-   row inside the tablet breakpoint (see tablet.css). */
-.tablet-header-right {
+/* Purely structural on desktop/phone — `display: contents` unwraps these
+   wrappers entirely so their children (the widget/Settings duplicates
+   above; .sort-nav plus the tag-panel toggle below) act as direct flex
+   items of .main-head-inner, exactly as if the wrapper wasn't there at
+   all. Only become real flex rows inside the tablet breakpoint (see
+   tablet.css). */
+.tablet-header-right,
+.tablet-header-right-center,
+.tablet-left-cluster {
   display: contents;
 }
 

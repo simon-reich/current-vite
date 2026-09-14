@@ -1010,23 +1010,75 @@ watch(() => route.path, () => {
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
     <div class="main-head">
       <div class="main-head-inner">
-        <!-- Layout + sort buttons (desktop, overview only) -->
-        <div v-if="route.path === '/all'" class="sort-nav desktop-only">
-          <button
-            ref="sortListBtnRef"
-            :title="listView ? 'Switch to grid view' : 'Switch to list view'"
-            class="sort-btn"
-            @click="listView = !listView"
+        <!-- Sort buttons + the mobile/tablet tag-panel toggle, grouped
+             together (see .tablet-left-cluster in tablet.css) so tablet's
+             grid can treat them as one left-hand block — needed for
+             .top-nav's view icons to actually center across the *whole*
+             row (grid-template-columns: 1fr auto 1fr only truly centers
+             the middle column if each flanking column is a single,
+             equal-width track; two separate auto-sized tracks on the left
+             throw that off). .sort-nav keeps its original desktop
+             position via `order: -1` (see layout.css) — this wrapper is
+             `display:contents` outside the tablet breakpoint, so moving it
+             here in the template has no visual effect on desktop besides
+             that. -->
+        <div class="tablet-left-cluster">
+          <div v-if="route.path === '/all'" class="sort-nav desktop-only">
+            <button
+              ref="sortListBtnRef"
+              :title="listView ? 'Switch to grid view' : 'Switch to list view'"
+              class="sort-btn"
+              @click="listView = !listView"
+            >
+              <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
+            </button>
+            <button
+              ref="sortOrderBtnRef"
+              :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+              class="sort-btn"
+              @click="toggleSort"
+            >
+              <ArrowUpDown :size="22" />
+            </button>
+          </div>
+
+          <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
+               when tags are off — but in Focus, tags are always inert (see
+               #app.is-focus's own dimming rules), so this slot shows the
+               subs expand-toggle instead whenever Subs are enabled, taking
+               priority over both other variants. -->
+          <div
+            v-if="route.path === '/focus' && themeStore.subsEnabled"
+            class="mobile-subs-toggle mobile-only"
           >
-            <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
+            <span class="mobile-subs-label">subs</span>
+            <button
+              type="button"
+              class="mobile-subs-switch"
+              role="switch"
+              :aria-checked="themeStore.expandFocusSubs"
+              :class="{ on: themeStore.expandFocusSubs }"
+              @click="themeStore.toggleExpandFocusSubs()"
+            >
+              <span class="mobile-subs-switch-knob" />
+            </button>
+          </div>
+          <button
+            v-else-if="themeStore.tagsEnabled"
+            class="mobile-tags-btn mobile-only"
+            title="Tags"
+            @click="showMobileTags = true"
+          >
+            <Tag :size="22" />
           </button>
           <button
-            ref="sortOrderBtnRef"
-            :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-            class="sort-btn"
-            @click="toggleSort"
+            v-else
+            class="mobile-tags-btn priority-toggle-btn mobile-only"
+            :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
+            :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+            @click="toggleTag(PRIORITY_TAG_ID)"
           >
-            <ArrowUpDown :size="22" />
+            <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
           </button>
         </div>
 
@@ -1092,47 +1144,50 @@ watch(() => route.path, () => {
           </div>
         </div>
 
-        <!-- Desktop nav icons. On tablet, this whole block is wrapped in
-             one flex row (.tablet-header-right, see tablet.css) together
-             with the widget/"Lists" button and a tablet-only Settings —
-             a single justify-content:space-between decision instead of
-             two separate, competing centering rules (one on .top-nav
-             spanning/centering across the whole row, one trying to center
-             the widget against it independently — that's what previously
-             made the widget overlap the view icons instead of sitting
-             between them and Settings). The wrapper is `display:contents`
-             outside the tablet breakpoint (see layout.css), so it has no
-             effect at all on desktop's plain flex row here. -->
-        <div class="tablet-header-right">
-          <nav class="top-nav desktop-only">
-            <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
-              <Globe :size="27" />
-            </RouterLink>
-            <RouterLink ref="focusNavRef" to="/focus" class="nav-icon" title="Focus">
-              <Sun :size="27" />
-            </RouterLink>
-            <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
-              <CalendarDays :size="27" />
-            </RouterLink>
-          </nav>
+        <!-- Desktop nav icons — also the tablet grid's true center column
+             (grid-area: center, see tablet.css). Flanked by
+             .tablet-left-cluster and .tablet-header-right, both sized
+             1fr, so this stays centered across the *whole* row width
+             regardless of how wide either side's own content is —
+             plain justify-self:center against a row that also contains
+             unrelated left-side content can't do that (that's what
+             previously left the icons packed next to tags/sort instead
+             of centered). -->
+        <nav class="top-nav desktop-only">
+          <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
+            <Globe :size="27" />
+          </RouterLink>
+          <RouterLink ref="focusNavRef" to="/focus" class="nav-icon" title="Focus">
+            <Sun :size="27" />
+          </RouterLink>
+          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
+            <CalendarDays :size="27" />
+          </RouterLink>
+        </nav>
 
-          <!-- Tablet-width only — real desktop shows the widget/"Lists"
-               button elsewhere (.focus-date-head, Focus.vue's
-               .lists-btn-desktop) and Settings in its own .settings-head,
-               so all three of these stay hidden there (see
-               .tablet-focus-date-widget-slot/.tablet-settings-btn in
-               layout.css). -->
-          <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
-            <FocusDateWidget />
+        <!-- Tablet-width only — real desktop shows the widget/"Lists"
+             button elsewhere (.focus-date-head, Focus.vue's
+             .lists-btn-desktop) and Settings in its own .settings-head, so
+             both stay hidden there (see .tablet-focus-date-widget-slot/
+             .tablet-settings-btn in layout.css). Settings sits flush at
+             this row's right edge; the widget/Lists button centers itself
+             in whatever space is left before it (see .tablet-header-right
+             in tablet.css) — not centered against the row as a whole,
+             specifically between the view icons and Settings as asked. -->
+        <div class="tablet-header-right">
+          <div class="tablet-header-right-center">
+            <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
+              <FocusDateWidget />
+            </div>
+            <button
+              v-if="themeStore.dateListsEnabled && route.path === '/focus'"
+              class="tablet-focus-date-widget-slot nav-icon"
+              title="Lists"
+              @click="listsPanelOpen = true"
+            >
+              <ListChecks :size="22" />
+            </button>
           </div>
-          <button
-            v-if="themeStore.dateListsEnabled && route.path === '/focus'"
-            class="tablet-focus-date-widget-slot nav-icon"
-            title="Lists"
-            @click="listsPanelOpen = true"
-          >
-            <ListChecks :size="22" />
-          </button>
           <button
             class="tablet-settings-btn settings-btn"
             :class="{ active: route.path === '/settings' }"
@@ -1142,45 +1197,6 @@ watch(() => route.path, () => {
             <Settings :size="26" />
           </button>
         </div>
-
-        <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
-             when tags are off — but in Focus, tags are always inert (see
-             #app.is-focus's own dimming rules), so this slot shows the
-             subs expand-toggle instead whenever Subs are enabled, taking
-             priority over both other variants. -->
-        <div
-          v-if="route.path === '/focus' && themeStore.subsEnabled"
-          class="mobile-subs-toggle mobile-only"
-        >
-          <span class="mobile-subs-label">subs</span>
-          <button
-            type="button"
-            class="mobile-subs-switch"
-            role="switch"
-            :aria-checked="themeStore.expandFocusSubs"
-            :class="{ on: themeStore.expandFocusSubs }"
-            @click="themeStore.toggleExpandFocusSubs()"
-          >
-            <span class="mobile-subs-switch-knob" />
-          </button>
-        </div>
-        <button
-          v-else-if="themeStore.tagsEnabled"
-          class="mobile-tags-btn mobile-only"
-          title="Tags"
-          @click="showMobileTags = true"
-        >
-          <Tag :size="22" />
-        </button>
-        <button
-          v-else
-          class="mobile-tags-btn priority-toggle-btn mobile-only"
-          :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-          :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
-          @click="toggleTag(PRIORITY_TAG_ID)"
-        >
-          <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
-        </button>
       </div>
     </div>
 
