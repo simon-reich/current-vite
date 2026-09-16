@@ -165,7 +165,7 @@
   /* The real Settings button (desktop's own .settings-head) is hidden here
      in favor of .tablet-settings-btn — a second instance living inside
      .tablet-header-right's own flex row (see above), the same "duplicate
-     per breakpoint" pattern this file already uses for the Globe/Sun/
+     per breakpoint" pattern this file already uses for the Pool/Sun/
      Calendar icons (top-nav vs. mobile-bottom-nav). Sharing one flex row
      with the widget is what makes the flex:1 trick above able to center
      it at all — .settings-head's own separate #app-level overlay position

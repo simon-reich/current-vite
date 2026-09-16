@@ -114,6 +114,7 @@ todo-app/
 │   │   ├── LoopPicker.vue       // Recurrence-Picker (once/loop/weekdays/custom), von Todo + CheckModal genutzt
 │   │   ├── CheckModal.vue       // Add/Edit-Modal für Checks
 │   │   ├── ColorPicker.vue      // HSV-Farbwähler für Settings
+│   │   ├── icons/               // Custom SVG-Icons als Vue-Komponenten (siehe unten), ergänzen @lucide/vue
 │   │   └── SettingsModal (entfernt – Settings ist eigene Route/View)
 │   ├── views/
 │   │   ├── AllTodos.vue         // Hauptliste (filtert: aktiv + nicht in Current)
@@ -135,6 +136,7 @@ todo-app/
 │   │   ├── mobile.css           // Mobile Bottom-Nav, Tag-Panel, Breakpoints
 │   │   └── calendar.css         // v-calendar Overrides
 │   ├── styles/fonts/            // TTF-Dateien, benannt nach Schema FontName-Style.ttf
+│   ├── assets/icons/            // Rohe SVG-Quelldateien für Custom Icons (siehe unten), Namensschema <name>-NN.svg
 │   ├── dev/
 │   │   └── seed.ts              // Dev-only: befüllt localStorage mit Dummy-Todos
 │   ├── router/
@@ -165,6 +167,10 @@ Jedes Todo-Item bekommt beim Rendern eine Schriftart aus einem Pool von 17 Famil
 - **Kein Duplikat nebeneinander:** Wenn zwei benachbarte Todos denselben Font bekämen, wird der zweite automatisch um einen Slot verschoben.
 - **17 Schriftfamilien** (alle selbst gehostet in `src/styles/fonts/`): Aleo, Amarante, Bodoni Moda, Cardo, EB Garamond, Faustina, Karla, Lora, Manrope, Merienda, Merriweather, Montserrat, Patrick Hand, Roboto, Roboto Condensed, Roboto Slab, Sorts Mill Goudy.
 - Dateibenennung: `FontName-Style.ttf` (z.B. `BodoniModa-Italic.ttf`). `@font-face`-Deklarationen in `src/styles/fonts.css`.
+
+## Custom Icons
+
+Neben `@lucide/vue` (Standard-Icon-Set) gibt es eigene, handgezeichnete SVG-Icons für Stellen, an denen kein Lucide-Icon passt. Rohe Quell-SVGs liegen unter `src/assets/icons/<name>-NN.svg` (zweistellig durchnummeriert, falls mehrere Varianten eines Icons entstehen, z.B. `pool-01.svg`). Jedes Icon wird als eigene Vue-Komponente unter `src/components/icons/` inline gerendert (nicht per `<img>`/dynamischem Import wie die Celebration-SVGs) — nur so lässt sich `stroke`/`fill` auf `currentColor` umstellen und darüber `var(--ink)` einfärben, wie es das Oberste Designprinzip (nur vier Farbwerte) verlangt. Eine Icon-Komponente nimmt wie Lucide-Icons eine `size`-Prop (Default 24) und rendert `viewBox`/Pfade der Quelldatei 1:1, nur mit hartcodierten Farben durch `currentColor` ersetzt; enthält die Quelldatei `<clipPath>`-IDs, werden die über `useId()` pro Instanz eindeutig gemacht (mehrere Instanzen desselben Icons können gleichzeitig im DOM stehen, z.B. Desktop- und Mobile-Nav). Aktuell: `PoolIcon.vue` (aus `pool-01.svg`) für den Overview-Nav-Eintrag, anstelle des vorherigen Lucide-`Globe`.
 
 ## Celebration-Animationen
 

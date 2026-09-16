@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { Globe, Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks } from '@lucide/vue'
+import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks } from '@lucide/vue'
+import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval } from './stores/todos'
 import { useThemeStore } from './stores/theme'
@@ -1155,7 +1156,7 @@ watch(() => route.path, () => {
              of centered). -->
         <nav class="top-nav desktop-only">
           <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
-            <Globe :size="27" />
+            <PoolIcon :size="27" />
           </RouterLink>
           <RouterLink ref="focusNavRef" to="/current" class="nav-icon" title="current">
             <Sun :size="27" />
@@ -1385,7 +1386,7 @@ watch(() => route.path, () => {
 
       <div class="mobile-nav-views">
         <RouterLink to="/all" class="nav-icon" title="All todos" @click="showMobileTags = false">
-          <Globe :size="24" />
+          <PoolIcon :size="24" />
         </RouterLink>
         <RouterLink to="/current" class="nav-icon" title="current" @click="showMobileTags = false">
           <Sun :size="24" />
