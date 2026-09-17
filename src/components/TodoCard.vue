@@ -1616,14 +1616,15 @@ const swipeAction = computed(() => {
 const swipeArmed = computed(() => armedDir.value !== 0)
 
 // Overview's swipe-right splits into two drop zones (see onDrag's Y-based
-// armedZone tracking below) — only meaningful for the "not yet in Current"
-// case a plain swipe-right already covers; already-in-Current swipe-right
-// is a plain removal (see swipeAction above), and swipe-left/Delete never
-// splits either. Reused (not just Current vs Current) so a genuinely
-// future-dated widget selection reads as "plan ahead" rather than another
-// "Current" button.
+// armedZone tracking below) whenever Date Lists are on — including an
+// already-in-Current card (with Date Lists on, Current no longer pulls a
+// todo out of Overview, see filteredTodos in AllTodos.vue, so this case is
+// now routine, not an edge case): its swipe-right still splits into
+// "Remove [from Current]" vs. planning onto a Date List, exactly like the
+// per-card CalendarPlus button already allows unconditionally. Swipe-left/
+// Delete never splits either way.
 const showSwipeZoneSplit = computed(() =>
-  props.mode === 'all' && !props.todo.inCurrent && themeStore.dateListsEnabled
+  props.mode === 'all' && themeStore.dateListsEnabled
 )
 
 // Which of the two zones a rightward swipe currently targets — top (date)
@@ -1705,10 +1706,9 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
 // feel like the same gesture throughout the app rather than two
 // different ones that happen to look similar.
 //
-// Overview (mode 'all'): date only offered while not already in Current
-// (mirrors showSwipeZoneSplit above) — an already-in-Current card swiping
-// here is a plain removal, same as the threshold model's own "Remove"
-// vs. "Current" split.
+// Overview (mode 'all'): date offered whenever Date Lists are on (mirrors
+// showSwipeZoneSplit above), whether or not the card is already in Current
+// — see that computed's own comment.
 //
 // Current (mode 'current'): all three always apply, except previewLocked
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-today
@@ -1722,7 +1722,7 @@ const zones = computed<SwipeZone[]>(() => {
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    if (!props.todo.inCurrent && themeStore.dateListsEnabled) {
+    if (themeStore.dateListsEnabled) {
       const [dx, dy, radius] = zoneOffset('date')
       list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
     }
@@ -2065,7 +2065,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       // motion values. Spring back in place instead and let the caller's
       // toast + this card's own "just planned" pulse (see plannedPulse)
       // carry the "yes, that worked" feedback.
-      if (!props.todo.inCurrent && showSwipeZoneSplit.value && armedZone.value === 'date') {
+      if (showSwipeZoneSplit.value && armedZone.value === 'date') {
         springBackToCenter()
         triggerPlannedPulse()
         emit('send-to-focus-date', props.todo.id)

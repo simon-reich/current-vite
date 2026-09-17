@@ -66,8 +66,14 @@ function nextOccurrenceKey(t: Todo): number {
   return nextLoopOccurrence(t.loopInterval)?.getTime() ?? Infinity
 }
 
+// With Date Lists on, a todo being inCurrent no longer pulls it out of
+// Overview — that's what let you distribute a single todo across multiple
+// lists (Current included) in the first place, instead of it vanishing the
+// moment it joins any one of them. Date Lists off collapses back to the
+// original single-Current-pool app exactly: sending something to Current
+// is the only "list" that exists, so it should still visibly leave Overview.
 const filteredTodos = computed(() => {
-  let result = store.activeTodos.filter(t => !t.inCurrent)
+  let result = themeStore.dateListsEnabled ? [...store.activeTodos] : store.activeTodos.filter(t => !t.inCurrent)
   if (effectiveFilterTagIds.value.length > 0) {
     result = result.filter(t => t.tags.some(tid => effectiveFilterTagIds.value.includes(tid)))
   }
@@ -137,7 +143,7 @@ function sendToFocusDate(id: string) {
       />
     </div>
     <p v-else class="empty">
-      {{ store.activeTodos.filter(t => !t.inCurrent).length === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
+      {{ (themeStore.dateListsEnabled ? store.activeTodos.length : store.activeTodos.filter(t => !t.inCurrent).length) === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
     </p>
   </div>
 </template>
