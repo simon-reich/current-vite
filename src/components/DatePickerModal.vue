@@ -59,7 +59,7 @@ const dateAttributes = computed(() => [{
   <Teleport to="body">
     <div class="modal-backdrop" @mousedown.prevent @click="close" />
     <div class="modal-box" role="dialog" @mousedown.prevent @click.stop>
-      <VCalendar :attributes="dateAttributes" expanded locale="en" @dayclick="pickDate" />
+      <VCalendar :attributes="dateAttributes" expanded locale="en" :first-day-of-week="2" @dayclick="pickDate" />
       <div class="modal-actions">
         <button class="modal-btn modal-btn--cancel" @click="close">Close</button>
       </div>
