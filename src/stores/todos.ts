@@ -263,6 +263,17 @@ export const useTodosStore = defineStore('todos', () => {
     sub.title = trimmed
   }
 
+  function reorderSub(todoId: string, subId: string, toIndex: number) {
+    const todo = todos.value.find(t => t.id === todoId)
+    if (!todo) return
+    const fromIndex = todo.subs.findIndex(s => s.id === subId)
+    if (fromIndex === -1) return
+    const clamped = Math.max(0, Math.min(toIndex, todo.subs.length - 1))
+    if (clamped === fromIndex) return
+    const [moved] = todo.subs.splice(fromIndex, 1)
+    todo.subs.splice(clamped, 0, moved)
+  }
+
   function updateTodo(id: string, patch: Partial<Pick<Todo, 'title' | 'tags' | 'loopInterval' | 'celebration'>>) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
@@ -480,7 +491,7 @@ export const useTodosStore = defineStore('todos', () => {
     completedOn, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
     addTodo, updateTodo, deleteTodo, sendToToday, removeFromToday, completeTodo, doneForToday,
-    addSub, toggleSub, deleteSub, updateSub,
+    addSub, toggleSub, deleteSub, updateSub, reorderSub,
     addTag, deleteTag, ensureSystemTags, ensureSubsField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,
     importData,

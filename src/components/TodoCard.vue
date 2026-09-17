@@ -578,7 +578,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -800,6 +800,91 @@ function onEditSubKeydown(e: KeyboardEvent) {
     cancelEditSub()
     return
   }
+}
+
+// ── Sub reorder (drag handle) ──────────────────────────
+// Manual pointer drag rather than motion-v's own drag — motion-v has no
+// Reorder.Group/Item equivalent (framer-motion does), and the card itself
+// already owns a horizontal `drag="x"` on the outer motion.div for swipe
+// gestures, so this needs to be independent of that anyway. Pointer events
+// on the grip are stopped before they reach it (see onSubGripPointerDown),
+// same pattern as every other in-card button's @click.stop.
+const dragSubId = ref<string | null>(null)
+const dragSubTranslateY = ref(0)
+const dragSubStartIndex = ref(-1)
+const dragSubCurrentIndex = ref(-1)
+let dragSubStartClientY = 0
+let dragSubStepY = 0
+const subRowEls = new Map<string, HTMLElement>()
+
+function registerSubRowEl(id: string, el: Element | null) {
+  if (el) subRowEls.set(id, el as HTMLElement)
+  else subRowEls.delete(id)
+}
+
+// Row height alone undercounts the step by the .sub-row flex gap — reading
+// it back from the parent's computed style keeps this in sync with that
+// CSS value instead of duplicating the 6px as a magic number here too.
+function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
+  e.stopPropagation()
+  e.preventDefault()
+  const el = subRowEls.get(sub.id)
+  const index = props.todo.subs.findIndex(s => s.id === sub.id)
+  if (!el || index === -1) return
+  const gap = parseFloat(getComputedStyle(el.parentElement as HTMLElement).rowGap || '0') || 0
+  dragSubStepY = el.getBoundingClientRect().height + gap
+  dragSubId.value = sub.id
+  dragSubStartClientY = e.clientY
+  dragSubTranslateY.value = 0
+  dragSubStartIndex.value = index
+  dragSubCurrentIndex.value = index
+  lockScroll()
+  window.addEventListener('pointermove', onSubGripPointerMove)
+  window.addEventListener('pointerup', onSubGripPointerUp)
+  window.addEventListener('pointercancel', onSubGripPointerUp)
+}
+
+function onSubGripPointerMove(e: PointerEvent) {
+  if (!dragSubId.value || dragSubStepY <= 0) return
+  const deltaY = e.clientY - dragSubStartClientY
+  dragSubTranslateY.value = deltaY
+  const steps = Math.round(deltaY / dragSubStepY)
+  dragSubCurrentIndex.value = Math.max(0, Math.min(dragSubStartIndex.value + steps, props.todo.subs.length - 1))
+}
+
+function onSubGripPointerUp() {
+  window.removeEventListener('pointermove', onSubGripPointerMove)
+  window.removeEventListener('pointerup', onSubGripPointerUp)
+  window.removeEventListener('pointercancel', onSubGripPointerUp)
+  unlockScroll()
+  if (dragSubId.value && dragSubCurrentIndex.value !== dragSubStartIndex.value) {
+    store.reorderSub(props.todo.id, dragSubId.value, dragSubCurrentIndex.value)
+  }
+  dragSubId.value = null
+  dragSubTranslateY.value = 0
+  dragSubStepY = 0
+  dragSubStartIndex.value = -1
+  dragSubCurrentIndex.value = -1
+}
+
+// The dragged row follows the pointer 1:1 (no transition, or it'd lag);
+// every row it has passed over slides aside by exactly one step to open up
+// the drop slot, same visual language as most drag-reorder lists.
+function subRowStyle(sub: Sub, index: number) {
+  if (dragSubId.value === sub.id) {
+    return {
+      transform: `translateY(${dragSubTranslateY.value}px)`,
+      transition: 'none',
+      position: 'relative' as const,
+      zIndex: 2,
+    }
+  }
+  if (!dragSubId.value || dragSubCurrentIndex.value === dragSubStartIndex.value) return {}
+  const min = Math.min(dragSubStartIndex.value, dragSubCurrentIndex.value)
+  const max = Math.max(dragSubStartIndex.value, dragSubCurrentIndex.value)
+  if (index < min || index > max) return {}
+  const dir = dragSubCurrentIndex.value > dragSubStartIndex.value ? -1 : 1
+  return { transform: `translateY(${dir * dragSubStepY}px)` }
 }
 
 const newSubTitle = ref('')
@@ -2001,6 +2086,9 @@ watch(pendingDelete, (open) => {
 onUnmounted(() => {
   window.removeEventListener('pointerup', releaseGripFallback)
   window.removeEventListener('pointercancel', releaseGripFallback)
+  window.removeEventListener('pointermove', onSubGripPointerMove)
+  window.removeEventListener('pointerup', onSubGripPointerUp)
+  window.removeEventListener('pointercancel', onSubGripPointerUp)
   unlockScroll()
   if (openTagMenuId.value === props.todo.id) openTagMenuId.value = null
   // The celebration teaser is driven centrally by App.vue's own watcher on
@@ -2244,7 +2332,14 @@ onUnmounted(() => {
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
           <div v-if="subsVisible && (todo.subs.length > 0 || subsAddVisible)" class="sub-row" @click.stop>
-            <div v-for="sub in todo.subs" :key="sub.id" class="sub-item">
+            <div
+              v-for="(sub, subIndex) in todo.subs"
+              :key="sub.id"
+              :ref="(el) => registerSubRowEl(sub.id, el as Element | null)"
+              class="sub-item"
+              :class="{ dragging: dragSubId === sub.id }"
+              :style="subRowStyle(sub, subIndex)"
+            >
               <button
                 type="button"
                 class="sub-box"
@@ -2283,6 +2378,17 @@ onUnmounted(() => {
                 @click.stop="saveEditSub"
               >
                 <Check :size="11" />
+              </button>
+
+              <button
+                v-if="todo.subs.length > 1"
+                type="button"
+                class="sub-grip"
+                title="Drag to reorder"
+                @pointerdown="onSubGripPointerDown(sub, $event)"
+                @click.stop
+              >
+                <GripVertical :size="12" />
               </button>
 
               <button
@@ -2729,7 +2835,8 @@ onUnmounted(() => {
 }
 
 .priority .sub-edit,
-.priority .sub-delete {
+.priority .sub-delete,
+.priority .sub-grip {
   color: var(--bg);
 }
 
@@ -2979,6 +3086,11 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  transition: transform 0.15s ease;
+}
+
+.sub-item.dragging {
+  transition: none;
 }
 
 .sub-box {
@@ -3024,7 +3136,8 @@ onUnmounted(() => {
 }
 
 .sub-edit,
-.sub-delete {
+.sub-delete,
+.sub-grip {
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -3038,9 +3151,20 @@ onUnmounted(() => {
   transition: opacity 0.1s;
 }
 
+.sub-grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.sub-item.dragging .sub-grip {
+  cursor: grabbing;
+  opacity: 1;
+}
+
 @media (hover: hover) {
   .sub-edit:hover,
-  .sub-delete:hover {
+  .sub-delete:hover,
+  .sub-grip:hover {
     opacity: 1;
   }
 }
