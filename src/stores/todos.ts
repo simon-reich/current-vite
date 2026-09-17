@@ -167,11 +167,18 @@ export const useTodosStore = defineStore('todos', () => {
   const todayTodos = computed(() => {
     const today = todayStr()
     if (hasFocusDateList(today)) {
-      return todos.value.filter(t =>
-        !t.completedAt && !t.deletedAt &&
-        (t.focusDates?.includes(today) ||
-          (t.loopInterval && isLoopDueToday(t.loopInterval, new Date(), t.createdAt.slice(0, 10))))
-      )
+      return todos.value.filter(t => {
+        if (t.completedAt || t.deletedAt) return false
+        if (t.focusDates?.includes(today)) return true
+        // A due loop/once todo auto-joins today's Date List (see comment
+        // above), but isLoopDueToday doesn't know about "done for today" —
+        // it stays due for the rest of the day regardless. Without this
+        // check a loop todo checked off via doneForToday (which already
+        // clears it from focusDates) would still pass this OR branch and
+        // never disappear from Current, unlike a plain inToday todo.
+        const alreadyDoneToday = t.workLog.some(ts => ts.slice(0, 10) === today)
+        return !alreadyDoneToday && t.loopInterval && isLoopDueToday(t.loopInterval, new Date(), t.createdAt.slice(0, 10))
+      })
     }
     return todos.value.filter(t => t.inToday && !t.completedAt && !t.deletedAt)
   })
