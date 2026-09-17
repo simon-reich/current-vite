@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, inject } from 'vue'
 import type { Ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Check, Pencil, ChevronLeft } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
@@ -18,6 +19,7 @@ import { todayStr } from '../composables/useToday'
 const store = useTodosStore()
 const checksStore = useChecksStore()
 const themeStore = useThemeStore()
+const router = useRouter()
 
 // Shared with App.vue's tablet/phone "Lists" trigger buttons (outside the
 // RouterView) — see App.vue's own provide for why this goes the opposite
@@ -71,6 +73,17 @@ const viewingDateLabel = computed(() => viewingDate.value === todayStr() ? 'toda
 
 function backToDefault() {
   viewingDate.value = null
+}
+
+// Same pattern as Calendar.vue's own planThisDay() — points the Focus-Date-
+// Pille at this list's date and jumps to Overview, ready to swipe/assign
+// todos onto it without a separate date-picker step. Only offered while
+// actually viewing a Date List (not the default Current pool, which has
+// its own add-todo input right at the top of the app already).
+function planInOverview() {
+  if (!viewingDate.value) return
+  themeStore.setSelectedFocusDate(viewingDate.value)
+  router.push('/all')
 }
 
 function onListSelected(dateStr: string | null) {
@@ -206,6 +219,18 @@ function editFromAllChecks(check: CheckItem) {
       />
     </div>
     <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in current right now.' }}</p>
+
+    <div v-if="viewingDate" class="plan-in-overview-row">
+      <button
+        type="button"
+        class="plan-add-btn"
+        title="Add todos to this list in Overview"
+        @click="planInOverview"
+      >
+        <span class="plan-add-icon"><Plus :size="12" /></span>
+        <span class="plan-add-label">add todos</span>
+      </button>
+    </div>
 
     <div v-if="themeStore.checksEnabled" class="checks-section">
       <div class="checks-header">
@@ -415,6 +440,73 @@ function editFromAllChecks(check: CheckItem) {
   font-family: var(--font-playful, sans-serif);
   text-align: center;
   margin-top: 24px;
+}
+
+/* Sits right under the viewed Date List's own todos (or its "Nothing
+   planned" empty state) — a quick way into Overview with this list already
+   preset as the plan-ahead target. Left-aligned flush with the todo cards
+   above it (.todo-wrap's own align-items:flex-start), not centered. */
+.plan-in-overview-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 24px;
+}
+
+/* Plain circle that never changes size (so the plus itself never
+   re-centers/moves) plus a separate label sitting next to it that unrolls
+   left-to-right on hover, rather than the circle itself stretching into a
+   pill. */
+.plan-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* Same height as .tag-chip/.all-btn (see layout.css's --chip-* vars). */
+.plan-add-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
+  height: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
+  border: var(--chip-border-width) solid var(--ink);
+  border-radius: 50%;
+  color: var(--ink);
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
+/* Rolled up to nothing by default, unrolls left-to-right on hover — stays
+   dim (opacity 0.5) rather than fully stepping forward. A longer
+   max-width transition than a small label would need, so the larger text
+   actually reads as unrolling rather than just popping in. */
+.plan-add-label {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  transition: max-width 0.35s ease, opacity 0.2s ease;
+}
+
+@media (hover: hover) {
+  .plan-add-btn:hover .plan-add-icon {
+    opacity: 0.9;
+  }
+
+  .plan-add-btn:hover .plan-add-label {
+    max-width: 120px;
+    opacity: 0.5;
+  }
 }
 
 /* Generous space instead of a visual divider — Checks read as lower-

@@ -650,11 +650,6 @@
   width: 84px;
 }
 
-.date-nav-btn:disabled {
-  cursor: default;
-  pointer-events: none;
-}
-
 .date-nav-upcoming-btn {
   cursor: pointer;
 }
