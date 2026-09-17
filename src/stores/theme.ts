@@ -118,7 +118,7 @@ export const useThemeStore = defineStore('theme', () => {
       : savedThemes.value
     const pick = candidates[Math.floor(Math.random() * candidates.length)]
     apply(pick.bg, pick.gray)
-    lastThemeRotationDate.value = today
+    lastThemeRotationDate.value = todayStr()
   }
 
   return {
