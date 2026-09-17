@@ -10,6 +10,7 @@ import TodoCard from '../components/TodoCard.vue'
 import CheckModal from '../components/CheckModal.vue'
 import AllChecksModal from '../components/AllChecksModal.vue'
 import ListsPanel from '../components/ListsPanel.vue'
+import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnRemovedFromCurrentToast } from '../composables/useToast'
@@ -221,15 +222,12 @@ function editFromAllChecks(check: CheckItem) {
     <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in current right now.' }}</p>
 
     <div v-if="viewingDate && themeStore.dateListsEnabled" class="plan-in-overview-row">
-      <button
-        type="button"
-        class="plan-add-btn"
+      <IconLabelButton
+        :icon="Plus"
+        label="add todos"
         title="Add todos to this list in Overview"
         @click="planInOverview"
-      >
-        <span class="plan-add-icon"><Plus :size="12" /></span>
-        <span class="plan-add-label">add todos</span>
-      </button>
+      />
     </div>
 
     <div v-if="themeStore.checksEnabled" class="checks-section">
@@ -450,63 +448,6 @@ function editFromAllChecks(check: CheckItem) {
   display: flex;
   justify-content: flex-start;
   margin-top: 24px;
-}
-
-/* Plain circle that never changes size (so the plus itself never
-   re-centers/moves) plus a separate label sitting next to it that unrolls
-   left-to-right on hover, rather than the circle itself stretching into a
-   pill. */
-.plan-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--ink);
-  cursor: pointer;
-}
-
-/* Same height as .tag-chip/.all-btn (see layout.css's --chip-* vars). */
-.plan-add-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
-  height: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
-  border: var(--chip-border-width) solid var(--ink);
-  border-radius: 50%;
-  color: var(--ink);
-  opacity: 0.55;
-  transition: opacity 0.1s;
-}
-
-/* Rolled up to nothing by default, unrolls left-to-right on hover — stays
-   dim (opacity 0.5) rather than fully stepping forward. A longer
-   max-width transition than a small label would need, so the larger text
-   actually reads as unrolling rather than just popping in. */
-.plan-add-label {
-  display: inline-block;
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  opacity: 0;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: var(--font-mono, monospace);
-  transition: max-width 0.35s ease, opacity 0.2s ease;
-}
-
-@media (hover: hover) {
-  .plan-add-btn:hover .plan-add-icon {
-    opacity: 0.9;
-  }
-
-  .plan-add-btn:hover .plan-add-label {
-    max-width: 120px;
-    opacity: 0.5;
-  }
 }
 
 /* Generous space instead of a visual divider — Checks read as lower-

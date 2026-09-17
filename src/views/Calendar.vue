@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick, watch, inject } from 'vue'
+import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { CalendarPlus } from '@lucide/vue'
+import { Plus, Pencil } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
+import IconLabelButton from '../components/IconLabelButton.vue'
 
 const store = useTodosStore()
 const router = useRouter()
+// Provided by App.vue, same ref Current.vue's own Date-List nav reads/writes
+// (see App.vue's viewingDate) — the Edit button below sets it directly so
+// Current opens straight into this day's list instead of its default pool.
+const viewingDate = inject<Ref<string | null>>('viewingDate')!
 const checksStore = useChecksStore()
 const themeStore = useThemeStore()
 const calendarRef = ref<any>(null)
@@ -156,13 +162,19 @@ const checksOnDay = computed(() => selectedDate.value && themeStore.checksEnable
 // which is exactly why subs-only progress still lands on the calendar.
 const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? store.subsCompletedOn(selectedDate.value) : [])
 
-// Todos already planned onto the selected day's Date List (see
-// stores/todos.ts's focusDates) — meaningful for today or any future day,
-// shown in its own section since nothing here has actually happened yet
-// (unlike dayEntries/checksOnDay, which are all history).
-const plannedOnDay = computed(() => selectedDate.value && themeStore.dateListsEnabled ? store.todosForFocusDate(selectedDate.value) : [])
-
-const isFutureDate = computed(() => !!selectedDate.value && selectedDate.value > todayStr())
+// Todos actually planned onto the selected day's Date List (see
+// stores/todos.ts's focusDates) — deliberately excludes Date-todos
+// (loopInterval set): todosForFocusDate live-computes those as "due that
+// day" off their recurrence rule, which is true on literally every matching
+// day including ones long past, so they'd otherwise sit here forever
+// mislabeled as "planned" instead of the automatic recurrence they actually
+// are. Meaningful for today or any future day, shown in its own section
+// since nothing here has actually happened yet (unlike dayEntries/
+// checksOnDay, which are all history).
+const plannedOnDay = computed(() => {
+  if (!selectedDate.value || !themeStore.dateListsEnabled) return []
+  return store.todosForFocusDate(selectedDate.value).filter(t => !t.loopInterval)
+})
 
 // Jumps to Overview with the widget already pointed at this day, ready to
 // assign todos to it without a separate date-picker step — see
@@ -173,7 +185,29 @@ function planThisDay() {
   router.push('/all')
 }
 
+// Jumps to Current with this day's Date List already open (App.vue's own
+// viewingDate, same ref its desktop sidebar Date-List nav uses) — a quick
+// way to review/edit what's already planned without hunting for the date
+// again over there.
+function editThisDayList() {
+  if (!selectedDate.value) return
+  viewingDate.value = selectedDate.value
+  router.push('/current')
+}
+
 const hasActivity = computed(() => dayEntries.value.length > 0 || checksOnDay.value.length > 0)
+
+// Today can show both the planned-for-today list and today's own completed/
+// worked history at once — history reads more relevant there (what did I
+// actually get done today) so it goes first, plan second. Any other day
+// only ever has one of the two in practice, but keeps plan-first regardless
+// (matches every other day's reading order: what's coming, not a review).
+const isSelectedToday = computed(() => selectedDate.value === todayStr())
+
+// The plan section (empty state + Add/Edit) only makes sense for today or a
+// future day — a past day is done, "no activities planned for this day yet"
+// plus an Add button that plans into the past is nonsensical there.
+const isPastDate = computed(() => !!selectedDate.value && selectedDate.value < todayStr())
 
 // Each entry keeps its own done/worked "kind" (for the ✓✓ vs ✓ icon) even
 // though the day's list is no longer *grouped* by that — see dayEntries
@@ -246,49 +280,75 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           <div :key="selectedDate" class="day-detail-content">
             <div class="day-label-row">
               <p class="day-label">{{ selectedDateLabel }}</p>
-              <button
-                v-if="themeStore.dateListsEnabled && isFutureDate"
-                type="button"
-                class="plan-day-btn"
-                title="Plan this day in Overview"
-                @click="planThisDay"
-              >
-                <CalendarPlus :size="16" />
-              </button>
             </div>
 
-            <div v-if="themeStore.dateListsEnabled && plannedOnDay.length" class="day-items planned-items">
-              <p class="planned-items-label">planned</p>
-              <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item day-item--planned">
-                {{ todo.title }}
+            <div
+              v-if="themeStore.dateListsEnabled && !isPastDate"
+              class="day-plan-block"
+              :style="{ order: isSelectedToday ? 2 : 1 }"
+            >
+              <div v-if="plannedOnDay.length" class="day-items planned-items">
+                <p class="planned-items-label">planned</p>
+                <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item day-item--planned">
+                  <span class="day-item-bullet">–</span>{{ todo.title }}
+                </div>
               </div>
-            </div>
+              <p v-else class="day-plan-empty">no activities planned for this day yet</p>
 
-            <div v-if="hasActivity" class="day-items">
-              <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
-                <div class="day-item">
-                  <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
-                </div>
-                <div v-if="entry.subs.length" class="day-subs">
-                  <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
-                </div>
-              </div>
-              <div v-if="priorityEntries.length && otherEntries.length" class="day-divider" />
-              <div v-for="entry in otherEntries" :key="entry.todo.id" class="day-entry">
-                <div class="day-item">
-                  <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
-                </div>
-                <div v-if="entry.subs.length" class="day-subs">
-                  <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
-                </div>
-              </div>
-              <div v-if="(priorityEntries.length || otherEntries.length) && checksOnDay.length" class="day-divider" />
-              <div v-for="check in checksOnDay" :key="check.id" class="day-item day-item--check">
-                <span class="icon icon--check"><span class="icon-dot" /></span>{{ checksStore.titleOn(check, selectedDate) }}
+              <div class="day-plan-actions">
+                <IconLabelButton
+                  compact
+                  :circle-size="26"
+                  :icon-size="11"
+                  :icon="Plus"
+                  label="add"
+                  title="Plan this day in Overview"
+                  @click="planThisDay"
+                />
+                <IconLabelButton
+                  v-if="plannedOnDay.length"
+                  compact
+                  :circle-size="26"
+                  :icon-size="11"
+                  :icon="Pencil"
+                  label="edit"
+                  title="Edit this day's list in Current"
+                  @click="editThisDayList"
+                />
               </div>
             </div>
 
-            <p v-else-if="!plannedOnDay.length" class="no-activity">No activity for this day.</p>
+            <div
+              v-if="hasActivity || !themeStore.dateListsEnabled || isPastDate"
+              class="day-history-block"
+              :style="{ order: isSelectedToday ? 1 : 2 }"
+            >
+              <div v-if="hasActivity" class="day-items">
+                <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
+                  <div class="day-item">
+                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
+                  </div>
+                  <div v-if="entry.subs.length" class="day-subs">
+                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
+                  </div>
+                </div>
+                <div v-if="priorityEntries.length && otherEntries.length" class="day-divider" />
+                <div v-for="entry in otherEntries" :key="entry.todo.id" class="day-entry">
+                  <div class="day-item">
+                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
+                  </div>
+                  <div v-if="entry.subs.length" class="day-subs">
+                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
+                  </div>
+                </div>
+                <div v-if="(priorityEntries.length || otherEntries.length) && checksOnDay.length" class="day-divider" />
+                <div v-for="check in checksOnDay" :key="check.id" class="day-item day-item--check">
+                  <span class="icon icon--check"><span class="icon-dot" /></span>{{ checksStore.titleOn(check, selectedDate) }}
+                </div>
+              </div>
+
+              <p v-else class="no-activity">No activity for this day.</p>
+            </div>
           </div>
         </transition>
 
@@ -408,22 +468,25 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   gap: 10px;
 }
 
-.plan-day-btn {
-  display: flex;
-  align-items: center;
-  background: none;
-  border: none;
+/* Same look as .no-activity below — it replaces that message whenever Date
+   Lists are on, so it should read the same, not like a smaller aside. */
+.day-plan-empty {
+  font-size: 18px;
+  font-weight: bold;
   color: var(--ink);
-  opacity: 0.5;
-  cursor: pointer;
-  padding: 2px;
-  transition: opacity 0.1s;
+  font-family: var(--font-playful, sans-serif);
+  text-align: center;
 }
 
-@media (hover: hover) {
-  .plan-day-btn:hover {
-    opacity: 1;
-  }
+/* Sits centered under the planned list (or its empty state) — .compact
+   IconLabelButtons keep their hover-label from pushing the other button
+   sideways (see IconLabelButton.vue), so they can sit this close together. */
+.day-plan-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .planned-items-label {
@@ -438,6 +501,12 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 .day-item--planned {
   opacity: 0.7;
+}
+
+/* Own flex item (like .icon above) rather than inline text — a wrapped
+   second line then lines up under the title, not under the dash. */
+.day-item-bullet {
+  flex-shrink: 0;
 }
 
 .day-items {
