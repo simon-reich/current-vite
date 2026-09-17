@@ -130,6 +130,8 @@
      no :deep() needed (that's only meaningful inside a component's own
      <style scoped>). */
   .tablet-header-right-center .focus-date-widget {
+    width: 96px;
+    height: 32px;
     padding: 4px 9px;
   }
 

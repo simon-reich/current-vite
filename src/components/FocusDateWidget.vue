@@ -74,6 +74,13 @@ function pick(dateStr: string) {
   grid-template-rows: auto auto;
   column-gap: 8px;
   align-items: center;
+  justify-content: center;
+  /* Fixed, not just min — sized to the widest/tallest content this ever
+     shows (the weekday/day-month/year layout), so switching to the
+     shorter "today"/"tomorrow" label centers within the same box instead
+     of shrinking the whole pill down to fit it. */
+  width: 118px;
+  height: 40px;
   padding: 6px 12px;
   background: var(--bg);
   color: var(--ink);
@@ -116,6 +123,7 @@ function pick(dateStr: string) {
    of either — spans both grid columns and centers across the full pill. */
 .fdw-main--full {
   grid-column: 1 / span 2;
+  grid-row: 1 / span 2;
   padding-left: 0;
   border-left: none;
   text-align: center;
