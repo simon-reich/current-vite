@@ -129,19 +129,26 @@
      already reaches into FocusDateWidget.vue's own scoped markup fine —
      no :deep() needed (that's only meaningful inside a component's own
      <style scoped>). */
-  .tablet-header-right-center .focus-date-widget {
-    width: 96px;
-    height: 32px;
-    padding: 4px 9px;
+  .tablet-header-right-center .fdw-left {
+    min-width: 36px;
+    padding: 3px 6px;
   }
 
-  .tablet-header-right-center .fdw-main {
-    font-size: 17px;
+  .tablet-header-right-center .fdw-num {
+    min-width: 26px;
+    padding: 3px 7px;
+    font-size: 19px;
   }
 
   .tablet-header-right-center .fdw-weekday,
   .tablet-header-right-center .fdw-year {
     font-size: 8px;
+  }
+
+  .tablet-header-right-center .fdw-special {
+    min-width: 72px;
+    padding: 5px 10px;
+    font-size: 12px;
   }
 
   /* main-head-inner's grid spans the full row width, including the

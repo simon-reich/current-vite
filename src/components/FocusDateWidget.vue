@@ -15,12 +15,12 @@ import DatePickerModal from './DatePickerModal.vue'
 const themeStore = useThemeStore()
 const showModal = ref(false)
 
-// Same "today"/"tomorrow" special-casing as the Current sidebar's Date-List
-// nav (see App.vue) and TodoCard's swipe-zone label. Weekday/year only make
-// sense alongside an actual day/month pair — for "today"/"tomorrow" they'd
-// just be redundant, so `special` drops them and centers the label across
-// the whole pill instead (see .fdw-main--full below). Everything else keeps
-// the original weekday/day-month/year layout unchanged.
+// Mechanical flip-calendar look: weekday/year stacked in their own cell,
+// day and month as two separate cells. For "today"/"tomorrow" (same
+// special-casing as the Current sidebar's Date-List nav and TodoCard's
+// swipe-zone label) the day/month cells collapse into one centered label
+// instead — a bare number pair wouldn't mean "today" on its own the way
+// the word does.
 function parts(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(y, m - 1, d)
@@ -28,8 +28,10 @@ function parts(dateStr: string) {
   const isTomorrow = dateStr === tomorrowStr()
   return {
     special: isToday || isTomorrow,
+    main: isToday ? 'today' : isTomorrow ? 'tomorrow' : '',
     weekday: WEEKDAY_LABELS[date.getDay()],
-    main: isToday ? 'today' : isTomorrow ? 'tomorrow' : `${String(d).padStart(2, '0')} ${String(m).padStart(2, '0')}`,
+    day: String(d).padStart(2, '0'),
+    month: String(m).padStart(2, '0'),
     year: String(y),
   }
 }
@@ -49,11 +51,14 @@ function pick(dateStr: string) {
     @click="showModal = true"
   >
     <template v-if="!display.special">
-      <span class="fdw-weekday">{{ display.weekday }}</span>
-      <span class="fdw-main">{{ display.main }}</span>
-      <span class="fdw-year">{{ display.year }}</span>
+      <div class="fdw-cell fdw-left">
+        <span class="fdw-weekday">{{ display.weekday }}</span>
+        <span class="fdw-year">{{ display.year }}</span>
+      </div>
+      <span class="fdw-cell fdw-num fdw-day">{{ display.day }}</span>
+      <span class="fdw-cell fdw-num fdw-month">{{ display.month }}</span>
     </template>
-    <span v-else class="fdw-main fdw-main--full">{{ display.main }}</span>
+    <span v-else class="fdw-cell fdw-special">{{ display.main }}</span>
   </button>
 
   <DatePickerModal
@@ -65,69 +70,102 @@ function pick(dateStr: string) {
 </template>
 
 <style scoped>
-/* Same look as the add-todo input (see .add-input in layout.css) — bg
-   fill, ink border/text, shadow only downward (no x-offset) in ink —
-   rather than its own separate style. */
+/* Mechanical flip-calendar look, not this app's usual flat pill — one of
+   the few elements exempt from the rounded/square corner-radius setting
+   (see CLAUDE.md's Personalisierung section): border-radius here is a
+   fixed px value, never var(--radius), so it stays rounded either way.
+   Same bg-fill/ink-border/ink-text/ink-shadow look as everything else in
+   the app otherwise (see .add-input in layout.css) — no inverted fill.
+   overflow:hidden clips the inner cell dividers to the rounded corners;
+   it does NOT clip the box-shadow below (shadows paint outside the
+   overflow-clipped content box, unaffected by an element's own
+   overflow rule). */
 .focus-date-widget {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  align-items: center;
-  justify-content: center;
-  /* Fixed, not just min — sized to the widest/tallest content this ever
-     shows (the weekday/day-month/year layout), so switching to the
-     shorter "today"/"tomorrow" label centers within the same box instead
-     of shrinking the whole pill down to fit it. */
-  width: 118px;
-  height: 40px;
-  padding: 6px 12px;
+  display: flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  /* Same overall thickness as the add-todo input (.add-input in
+     layout.css: 2px border + 10px top/bottom padding around 17px text ≈
+     44px) — border included since this is border-box, matching how that
+     height reads including its own 2px border. */
+  height: 44px;
   background: var(--bg);
   color: var(--ink);
   border: 2px solid var(--ink);
-  border-radius: var(--radius);
+  border-radius: 14px;
   box-shadow: 0 5px 0 var(--ink);
   cursor: pointer;
   font-family: var(--font-mono, monospace);
-  transition: border-color 0.15s;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .focus-date-widget:hover {
   border-color: var(--ink-dark);
+  box-shadow: 0 5px 0 var(--ink-dark);
 }
 
-.fdw-weekday {
-  grid-column: 1;
-  grid-row: 1;
+.fdw-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Weekday-over-year, split by its own thin horizontal rule — each sized
+   to its own worst case (a 3-letter weekday, a 4-digit year) via
+   min-width/min-height on the cell itself, not a shared total budget, so
+   nothing here can be squeezed into wrapping the way a single guessed
+   total pill width did. */
+.fdw-left {
+  flex-direction: column;
+  min-width: 46px;
+  /* Vertical padding only — horizontal padding lives on the weekday/year
+     text itself (below), not here, so their border-bottom (which spans an
+     element's full border-box regardless of that element's own padding)
+     actually reaches this cell's real edges: the pill's left border and
+     the day-cell's divider, not just the padded content area in between. */
+  padding: 3px 0;
+  border-right: 1px solid var(--ink);
+}
+
+.fdw-weekday,
+.fdw-year {
+  /* Full cell width + right-aligned text, not the cell's own centering
+     (that stays for the big day/month numbers) — matches the reference
+     look. */
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 8px;
+  text-align: right;
   font-size: 10px;
-  line-height: 1;
+  line-height: 1.4;
   letter-spacing: 0.5px;
 }
 
-.fdw-year {
-  grid-column: 1;
-  grid-row: 2;
-  font-size: 10px;
-  line-height: 1;
+.fdw-weekday {
+  border-bottom: 1px solid var(--ink);
 }
 
-.fdw-main {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  font-size: 22px;
+.fdw-num {
+  min-width: 34px;
+  padding: 2px 10px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
-  padding-left: 4px;
-  border-left: 2px solid var(--ink);
 }
 
-/* today/tomorrow: no weekday/year alongside it, so no divider to hang off
-   of either — spans both grid columns and centers across the full pill. */
-.fdw-main--full {
-  grid-column: 1 / span 2;
-  grid-row: 1 / span 2;
-  padding-left: 0;
-  border-left: none;
-  text-align: center;
+.fdw-day {
+  border-right: 1px solid var(--ink);
+}
+
+/* today/tomorrow: the day/month cells collapse into this one, centered,
+   generously min-widthed to fit "tomorrow" (the longest label) without
+   growing further — switching between the two never resizes the pill. */
+.fdw-special {
+  min-width: 96px;
+  padding: 5px 16px;
+  font-size: 15px;
+  font-weight: 700;
 }
 </style>
