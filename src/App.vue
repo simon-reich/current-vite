@@ -1008,8 +1008,13 @@ function formatPresetDate(dateStr: string): string {
 // equivalent to sync, so it's simply left alone. viewingDate itself is
 // never reset elsewhere either — a Settings or Calendar detour leaves it
 // exactly as it was, so coming back to Current (directly, or via Overview)
-// still shows whatever list you were last on.
+// still shows whatever list you were last on. Gated on dateListsEnabled —
+// without the feature, Current has no UI to set viewingDate itself (its
+// sidebar date-nav doesn't even render), so this sync should stay quiet
+// too, rather than silently opening a Date List view nobody asked for off
+// a stale, persisted selectedFocusDate.
 watch(() => route.path, (path, prevPath) => {
+  if (!themeStore.dateListsEnabled) return
   if (prevPath === '/current' && path === '/all') {
     if (viewingDate.value) themeStore.setSelectedFocusDate(viewingDate.value)
   } else if (prevPath === '/all' && path === '/current') {

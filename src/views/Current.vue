@@ -220,7 +220,7 @@ function editFromAllChecks(check: CheckItem) {
     </div>
     <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in current right now.' }}</p>
 
-    <div v-if="viewingDate" class="plan-in-overview-row">
+    <div v-if="viewingDate && themeStore.dateListsEnabled" class="plan-in-overview-row">
       <button
         type="button"
         class="plan-add-btn"
