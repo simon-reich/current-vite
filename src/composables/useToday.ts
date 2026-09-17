@@ -19,3 +19,6 @@ export function tomorrowStr(): string {
   d.setDate(d.getDate() + 1)
   return localDateStr(d)
 }
+
+// Sunday-first, matching Date#getDay()/v-calendar's own weekday numbering.
+export const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']

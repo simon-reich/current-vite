@@ -26,6 +26,15 @@ function pickDate(day: { id: string }) {
   close()
 }
 
+// Deliberately not the shared registerModalGuard() helper (see its own
+// comment) — this one has a real onConfirm (no separate confirm step,
+// picking a day already applies and closes), and registers inside
+// onMounted rather than at setup. Pre-existing quirk, not something this
+// consolidation changes: this modal can itself open while another modal is
+// already up (LoopPicker's custom-date picker, reachable from inside
+// CheckModal) — closing it here nulls activeModal unconditionally rather
+// than handing control back to that parent modal, so Escape/Enter stop
+// doing anything for the still-open CheckModal until it's reopened.
 onMounted(() => {
   activeModal.value = { onCancel: close, onConfirm: close }
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useThemeStore } from '../stores/theme'
+import { WEEKDAY_LABELS } from '../composables/useToday'
 import DatePickerModal from './DatePickerModal.vue'
 
 // The Overview-only control for picking which date new "plan ahead"
@@ -13,8 +14,6 @@ import DatePickerModal from './DatePickerModal.vue'
 // breakpoint-agnostic, callers control visibility/position via CSS.
 const themeStore = useThemeStore()
 const showModal = ref(false)
-
-const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
 function parts(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)

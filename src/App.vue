@@ -12,7 +12,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickEx
 import { activeModal } from './composables/useModalGuard'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast, spawnSentToCurrentToast } from './composables/useToast'
-import { todayStr, tomorrowStr } from './composables/useToday'
+import { todayStr, tomorrowStr, WEEKDAY_LABELS } from './composables/useToday'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
 import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
@@ -934,12 +934,10 @@ const upcomingFocusDates = computed(() => store.futureFocusDates.filter(d => d !
 // "TUE, 07.07" — uppercase weekday first, then day.month (day-before-month,
 // not the US month-before-day order), no year (Date Lists only ever cover
 // the near future in practice, see rolloverExpiredFocusDates clearing out
-// stale ones). Same WEEKDAY_LABELS set as FocusDateWidget.vue.
-const UPCOMING_WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-
+// stale ones).
 function formatUpcomingDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number)
-  const weekday = UPCOMING_WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()]
+  const weekday = WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()]
   return `${weekday}, ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}`
 }
 

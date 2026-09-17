@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { onUnmounted } from 'vue'
 import { Pencil } from '@lucide/vue'
 import { useChecksStore, type Check } from '../stores/checks'
-import { activeModal } from '../composables/useModalGuard'
+import { registerModalGuard } from '../composables/useModalGuard'
 
 const emit = defineEmits<{ close: []; edit: [check: Check] }>()
 
@@ -19,10 +18,7 @@ function edit(check: Check) {
 // Same app-wide modal guard every other overlay uses — Escape closes this,
 // no Enter action (there's no single primary action here, just browsing),
 // same as e.g. the delete-tag confirm not needing one either.
-activeModal.value = { onCancel: close }
-onUnmounted(() => {
-  if (activeModal.value?.onCancel === close) activeModal.value = null
-})
+registerModalGuard({ onCancel: close })
 </script>
 
 <template>

@@ -1,3 +1,5 @@
+import { uuid } from '../composables/useId'
+
 const TITLES = [
   'Buy groceries for the week',
   'Fix the bug in the authentication flow',
@@ -30,13 +32,6 @@ const TITLES = [
   'Clean up old branches in Git',
   'Sketch wireframe for the mobile checkout redesign',
 ]
-
-function uuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-  })
-}
 
 export function seedDevData() {
   if (!import.meta.env.DEV) return

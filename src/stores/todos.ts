@@ -3,15 +3,8 @@ import { ref, computed } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
 import { todayStr } from '../composables/useToday'
+import { uuid } from '../composables/useId'
 import { useThemeStore } from './theme'
-
-function uuid(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-  })
-}
 
 export const PRIORITY_TAG_ID = '__priority__'
 export const LOOP_TAG_ID = '__loop__'

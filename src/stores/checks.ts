@@ -3,14 +3,7 @@ import { ref, computed } from 'vue'
 import type { LoopUnit } from './todos'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
 import { todayStr } from '../composables/useToday'
-
-function uuid(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
-  })
-}
+import { uuid } from '../composables/useId'
 
 // Short reminder phrases only, not full todo-length titles — Current's
 // check-row now stacks them one per line (see Current.vue) instead of side

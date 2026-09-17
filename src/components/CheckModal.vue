@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useChecksStore, CHECK_TITLE_MAX_LENGTH, type Check, type CheckSchedule } from '../stores/checks'
 import type { LoopInterval } from '../stores/todos'
-import { activeModal } from '../composables/useModalGuard'
+import { registerModalGuard } from '../composables/useModalGuard'
 import { todayStr } from '../composables/useToday'
 import LoopPicker from './LoopPicker.vue'
 
@@ -54,10 +54,7 @@ function close() {
 // LoopPicker's own date-modal use — App.vue's single global keydown
 // listener then makes Escape cancel / Enter confirm here too, and blocks
 // every other shortcut underneath while this is up.
-activeModal.value = { onCancel: close, onConfirm: save }
-onUnmounted(() => {
-  if (activeModal.value?.onCancel === close) activeModal.value = null
-})
+registerModalGuard({ onCancel: close, onConfirm: save })
 
 nextTick(() => titleInputRef.value?.focus())
 </script>

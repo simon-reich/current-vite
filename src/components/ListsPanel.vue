@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { Trash2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
-import { activeModal } from '../composables/useModalGuard'
+import { registerModalGuard } from '../composables/useModalGuard'
 import { todayStr } from '../composables/useToday'
 
 // Pure picker/deleter for Date Lists — picking a row swaps Current.vue's
@@ -36,10 +36,7 @@ function close() {
 // Same app-wide modal guard every other overlay uses — Escape closes this,
 // no single primary Enter action (picking a row already applies and
 // closes it, mirroring DatePickerModal's own dayclick).
-activeModal.value = { onCancel: close }
-onUnmounted(() => {
-  if (activeModal.value?.onCancel === close) activeModal.value = null
-})
+registerModalGuard({ onCancel: close })
 </script>
 
 <template>
