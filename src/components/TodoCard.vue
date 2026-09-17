@@ -1246,7 +1246,13 @@ function caretOffsetFromEvent(e: MouseEvent): number | null {
 // straight past "open" into "edit" on a single click.
 function handleTitleClick(e: MouseEvent) {
   if (justDragged) { justDragged = false; return }
-  const isOpen = props.mode === 'today' ? showMenu.value : showTagMenu.value
+  // In 'today' mode "open" covers both the check-menu (showMenu) and the
+  // full tag/date editor (showTagMenu, e.g. after openEditFromToday) —
+  // checking showMenu alone made a title click during an active full edit
+  // (focus moved to a sub, then back to the title) register as "closed" and
+  // fall into toggleCheckMenu(), which treats that as "done editing" and
+  // collapses the whole card instead of re-entering the title edit.
+  const isOpen = props.mode === 'today' ? (showMenu.value || showTagMenu.value) : showTagMenu.value
   if (!isOpen) {
     if (props.mode === 'today') toggleCheckMenu()
     else toggleTagMenu()
@@ -2145,7 +2151,7 @@ onUnmounted(() => {
           <span
             v-else
             class="todo-title"
-            :class="{ editable: mode === 'today' ? showMenu : showTagMenu }"
+            :class="{ editable: mode === 'today' ? (showMenu || showTagMenu) : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
           >{{ todo.title }}</span>
