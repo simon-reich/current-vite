@@ -862,7 +862,15 @@ function addTodo() {
   // todo, which only ever auto-joins Current once it's due (see
   // runLoopSchedule). It's created and stays in the pool instead.
   const dateTodoNotYetDue = !!todo.loopInterval && !isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))
-  if (route.path === '/current') {
+  if (route.path === '/current' && viewingDate.value) {
+    // Viewing a Date List instead of the actual Current pool — typing a
+    // todo here means "put it on that list", not "send it to Current"
+    // (inCurrent and focusDates are independent memberships, see
+    // CLAUDE.md's Date-Feature section). Bypasses the due-date gate below
+    // entirely: picking a specific list to view is an explicit placement,
+    // not the automatic "is this due yet" join Current itself gets.
+    store.assignFocusDate(todo.id, viewingDate.value)
+  } else if (route.path === '/current') {
     if (!dateTodoNotYetDue) sendNewTodoToCurrent(todo)
   }
   // A brand-new loop todo due today (e.g. start date = today, daily)
