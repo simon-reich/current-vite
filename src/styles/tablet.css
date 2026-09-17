@@ -130,9 +130,16 @@
      no :deep() needed (that's only meaningful inside a component's own
      <style scoped>). */
   .tablet-header-right-center .focus-date-widget {
-    width: 76px;
-    padding: 6px 4px;
-    font-size: 13px;
+    padding: 4px 9px;
+  }
+
+  .tablet-header-right-center .fdw-main {
+    font-size: 17px;
+  }
+
+  .tablet-header-right-center .fdw-weekday,
+  .tablet-header-right-center .fdw-year {
+    font-size: 8px;
   }
 
   /* main-head-inner's grid spans the full row width, including the
