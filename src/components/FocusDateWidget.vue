@@ -100,6 +100,7 @@ function pick(dateStr: string) {
   grid-column: 1;
   grid-row: 1;
   font-size: 10px;
+  line-height: 1;
   letter-spacing: 0.5px;
 }
 
@@ -107,6 +108,7 @@ function pick(dateStr: string) {
   grid-column: 1;
   grid-row: 2;
   font-size: 10px;
+  line-height: 1;
 }
 
 .fdw-main {
