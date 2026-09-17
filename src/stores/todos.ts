@@ -335,25 +335,30 @@ export const useTodosStore = defineStore('todos', () => {
     return !!todo.loopInterval && todo.tags.includes(LOOP_TAG_ID)
   }
 
-  // Current's own "done for today" — inCurrent + workLog, plus (for a Date
-  // Todo only) also clears today's focusDate, since for those the two
-  // memberships are one occurrence (see isDateTodo). A plain todo stays
-  // list-scoped — checking it off here never touches focusDates.
+  // Current's own "done for today" — inCurrent + workLog, and always also
+  // clears today's focusDate if this todo happens to be on that list too.
+  // Deliberately one-directional: Current is the broader, day-agnostic
+  // list, so "done for today" there settles today's occurrence everywhere.
+  // doneForTodayOnDate below does NOT mirror this for a plain todo — only
+  // for a Date Todo, where both memberships are the same occurrence (see
+  // isDateTodo) rather than two independent choices.
   function doneForToday(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
       todo.workLog.push(new Date().toISOString())
       todo.inCurrent = false
-      if (isDateTodo(todo)) unassignFocusDate(id, todayStr())
+      unassignFocusDate(id, todayStr())
       applyLoopReschedule(todo)
     }
   }
 
   // The Date List equivalent of doneForToday — unassigns just this one
-  // date (a todo can be planned on several Date Lists at once). For a
-  // plain todo that leaves `inCurrent` untouched, mirroring doneForToday's
-  // own isolation; for a Date Todo checked off on *today's* list, it also
-  // clears `inCurrent` (same occurrence, see isDateTodo/doneForToday).
+  // date (a todo can be planned on several Date Lists at once). Unlike
+  // doneForToday, this direction stays one-way for a plain todo (leaves
+  // `inCurrent` untouched — the narrower Today-list view shouldn't reach
+  // back and clear the broader Current list); only for a Date Todo checked
+  // off on *today's* list does it also clear `inCurrent` (same occurrence,
+  // see isDateTodo/doneForToday).
   function doneForTodayOnDate(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
