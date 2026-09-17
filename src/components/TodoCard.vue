@@ -577,7 +577,7 @@ export function closeActiveCard() {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
@@ -1471,6 +1471,31 @@ function handleDoneForToday(id: string) {
 // so the card still follows the finger freely in every direction — without
 // ever having to fight the browser for scroll ownership.
 const swipeContainerRef = ref<HTMLElement | null>(null)
+
+// Tracks this card's actual rendered height so the hover puff below (see
+// .swipe-container:hover) can cap its growth in real pixels instead of a
+// flat percentage — a tall card (many subs expanded) would otherwise puff
+// up by enough pixels per edge to eat into the fixed gap to the next card.
+const cardHeight = ref(0)
+let cardResizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  if (!swipeContainerRef.value) return
+  cardResizeObserver = new ResizeObserver(entries => {
+    cardHeight.value = entries[0].contentRect.height
+  })
+  cardResizeObserver.observe(swipeContainerRef.value)
+})
+
+// 3.5% is fine for a typical card's height — the min() below only ever
+// binds once a card is tall enough that 3.5% would grow it by more than
+// MAX_HOVER_GROWTH_PX per edge; for anything shorter it's a no-op and the
+// normal 3.5% puff still applies.
+const MAX_HOVER_GROWTH_PX = 6
+const hoverScale = computed(() => {
+  if (!cardHeight.value) return 1.035
+  return Math.min(1.035, 1 + (2 * MAX_HOVER_GROWTH_PX) / cardHeight.value)
+})
 const x = useMotionValue(0)
 const y = useMotionValue(0)
 const rotate = useTransform(x, [-200, 200], [-8, 8])
@@ -2095,6 +2120,7 @@ watch(pendingDelete, (open) => {
 })
 
 onUnmounted(() => {
+  cardResizeObserver?.disconnect()
   window.removeEventListener('pointerup', releaseGripFallback)
   window.removeEventListener('pointercancel', releaseGripFallback)
   window.removeEventListener('pointermove', onSubGripPointerMove)
@@ -2146,6 +2172,7 @@ onUnmounted(() => {
       ref="swipeContainerRef"
       class="swipe-container"
       :class="{ open: showMenu || showTagMenu, loop: previewIsLoop, 'just-planned': justPlanned }"
+      :style="{ '--hover-scale': hoverScale }"
     >
       <!-- Threshold model's own backdrop/indicator — see SWIPE_MODE above.
            Left fully intact, just inert while SWIPE_MODE is 'zones'
@@ -2546,10 +2573,18 @@ onUnmounted(() => {
 
 /* Closed cards puff up a touch on hover — real mouse devices only (see
    other (hover: hover) blocks in this file), and skipped while open so
-   the menu/edit UI underneath doesn't shift while you're using it. */
+   the menu/edit UI underneath doesn't shift while you're using it.
+   scale() is layout-neutral (grows around the element's own center
+   without displacing flex siblings), so the fixed 12px gap in
+   .todo-wrap's parent never accounts for it — invisible on a short card,
+   but a tall one (many subs expanded) would puff up by enough real pixels
+   at each edge to eat into or cross that gap. --hover-scale (set inline,
+   see hoverScale below) caps the growth in actual pixels instead of a
+   flat percentage, computed off this card's own measured height, so a
+   tall card still puffs, just by less. */
 @media (hover: hover) {
   .swipe-container:not(.open):hover {
-    transform: scale(1.035);
+    transform: scale(var(--hover-scale, 1.035));
   }
 }
 
