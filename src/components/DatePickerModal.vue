@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount } from 'vue'
-import { activeModal } from '../composables/useModalGuard'
+import { activeModal, type ModalGuard } from '../composables/useModalGuard'
 
 // Extracted out of LoopPicker.vue's own inline date modal (see its git
 // history) so the Focus Date widget can reuse the exact same "pick a day
@@ -29,17 +29,20 @@ function pickDate(day: { id: string }) {
 // Deliberately not the shared registerModalGuard() helper (see its own
 // comment) — this one has a real onConfirm (no separate confirm step,
 // picking a day already applies and closes), and registers inside
-// onMounted rather than at setup. Pre-existing quirk, not something this
-// consolidation changes: this modal can itself open while another modal is
-// already up (LoopPicker's custom-date picker, reachable from inside
-// CheckModal) — closing it here nulls activeModal unconditionally rather
-// than handing control back to that parent modal, so Escape/Enter stop
-// doing anything for the still-open CheckModal until it's reopened.
+// onMounted rather than at setup. It's also the one modal that can itself
+// open while another modal is already up (LoopPicker's custom-date picker,
+// reachable from inside CheckModal) — closing it has to hand control back
+// to that parent modal, not just clear it, so it remembers whatever was
+// active before it opened (null in the common, non-nested case, e.g.
+// FocusDateWidget) and restores exactly that, guarded the same way
+// registerModalGuard is against a third modal having since taken over.
+let previousGuard: ModalGuard | null = null
 onMounted(() => {
+  previousGuard = activeModal.value
   activeModal.value = { onCancel: close, onConfirm: close }
 })
 onBeforeUnmount(() => {
-  activeModal.value = null
+  if (activeModal.value?.onCancel === close) activeModal.value = previousGuard
 })
 
 const dateAttributes = computed(() => [{
