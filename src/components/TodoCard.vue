@@ -2300,7 +2300,7 @@ onUnmounted(() => {
               <textarea
                 ref="newSubInputRef"
                 v-model="newSubTitle"
-                class="sub-input"
+                class="sub-input sub-input--new"
                 rows="1"
                 placeholder="add sub + enter"
                 :style="font ? { fontFamily: font } : {}"
@@ -2737,6 +2737,14 @@ onUnmounted(() => {
   border-bottom-color: var(--bg);
 }
 
+.priority .sub-input--new {
+  border-bottom-color: transparent;
+}
+
+.priority .sub-input--new:focus {
+  border-bottom-color: var(--bg);
+}
+
 .priority .sub-input::placeholder {
   color: var(--bg);
 }
@@ -3060,6 +3068,17 @@ onUnmounted(() => {
 .sub-input::placeholder {
   color: var(--ink);
   opacity: 0.55;
+}
+
+/* The always-visible add-sub row's underline reads as clutter while it's
+   just sitting there unused — only show it once the input actually has
+   focus and the person is mid-typing a new sub. */
+.sub-input--new {
+  border-bottom-color: transparent;
+}
+
+.sub-input--new:focus {
+  border-bottom-color: var(--ink);
 }
 
 @media (max-width: 700px) {
