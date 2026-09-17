@@ -227,9 +227,10 @@ Für das Ziehen/Swipen einer Karte (`TodoCard.vue`) existieren **zwei parallele,
 
 ## Keyboard-Shortcuts (nur Desktop, > 1024px)
 
-Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.vue` (bewusst, siehe unten). Unterhalb der Desktop-Breite ist der komplette Handler deaktiviert – kein Tab-Cycling, keine Einzeltasten-Shortcuts.
+Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.vue` (bewusst, siehe unten). Unterhalb der Desktop-Breite ist der komplette Handler deaktiviert – kein View-/Karten-Cycling, keine Einzeltasten-Shortcuts.
 
-- **Tab / Shift+Tab** – kein Todo offen: togglet zwischen All und Current (Calendar ist nicht Teil dieses Cycles, siehe **C**). Ein Todo offen: schaltet stattdessen zwischen Karten durch (`cycleOpenCard`), trägt eine laufende Bearbeitung auf die nächste Karte weiter.
+- **Tab / Shift+Tab** – togglet immer zwischen All und Current (Calendar ist nicht Teil dieses Cycles, siehe **C**), auch bei offener Karte – die schließt dabei automatisch (inkl. Speichern einer laufenden Bearbeitung, siehe unten), trägt die Bearbeitung aber nicht auf eine Karte in der neuen View über.
+- **↑ / ↓** – Karte für Karte durch die offene Liste (`cycleOpenCard`), nur wenn gerade eine Karte offen ist. Greift nicht, während der Titel gerade editiert wird (die Textarea braucht ↑↓ selbst zum Zeilenwechsel) – ein laufender Edit wird dann beim Wechsel einfach gespeichert, nicht auf die nächste Karte übertragen. In Current bewusst getrennt von **←→** (Done/Done-for-today im Check-Menü wählen), sonst würden sich beide Gesten überschneiden.
 - **C** – Calendar togglen, kehrt zum vorher aktiven Haupt-View (All/Current) zurück (nicht hart auf Overview verdrahtet) – gleiches Muster wie **X**/Settings.
 - **S** – Sort togglen (Datum ↔ A–Z). Nur Overview, sonst No-Op.
 - **G** – Grid/List togglen. Nur Overview, sonst No-Op.
@@ -237,13 +238,13 @@ Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.v
 - **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Current ist nicht filterbar, das gesamte Tag-/Filter-Menü ist dort ausgegraut und inert.
 - **A** – All-Filter (löscht jeden aktiven Tag-/Prio-/Date-Filter auf einmal). Nur Overview.
 - **P** – Prio-Filter togglen. Nur Overview.
-- **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Current (Current) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei Tab (View- vs. Karten-Cycling) sind beide Zustände gegenseitig ausschließend.
+- **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Current (Current) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei ↑↓ (Karten-Cycling) vs. diesem ganzen Einzeltasten-Block sind beide Zustände gegenseitig ausschließend.
 - **X** – Settings togglen, kehrt zum vorher aktiven Haupt-View zurück (nicht hart auf Overview verdrahtet).
 - **Escape** – schließt/blurt immer das, was gerade offen/fokussiert ist (Add-Todo-Input, Tag-Input, offene Karte, Swipe-Delete-Bestätigung).
 
 Alle Einzeltasten-Shortcuts (S/G/N/T/A/P/L/X) greifen nicht, während in einem Textfeld getippt wird, während eine Karte offen ist, oder mit gedrückter Modifier-Taste (Cmd/Ctrl/Alt).
 
-**Wichtig:** Tab-Cycling zwischen Views und Tab-Cycling zwischen Karten dürfen nie zwei unabhängige Listener sein – das hat früher zu einem Bug geführt, bei dem eine offen gebliebene Karte (unbemerkt durch einen einfachen Klick) das View-Wechseln per Tab dauerhaft blockiert hat, weil Karten-Cycling nie schließt, nur immer zur nächsten Karte springt. Außerdem schließt ein View-Wechsel (gleich wodurch ausgelöst) immer jede offene Karte und sichert eine laufende Bearbeitung – ein View darf beim erneuten Betreten nie etwas offen/halb editiert zeigen.
+**Wichtig:** View-Cycling (Tab) und Karten-Cycling (↑↓) dürfen nie zwei unabhängige Listener sein – ein View-Wechsel (gleich wodurch ausgelöst) schließt deshalb immer jede offene Karte und sichert eine laufende Bearbeitung, egal über welche Taste er kommt – ein View darf beim erneuten Betreten nie etwas offen/halb editiert zeigen. Historisch war das sogar dieselbe Taste (Tab tat je nach Zustand das eine oder das andere) – das hat früher zu einem Bug geführt, bei dem eine offen gebliebene Karte (unbemerkt durch einen einfachen Klick) das View-Wechseln per Tab dauerhaft blockiert hat, weil Karten-Cycling nie schloss, nur immer zur nächsten Karte sprang. Seit ↑↓ fürs Karten-Cycling zuständig ist, kann dieser spezielle Bug so nicht mehr auftreten, aber das Prinzip (ein View-Wechsel räumt immer auf) gilt unverändert weiter.
 
 ## Implementierungs-Phasen
 

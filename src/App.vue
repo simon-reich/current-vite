@@ -28,18 +28,13 @@ import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from '
 const router = useRouter()
 const route = useRoute()
 
-// Tab/Shift+Tab toggle between Overview and Current — but only when no todo
-// card is open (in which case cards are cycled instead) and focus isn't in
-// a text field (where Tab should behave normally). This is the single
-// place Tab is handled at all: previously each open card also attached its
-// own document-level 'keydown' listener and handled Tab itself, entirely
-// independently of this one — nothing stopped both from existing at once,
-// and since card-cycling always lands on *some* card (never closes one),
-// once any card opened (even a stray single-click most people wouldn't
-// notice), Tab silently drove card-cycling forever instead of switching
-// views, with no way to tell from outside TodoCard.vue. Now there's exactly
-// one handler, and it decides which behavior applies. Calendar isn't part
-// of this cycle — it's reached via C instead (see toggleCalendar), same
+// Tab/Shift+Tab always toggle between Overview and Current, whether or not
+// a card is open — opening a card no longer takes over Tab (see ↑↓ below
+// for card-cycling), and a Tab-driven view switch just closes whatever was
+// open the same way any other navigation does (see the route watch below).
+// Only exception: focus in a text field, where Tab should behave normally.
+// This is the single place Tab is handled at all. Calendar isn't part of
+// this cycle — it's reached via C instead (see toggleCalendar), same
 // "toggle back to whichever main view you came from" pattern as Settings/X.
 const viewOrder = ['/all', '/current']
 
@@ -103,7 +98,7 @@ const DESKTOP_BREAKPOINT = 1024
 const shortcutHintsVisible = ref(false)
 
 // Single-letter shortcuts (S/G/T/A/X below) never fire while a card is open
-// (its own Tab-cycling already takes priority, same idea as above) or while
+// (its own ↑↓-cycling already takes priority, same idea as above) or while
 // typing anywhere else — plain letters have to stay safe to type normally —
 // nor with a modifier held, so they don't hijack e.g. Cmd+A/Ctrl+A.
 function shortcutsBlocked(e: KeyboardEvent): boolean {
@@ -111,15 +106,15 @@ function shortcutsBlocked(e: KeyboardEvent): boolean {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
-  // All keyboard shortcuts (Tab-cycling included) are desktop-only — below
-  // this breakpoint there's essentially never a physical keyboard around,
-  // and leaving them active here was exactly the kind of surface that kept
-  // producing odd side effects (see the Tab-cycling fixes above this file).
+  // All keyboard shortcuts (view/card-cycling included) are desktop-only —
+  // below this breakpoint there's essentially never a physical keyboard
+  // around, and leaving them active here was exactly the kind of surface
+  // that kept producing odd side effects.
   if (window.innerWidth <= DESKTOP_BREAKPOINT) return
 
   // A confirmation modal being open overrides everything else here —
-  // Escape cancels it, Enter confirms it, and nothing else (Tab-cycling,
-  // single-letter shortcuts, a card's own Escape/Enter handling further
+  // Escape cancels it, Enter confirms it, and nothing else (view/card
+  // cycling, single-letter shortcuts, a card's own Escape/Enter handling further
   // down its own separate listener) should fire underneath while it's
   // up. stopImmediatePropagation matters: TodoCard's own onCardKeydown
   // listens on this same document too, registered later (only once a
@@ -141,22 +136,25 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 
   if (e.key === 'Tab') {
-    // Checked before isTypingTarget: a card being open/edited takes
-    // priority over the "don't interrupt typing" guard, which exists to
-    // protect the top-level add-todo input specifically — cycleOpenCard()
-    // carrying Tab away from an actively-edited title into the next card
-    // (see its own wasEditing handling) is deliberate, not something to
-    // suppress here.
-    if (openTagMenuId.value || openCheckMenuId.value) {
-      e.preventDefault()
-      cycleOpenCard(e.shiftKey ? -1 : 1)
-      return
-    }
     if (isTypingTarget(e.target)) return
     if (currentViewIdx === -1) return
     e.preventDefault()
     currentViewIdx = (currentViewIdx + (e.shiftKey ? -1 : 1) + viewOrder.length) % viewOrder.length
     router.push(viewOrder[currentViewIdx])
+    return
+  }
+
+  // ↑↓ cycle between open cards — checked before isTypingTarget's typing
+  // guard normally would (see shortcutsBlocked below), but only fires while
+  // a card's tag-/check-menu is open AND focus isn't in a text field: the
+  // title textarea needs ↑↓ free to move the cursor between lines, so
+  // cycling can't carry an in-progress edit to the next card the way Tab
+  // used to (see cycleOpenCard's own comment) — it saves the edit instead.
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (!(openTagMenuId.value || openCheckMenuId.value)) return
+    if (isTypingTarget(e.target)) return
+    e.preventDefault()
+    cycleOpenCard(e.key === 'ArrowUp' ? -1 : 1)
     return
   }
 
@@ -211,7 +209,8 @@ function onGlobalKeydown(e: KeyboardEvent) {
   // Reuses the letter an open card's own D (delete/remove, see
   // TodoCard.vue's onCardKeydown) already uses — no conflict, since
   // shortcutsBlocked() above already returns whenever a card is open,
-  // same mutual-exclusion pattern as Tab (view-cycling vs. card-cycling).
+  // same mutual-exclusion pattern as ↑↓ (card-cycling) vs. this whole
+  // single-letter block.
   if (key === 'd') {
     if (route.path !== '/all') return
     e.preventDefault()
@@ -322,8 +321,8 @@ const shortcutHints = ref<ShortcutHint[]>([])
 
 // Enter gets its own row instead of the generic single-key pill every
 // other hint uses — it needs to show the follow-up keys that apply once
-// the card it opens is actually open (Tab/Enter/Space in Overview,
-// Tab/←→/Enter in Current), as a plain arrow + more boxed keys alongside
+// the card it opens is actually open (↑↓/Enter/Space in Overview,
+// ↑↓/←→/Enter in Current), as a plain arrow + more boxed keys alongside
 // it rather than crammed into one pill. Positioned the same way Enter's
 // pill used to be (bottom-center anchored above the first card).
 interface HintPart { text: string; kind: 'key' | 'arrow' | 'label' }
@@ -333,9 +332,9 @@ const enterFollowupParts = computed<HintPart[]>(() => {
   const arrow = (text: string): HintPart => ({ text, kind: 'arrow' })
   const label = (text: string): HintPart => ({ text, kind: 'label' })
   if (route.path === '/all') {
-    return [box('Enter'), arrow('→'), box('Tab'), label('(cards)'), box('Space'), label('(edit)'), box('F'), label('(current)'), box('D'), label('(delete)')]
+    return [box('Enter'), arrow('→'), box('↑↓'), label('(cards)'), box('Space'), label('(edit)'), box('F'), label('(current)'), box('D'), label('(delete)')]
   }
-  return [box('Enter'), arrow('→'), box('Tab'), label('(cards)'), box('←→'), label('(select)'), box('Enter'), label('(confirm)'), box('Space'), label('(edit)'), box('D'), label('(remove)')]
+  return [box('Enter'), arrow('→'), box('↑↓'), label('(cards)'), box('←→'), label('(select)'), box('Enter'), label('(confirm)'), box('Space'), label('(edit)'), box('D'), label('(remove)')]
 })
 
 // Calendar's own arrow-key navigation (see Calendar.vue's onKeydown) isn't
@@ -554,7 +553,7 @@ const checksStore = useChecksStore()
 // Pre-completion celebration teaser (see TodoCard.vue's
 // showCelebrationTeaser for the why-here) — a single watcher on
 // openCheckMenuId itself, not one per TodoCard instance watching its own
-// showMenu: cycleOpenCard (Tab-cycling between open Current cards) sets
+// showMenu: cycleOpenCard (↑↓-cycling between open Current cards) sets
 // openCheckMenuId straight to the next card in one ref assignment, and
 // two *different* components' own watchers reacting to that raced each
 // other over the shared teaser state in whatever order Vue happened to

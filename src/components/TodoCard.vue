@@ -514,25 +514,20 @@ export function celebrateBackground(_key: CelebrationKey) {
 import { ref as vueRef } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 // Shared across all instances – only one menu open at a time. Exported so
-// App.vue's single Tab handler can tell whether a card is currently open
-// (and cycle between cards instead of views) or closed (and cycle views).
+// App.vue's single ↑↓ handler can tell whether a card is currently open
+// (and cycle between cards instead of scrolling/doing nothing) or closed.
 export const openTagMenuId = vueRef<string | null>(null)
 export const openCheckMenuId = vueRef<string | null>(null)
 
-// Set by cycleOpenCard right before opening the next/previous card, so that
-// card knows to jump straight into editing (carrying over whether Tab was
-// pressed while actively editing, not just while open).
-const editIntentId = vueRef<string | null>(null)
-
 // Descriptor the currently-open card registers itself with (see the
 // showMenu/showTagMenu watch in <script setup> below) — lets a single
-// document-level Tab handler (App.vue) drive card-to-card cycling without
+// document-level ↑↓ handler (App.vue) drive card-to-card cycling without
 // needing its own listener per card. Previously each open card attached its
-// own 'keydown' listener and handled Tab itself, entirely independently of
+// own 'keydown' listener and handled this itself, entirely independently of
 // App.vue's view-cycling listener; nothing stopped both from existing at
 // once, and since cycling always lands on *some* card (never closes one),
-// once any card opened, Tab silently drove card-cycling forever instead of
-// view-switching, with no way to tell from the outside.
+// once any card opened, that could silently keep driving card-cycling
+// forever instead of view-switching, with no way to tell from the outside.
 interface ActiveCardApi {
   todoId: string
   mode: 'all' | 'current'
@@ -542,14 +537,17 @@ interface ActiveCardApi {
 }
 const activeCardApi = vueRef<ActiveCardApi | null>(null)
 
-// Tab/Shift+Tab jump to the next/previous card in the list instead of
-// tabbing through individual tag checkboxes — carries the current editing
-// state along: tabbing away from an actively-edited title lands in the next
-// card's edit mode too, tabbing away from a merely-open card just opens the
-// next one the same way. A Current card whose tag/date editor is open (see
-// openEditFromCurrent) counts as "open the editor" too, not "open the
-// check-menu" — otherwise tabbing out of a Current edit landed back on the
-// check-menu's Done/Done-for-today row instead of carrying the edit along.
+// ↑↓ jump to the next/previous card in the list. App.vue only calls this
+// while the title textarea isn't focused (↑↓ have to stay free to move the
+// cursor between lines there instead) — so wasEditing below is really just
+// a safety net (save whatever's typed rather than lose it) for the rare
+// case isEditing is still true despite that, not something this relies on
+// to carry an edit forward to the next card the way Tab-cycling used to;
+// that carry-over is gone along with Tab's old role here (see CLAUDE.md).
+// A Current card whose tag/date editor is open (see openEditFromCurrent)
+// counts as "open the editor" too, not "open the check-menu" — otherwise
+// cycling out of a Current edit landed back on the check-menu's
+// Done/Done-for-today row instead.
 export function cycleOpenCard(direction: 1 | -1) {
   const api = activeCardApi.value
   if (!api) return
@@ -558,10 +556,8 @@ export function cycleOpenCard(direction: 1 | -1) {
   const idx = ids.indexOf(api.todoId)
   if (idx === -1) return
   const nextId = ids[(idx + direction + ids.length) % ids.length]
-  const wasEditing = api.isEditing()
   const wasTagMenuOpen = openTagMenuId.value === api.todoId
-  if (wasEditing) api.saveEdit()
-  if (wasEditing) editIntentId.value = nextId
+  if (api.isEditing()) api.saveEdit()
   if (api.mode === 'current' && !wasTagMenuOpen) openCheckMenuId.value = nextId
   else openTagMenuId.value = nextId
 }
@@ -680,14 +676,14 @@ function updateDraftTags(tags: string[]) {
 // Writes the staged tag-row edits to the store — called once the tag menu
 // actually confirms-closes (see the showTagMenu watch below), never while
 // it's still open. Skips the write entirely if nothing actually changed
-// (just opened and closed again, e.g. Tab-cycling past a card without
+// (just opened and closed again, e.g. ↑↓-cycling past a card without
 // touching anything) — writing the same tags back still mutates the array
 // reference, which in Current re-triggers filteredTodos' sort and, with it,
 // useListFlip's position-shift animation on every other card for no reason
 // (a real edit's shift is expected to animate; a no-op reopen's isn't).
 // Returns whether the loopInterval itself actually changed — the caller
 // uses that to decide whether overriding processedToday is warranted (see
-// the showTagMenu watch below): just Tab-cycling past an untouched loop
+// the showTagMenu watch below): just ↑↓-cycling past an untouched loop
 // card shouldn't re-send it to Current every time.
 function commitDraftTags(): boolean {
   const tags = draftTags.value
@@ -918,10 +914,12 @@ function submitNewSub() {
 }
 
 // Tab out of the title (while editing) jumps straight into the add-sub
-// input instead of doing whatever Tab would otherwise do here (App.vue's
-// document-level handler drives card-cycling once a menu is open — see
-// cycleOpenCard) — only while subs are actually visible/enabled, so a
-// plain Tab still cycles cards normally when subs are off.
+// input — only while subs are actually visible/enabled. With subs off,
+// Tab isn't intercepted anywhere here and just does whatever the browser's
+// own default focus-move does (App.vue's document-level handler ignores
+// Tab entirely while a text field is focused, see isTypingTarget there);
+// card-cycling itself moved to ↑↓ and no longer happens while editing (see
+// cycleOpenCard's own comment) either way.
 function onTitleTabKeydown(e: KeyboardEvent) {
   if (e.key !== 'Tab' || e.shiftKey) return
   if (!subsVisible.value) return
@@ -955,10 +953,9 @@ function onSubInputKeydown(e: KeyboardEvent) {
   // Current's Done-menu or the "expand all" toggle, never through editing).
   if (e.key === 'Tab') {
     e.preventDefault()
-    // Tab is handled by App.vue's document-level listener *before* its own
-    // typing-target check (a card being open takes priority, by design —
-    // see cycleOpenCard) — without stopping it here, that would still fire
-    // alongside this and jump to a different card entirely.
+    // App.vue's own Tab handler already ignores this (it's a typing
+    // target), but stopping it here too keeps this self-contained rather
+    // than relying on that guard.
     e.stopPropagation()
     if (!isEditing.value) startEdit()
     nextTick(() => editInputRef.value?.focus())
@@ -1054,12 +1051,11 @@ function closeOnOutside(e: MouseEvent) {
   }
 }
 
-// Picks up the edit intent left by a sibling's cycleOpenCard() once this
-// card actually becomes the open one. Closing is also where the staged tag
-// edits (see draftTags above) actually land — every way of closing the tag
-// menu commits them (click elsewhere, Tab to the next card, Enter, a view
-// switch) except Escape, which sets discardDraftTagsOnClose first so the
-// draft is thrown away instead. Sending a freshly due loop todo to Current is
+// Closing is where the staged tag edits (see draftTags above) actually
+// land — every way of closing the tag menu commits them (click elsewhere,
+// ↑↓ to the next card, Enter, a view switch) except Escape, which sets
+// discardDraftTagsOnClose first so the draft is thrown away instead.
+// Sending a freshly due loop todo to Current is
 // deferred to right after that same commit, for the same reason the commit
 // itself is deferred — doing it the instant Loop got checked used to yank
 // the card out of the list before the user could even see the picker.
@@ -1074,7 +1070,7 @@ function closeOnOutside(e: MouseEvent) {
 // focusAddedAt behind) — otherwise the todo silently stays parked in the
 // pool with no sign anything's wrong, since the picker itself has no way
 // to know about that history. Gated on commitDraftTags() actually having
-// changed the loopInterval, though — just Tab-cycling past an open loop
+// changed the loopInterval, though — just ↑↓-cycling past an open loop
 // card without touching anything still closes the menu on every card it
 // passes through, and that alone shouldn't repeatedly override
 // processedToday and re-send an already-handled-today todo. Also skipped
@@ -1085,10 +1081,6 @@ watch(showTagMenu, (isOpen, wasOpen) => {
   if (isOpen) {
     draftTags.value = [...props.todo.tags]
     draftLoopInterval.value = props.todo.loopInterval
-  }
-  if (isOpen && editIntentId.value === props.todo.id) {
-    editIntentId.value = null
-    startEdit()
   }
   if (wasOpen && !isOpen) {
     // A still-focused input inside the card (e.g. LoopPicker's custom
@@ -1135,7 +1127,9 @@ watch(showTagMenu, (isOpen, wasOpen) => {
 // two from double-handling the same key. Left/Right toggle check-menu
 // focus between the two options — the pair sits side by side (see
 // .check-row's grid), so left/right reads naturally rather than up/down.
-// Tab isn't handled here — App.vue's single document-level handler drives
+// that's also part of why card-to-card cycling itself uses ↑↓, not ←→ —
+// the two would otherwise collide inside Current's open check-menu. ↑↓
+// aren't handled here — App.vue's single document-level handler drives
 // card-to-card cycling via cycleOpenCard() instead, using the
 // activeCardApi registered below.
 function onCardKeydown(e: KeyboardEvent) {
