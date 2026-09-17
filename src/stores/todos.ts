@@ -306,6 +306,14 @@ export const useTodosStore = defineStore('todos', () => {
       // Fresh roll each time it re-enters Current, not just once ever — see
       // Todo.celebration's own comment.
       todo.celebration = drawCelebrationKey()
+      // Once today already has its own Date List, todayTodos reads
+      // exclusively off focusDates — a plain `inToday` flag on some other
+      // todo is invisible to it. Without this, sending a todo to Current
+      // while today's Date List is active pulled it out of Overview
+      // (filtered on !inToday) without it ever appearing in Current,
+      // vanishing from both. removeFromToday already mirrors this via
+      // unassignFocusDate, so this keeps the two symmetric.
+      if (hasFocusDateList(todayStr())) assignFocusDate(id, todayStr())
     }
   }
 
