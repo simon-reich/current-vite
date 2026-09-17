@@ -73,6 +73,7 @@ function pick(dateStr: string) {
   <DatePickerModal
     v-if="showModal"
     :model-value="themeStore.selectedFocusDate"
+    disable-past
     @update:model-value="pick"
     @close="showModal = false"
   />

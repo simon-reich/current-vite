@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount } from 'vue'
 import { activeModal, type ModalGuard } from '../composables/useModalGuard'
+import { todayStr } from '../composables/useToday'
 
 // Extracted out of LoopPicker.vue's own inline date modal (see its git
 // history) so the Focus Date widget can reuse the exact same "pick a day
@@ -9,7 +10,13 @@ import { activeModal, type ModalGuard } from '../composables/useModalGuard'
 // reason LoopPicker chose that originally — v-calendar's own popover isn't
 // teleported and ends up clipped inside transformed/overflow:hidden
 // ancestors (todo cards, the widget itself).
-const props = defineProps<{ modelValue: string }>()
+//
+// `disablePast`: FocusDateWidget's picker only ever targets a "plan ahead"
+// date (see stores/todos.ts's assignFocusDate, which refuses a past date
+// regardless), so past days are grayed out and unclickable there.
+// LoopPicker's own "from" date picker leaves this off — a loop/once
+// schedule can legitimately start in the past (see LoopPicker.vue).
+const props = defineProps<{ modelValue: string; disablePast?: boolean }>()
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   close: []
@@ -22,6 +29,7 @@ function close() {
 // No separate "confirm" action — clicking a day already applies and
 // closes it. Enter/Escape (via activeModal below) just close.
 function pickDate(day: { id: string }) {
+  if (props.disablePast && day.id < todayStr()) return
   emit('update:modelValue', day.id)
   close()
 }
@@ -53,13 +61,15 @@ const dateAttributes = computed(() => [{
   },
   dates: new Date(props.modelValue + 'T12:00:00'),
 }])
+
+const minDate = computed(() => props.disablePast ? new Date(todayStr() + 'T00:00:00') : undefined)
 </script>
 
 <template>
   <Teleport to="body">
     <div class="modal-backdrop" @mousedown.prevent @click="close" />
     <div class="modal-box" role="dialog" @mousedown.prevent @click.stop>
-      <VCalendar :attributes="dateAttributes" expanded locale="en" :first-day-of-week="2" @dayclick="pickDate" />
+      <VCalendar :attributes="dateAttributes" :min-date="minDate" expanded locale="en" :first-day-of-week="2" @dayclick="pickDate" />
       <div class="modal-actions">
         <button class="modal-btn modal-btn--cancel" @click="close">Close</button>
       </div>

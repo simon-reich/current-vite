@@ -380,7 +380,15 @@ export const useTodosStore = defineStore('todos', () => {
   }
 
   // ── Date Lists ──
+  // A Date List only ever means "planned ahead" — a past day is already
+  // over, so assigning one is refused outright here rather than relying on
+  // every caller (widget, swipe zone, per-card quick-assign, ...) to check
+  // first. Whatever UI led here should never have offered a past date in
+  // the first place (see FocusDateWidget's DatePickerModal `disable-past`
+  // and theme.ts's setSelectedFocusDate clamp) — this is the last line of
+  // defense, not the primary guard.
   function assignFocusDate(id: string, dateStr: string) {
+    if (dateStr < todayStr()) return
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
     const dates = new Set(todo.focusDates ?? [])

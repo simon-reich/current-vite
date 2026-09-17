@@ -71,8 +71,11 @@ export const useThemeStore = defineStore('theme', () => {
     dateListsEnabled.value = !dateListsEnabled.value
   }
 
+  // Clamped to today — the Pille is exclusively a "plan ahead" target, a
+  // past date there would just be a Date List nobody can ever act on
+  // (see assignFocusDate's own guard in stores/todos.ts).
   function setSelectedFocusDate(dateStr: string) {
-    selectedFocusDate.value = dateStr
+    selectedFocusDate.value = dateStr < todayStr() ? todayStr() : dateStr
   }
 
   function toggleExpandCurrentSubs() {

@@ -158,7 +158,16 @@
   font-weight: bold !important;
 }
 
-.vc-day-content.is-disabled { color: var(--ink) !important; }
+/* Dimmed via opacity (see CLAUDE.md's four-color rule) rather than
+   v-calendar's own default gray — used by DatePickerModal's `disable-past`
+   (its min-date) to actually gray out days it refuses to let you pick.
+   v-calendar's real class for this is `vc-disabled`, not `is-disabled`
+   (that one's for nav items) — see its dayContentProps. */
+.vc-day-content.vc-disabled {
+  color: var(--ink) !important;
+  opacity: 0.35;
+  cursor: default;
+}
 
 .vc-arrow,
 .vc-nav-arrow {
