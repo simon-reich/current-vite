@@ -654,6 +654,16 @@
   cursor: pointer;
 }
 
+/* .tag-chip itself has no .active look (Overview's tag filters never
+   needed one — the dimmed non-matches already read as "this one's picked"
+   there) but the Date-List nav does, same inverted fill as .all-btn.active
+   right above, so the currently-viewed future list stands out the same
+   way Current/Today/Tomorrow do. */
+.date-nav-upcoming-chip.active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
 /* ── Settings head ── */
 .settings-head {
   grid-column: 3;

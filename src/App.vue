@@ -1291,7 +1291,7 @@ watch(() => route.path, () => {
         <div
           v-for="dateStr in upcomingFocusDates"
           :key="dateStr"
-          class="tag-chip"
+          class="tag-chip date-nav-upcoming-chip"
           :class="{ active: viewingDate === dateStr }"
         >
           <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
