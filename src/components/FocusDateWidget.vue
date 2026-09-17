@@ -50,15 +50,24 @@ function pick(dateStr: string) {
     title="Change the plan-ahead target date"
     @click="showModal = true"
   >
-    <template v-if="!display.special">
+    <!-- Both branches always render, stacked on the same grid cell (see
+         .fdw-row/.fdw-special below) — only one is ever visible, but
+         visibility:hidden (not v-if/v-show, which both use display:none —
+         removed from layout, contributes nothing to sizing) keeps the
+         invisible one in the flow so the grid track auto-sizes to
+         whichever of the two actually needs more room, in both
+         directions. Guessing a single pixel width by hand (tried twice
+         already) either leaves dead space or clips content the moment
+         real font metrics don't match the guess. -->
+    <div class="fdw-row" :class="{ 'fdw-hidden': display.special }">
       <div class="fdw-cell fdw-left">
         <span class="fdw-weekday">{{ display.weekday }}</span>
         <span class="fdw-year">{{ display.year }}</span>
       </div>
       <span class="fdw-cell fdw-num fdw-day">{{ display.day }}</span>
       <span class="fdw-cell fdw-num fdw-month">{{ display.month }}</span>
-    </template>
-    <span v-else class="fdw-cell fdw-special">{{ display.main }}</span>
+    </div>
+    <span class="fdw-cell fdw-special" :class="{ 'fdw-hidden': !display.special }">{{ display.main }}</span>
   </button>
 
   <DatePickerModal
@@ -81,23 +90,13 @@ function pick(dateStr: string) {
    overflow-clipped content box, unaffected by an element's own
    overflow rule). */
 .focus-date-widget {
-  display: flex;
-  align-items: stretch;
+  display: grid;
   box-sizing: border-box;
   /* Same overall thickness as the add-todo input (.add-input in
      layout.css: 2px border + 10px top/bottom padding around 17px text ≈
      44px) — border included since this is border-box, matching how that
      height reads including its own 2px border. */
   height: 44px;
-  /* The day/month layout's own natural width is the floor everything else
-     has to fit inside — today/tomorrow must never make the pill smaller
-     (or bigger) than this. Alternate template branches can't share a size
-     the way simultaneously-rendered siblings could, so this has to be an
-     explicit number rather than something the browser derives on its own;
-     picked generous enough to comfortably fit "tomorrow" too (see
-     .fdw-special below, which just fills whatever width this ends up
-     being instead of sizing itself). */
-  min-width: 152px;
   background: var(--bg);
   color: var(--ink);
   border: 2px solid var(--ink);
@@ -114,6 +113,25 @@ function pick(dateStr: string) {
   box-shadow: 0 5px 0 var(--ink-dark);
 }
 
+/* The grid-stack trick: both children share the one implicit cell, so its
+   auto track size becomes the max of what each of them actually needs —
+   the browser measures this for real instead of either of us guessing a
+   number. align/justify-items default to stretch on a grid already, so
+   both fill the full cell in both axes without saying so explicitly. */
+.fdw-row,
+.fdw-special {
+  grid-area: 1 / 1;
+}
+
+.fdw-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.fdw-hidden {
+  visibility: hidden;
+}
+
 .fdw-cell {
   display: flex;
   align-items: center;
@@ -123,12 +141,10 @@ function pick(dateStr: string) {
 
 /* Weekday-over-year, split by its own thin horizontal rule — each sized
    to its own worst case (a 3-letter weekday, a 4-digit year) via
-   min-width/min-height on the cell itself, not a shared total budget, so
-   nothing here can be squeezed into wrapping the way a single guessed
-   total pill width did. */
+   min-width on the cell itself. */
 .fdw-left {
   flex-direction: column;
-  min-width: 46px;
+  min-width: 40px;
   /* Vertical padding only — horizontal padding lives on the weekday/year
      text itself (below), not here, so their border-bottom (which spans an
      element's full border-box regardless of that element's own padding)
@@ -145,7 +161,7 @@ function pick(dateStr: string) {
      look. */
   width: 100%;
   box-sizing: border-box;
-  padding: 0 8px;
+  padding: 0 6px;
   text-align: right;
   font-size: 10px;
   line-height: 1.4;
@@ -157,8 +173,8 @@ function pick(dateStr: string) {
 }
 
 .fdw-num {
-  min-width: 34px;
-  padding: 2px 10px;
+  min-width: 30px;
+  padding: 2px 8px;
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
@@ -168,15 +184,8 @@ function pick(dateStr: string) {
   border-right: 1px solid var(--ink);
 }
 
-/* today/tomorrow: the day/month cells collapse into this one. flex:1
-   fills whatever width .focus-date-widget's own min-width established
-   (see there) instead of sizing itself off its own text — otherwise
-   "today" and "tomorrow" would each settle at their own natural width and
-   visibly resize the pill switching between them. */
 .fdw-special {
-  flex: 1;
-  min-width: 0;
-  padding: 5px 16px;
+  padding: 5px 14px;
   font-size: 15px;
   font-weight: 700;
 }
