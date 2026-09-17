@@ -1,9 +1,6 @@
 import type { LoopInterval, Todo } from '../stores/todos'
 import { LOOP_TAG_ID } from '../stores/todos'
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayStr } from './useToday'
 
 function parseISODate(s: string): Date | null {
   if (!s) return null

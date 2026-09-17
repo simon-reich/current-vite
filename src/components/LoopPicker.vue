@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
+import { todayStr } from '../composables/useToday'
 import type { LoopInterval, LoopUnit } from '../stores/todos'
 import DatePickerModal from './DatePickerModal.vue'
 
@@ -35,10 +36,6 @@ const emit = defineEmits<{
    *  this wasn't the user leaving. */
   'focus-inside': []
 }>()
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 const presetRow1: { label: string; unit: LoopUnit; count: number }[] = [
   { label: 'daily', unit: 'day', count: 1 },

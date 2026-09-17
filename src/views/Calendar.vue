@@ -7,6 +7,7 @@ import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/t
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
+import { todayStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
 
 const store = useTodosStore()
@@ -27,10 +28,6 @@ const {
 
 function onDayDetailScroll() {
   checkDayDetailScrollState()
-}
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 const selectedDate = ref<string>(todayStr())

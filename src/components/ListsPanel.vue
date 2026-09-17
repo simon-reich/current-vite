@@ -3,6 +3,7 @@ import { computed, onUnmounted } from 'vue'
 import { Trash2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
 import { activeModal } from '../composables/useModalGuard'
+import { todayStr } from '../composables/useToday'
 
 // Pure picker/deleter for Date Lists — picking a row swaps Current.vue's
 // whole view over to that list (see its viewingDate), rather than
@@ -12,10 +13,6 @@ const props = defineProps<{ viewingDate: string | null }>()
 const emit = defineEmits<{ select: [dateStr: string | null]; close: [] }>()
 
 const store = useTodosStore()
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 const allDates = computed(() => {
   const today = todayStr()

@@ -586,6 +586,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickE
 import { activeModal } from '../composables/useModalGuard'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
+import { todayStr } from '../composables/useToday'
 import LoopPicker from './LoopPicker.vue'
 
 const props = defineProps<{
@@ -664,7 +665,7 @@ const previewIsLoop = computed(() => showTagMenu.value ? draftIsLoop.value : isL
 // selected" state.
 watch(draftIsLoop, (loop) => {
   if (loop && !draftLoopInterval.value) {
-    draftLoopInterval.value = { mode: 'once', startDate: new Date().toISOString().slice(0, 10) }
+    draftLoopInterval.value = { mode: 'once', startDate: todayStr() }
   }
 })
 

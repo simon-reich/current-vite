@@ -1,10 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { applyTheme } from '../composables/useTheme'
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayStr } from '../composables/useToday'
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -122,9 +119,7 @@ export const useThemeStore = defineStore('theme', () => {
     // at local midnight, so the guard has to speak the same calendar day or
     // the UTC rollover a few hours later (re)triggers a second reshuffle on
     // the next reload.
-    const now = new Date()
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    if (lastThemeRotationDate.value === today) return
+    if (lastThemeRotationDate.value === todayStr()) return
     const candidates = savedThemes.value.length > 1
       ? savedThemes.value.filter(t => !(t.bg === activeBg.value && t.gray === activeGray.value))
       : savedThemes.value

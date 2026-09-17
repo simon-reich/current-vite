@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { LoopUnit } from './todos'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
+import { todayStr } from '../composables/useToday'
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -9,10 +10,6 @@ function uuid(): string {
     const r = Math.random() * 16 | 0
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
   })
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 // Short reminder phrases only, not full todo-length titles — Current's

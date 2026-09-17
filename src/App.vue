@@ -12,6 +12,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickEx
 import { activeModal } from './composables/useModalGuard'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast, spawnSentToCurrentToast } from './composables/useToast'
+import { todayStr, tomorrowStr } from './composables/useToday'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
 import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
@@ -696,10 +697,6 @@ const newSubInputRef = ref<HTMLInputElement | null>(null)
 // this row.
 const addTagModalTags = computed(() => themeStore.tagsEnabled ? store.tags : store.tags.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 // Date checked for the first time in this add-session: default to a
 // one-time due date today (Once mode) instead of leaving the picker in
 // its ambiguous "nothing selected" state.
@@ -872,7 +869,7 @@ function addTodo() {
 // loopInterval) never gets a focusDate here, this is Date-Todo-only.
 function sendNewTodoToCurrent(todo: Todo) {
   store.sendToCurrent(todo.id)
-  if (todo.loopInterval && store.hasFocusDateList(todayDateStr())) store.assignFocusDate(todo.id, todayDateStr())
+  if (todo.loopInterval && store.hasFocusDateList(todayStr())) store.assignFocusDate(todo.id, todayStr())
 }
 
 // ── Sort: toggle between date (newest first) and A–Z ──
@@ -928,21 +925,11 @@ provide('listsPanelOpen', listsPanelOpen)
 const viewingDate = ref<string | null>(null)
 provide('viewingDate', viewingDate)
 
-function todayDateStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function tomorrowDateStr(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
-}
-
-const hasTodayList = computed(() => store.hasFocusDateList(todayDateStr()))
-const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrowDateStr()))
+const hasTodayList = computed(() => store.hasFocusDateList(todayStr()))
+const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrowStr()))
 
 // Further-out lists, excluding tomorrow (which already has its own button).
-const upcomingFocusDates = computed(() => store.futureFocusDates.filter(d => d !== tomorrowDateStr()))
+const upcomingFocusDates = computed(() => store.futureFocusDates.filter(d => d !== tomorrowStr()))
 
 // "TUE, 07.07" — uppercase weekday first, then day.month (day-before-month,
 // not the US month-before-day order), no year (Date Lists only ever cover
@@ -1288,17 +1275,17 @@ watch(() => route.path, () => {
         </button>
         <button
           class="all-btn date-nav-btn"
-          :class="{ active: viewingDate === todayDateStr(), dimmed: !hasTodayList }"
+          :class="{ active: viewingDate === todayStr(), dimmed: !hasTodayList }"
           :disabled="!hasTodayList"
-          @click="viewingDate = todayDateStr()"
+          @click="viewingDate = todayStr()"
         >
           today
         </button>
         <button
           class="all-btn date-nav-btn loop-btn"
-          :class="{ active: viewingDate === tomorrowDateStr(), dimmed: !hasTomorrowList }"
+          :class="{ active: viewingDate === tomorrowStr(), dimmed: !hasTomorrowList }"
           :disabled="!hasTomorrowList"
-          @click="viewingDate = tomorrowDateStr()"
+          @click="viewingDate = tomorrowStr()"
         >
           tomorrow
         </button>

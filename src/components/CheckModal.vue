@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { useChecksStore, CHECK_TITLE_MAX_LENGTH, type Check, type CheckSchedule } from '../stores/checks'
 import type { LoopInterval } from '../stores/todos'
 import { activeModal } from '../composables/useModalGuard'
+import { todayStr } from '../composables/useToday'
 import LoopPicker from './LoopPicker.vue'
 
 const props = defineProps<{
@@ -14,10 +15,6 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const store = useChecksStore()
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 const title = ref(props.editing?.title ?? '')
 const schedule = ref<CheckSchedule>(

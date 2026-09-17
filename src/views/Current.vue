@@ -13,6 +13,7 @@ import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnRemovedFromCurrentToast } from '../composables/useToast'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
+import { todayStr } from '../composables/useToday'
 
 const store = useTodosStore()
 const checksStore = useChecksStore()
@@ -28,10 +29,6 @@ const listsPanelOpen = inject<Ref<boolean>>('listsPanelOpen')!
 // addition first), not by how recently it was created.
 function rank(t: { tags: string[] }): number {
   return t.tags.includes(PRIORITY_TAG_ID) ? 0 : 1
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 // Current is deliberately unfilterable — it's already the curated, small

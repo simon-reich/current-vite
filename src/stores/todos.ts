@@ -2,11 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
+import { todayStr } from '../composables/useToday'
 import { useThemeStore } from './theme'
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
-}
 
 function uuid(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -374,7 +371,7 @@ export const useTodosStore = defineStore('todos', () => {
   // schedule. Shared by both doneForToday variants above.
   function applyLoopReschedule(todo: Todo) {
     if (todo.loopInterval?.rescheduleFromCompletion && (todo.loopInterval.mode ?? 'loop') === 'loop') {
-      todo.loopInterval.startDate = new Date().toISOString().slice(0, 10)
+      todo.loopInterval.startDate = todayStr()
     }
   }
 
