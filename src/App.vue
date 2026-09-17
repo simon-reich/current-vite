@@ -510,7 +510,6 @@ function onVisibilityChange() {
 onMounted(() => {
   store.ensureSystemTags()
   store.ensureSubsField()
-  store.repairOrphanedCurrentTodos()
   themeStore.apply(themeStore.activeBg, themeStore.activeGray)
   lastViewportHeight = window.visualViewport?.height ?? 0
   window.visualViewport?.addEventListener('resize', onViewportResize)

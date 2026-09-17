@@ -414,25 +414,6 @@ export const useTodosStore = defineStore('todos', () => {
     })
   }
 
-  // One-time repair for todos caught by the sendToToday/todayTodos
-  // asymmetry bug (see sendToToday's own comment): inToday got set true,
-  // but today's Date List was already active so todayTodos — which reads
-  // exclusively off focusDates once that's the case — never picked them
-  // up, while Overview excluded them anyway for having inToday set.
-  // Already-persisted data can still be stuck in that limbo even after the
-  // sendToToday fix, since that only prevents new occurrences. Backfills
-  // focusDates for today on any such orphan so it resurfaces. Same
-  // called-from-App.vue's-onMounted pattern as ensureSubsField above.
-  function repairOrphanedCurrentTodos() {
-    const today = todayStr()
-    if (!hasFocusDateList(today)) return
-    todos.value.forEach(todo => {
-      if (todo.inToday && !todo.completedAt && !todo.deletedAt && !todo.focusDates?.includes(today)) {
-        assignFocusDate(todo.id, today)
-      }
-    })
-  }
-
   // ── System tags ──
   const userTags = computed(() => tags.value.filter(t => t.id !== PRIORITY_TAG_ID && t.id !== LOOP_TAG_ID))
 
@@ -519,7 +500,7 @@ export const useTodosStore = defineStore('todos', () => {
     // actions
     addTodo, updateTodo, deleteTodo, sendToToday, removeFromToday, completeTodo, doneForToday,
     addSub, toggleSub, deleteSub, updateSub, reorderSub,
-    addTag, deleteTag, ensureSystemTags, ensureSubsField, repairOrphanedCurrentTodos,
+    addTag, deleteTag, ensureSystemTags, ensureSubsField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,
     importData,
   }
