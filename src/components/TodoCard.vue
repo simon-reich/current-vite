@@ -578,7 +578,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Pencil, Check, Flag, RefreshCw, CalendarPlus } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -753,13 +753,24 @@ function autoGrowEditSub() {
   el.style.height = `${el.scrollHeight}px`
 }
 
-function startEditSub(sub: Sub) {
+function startEditSub(sub: Sub, caretPos?: number | null) {
   editingSubId.value = sub.id
   editSubTitle.value = sub.title
   nextTick(() => {
-    editSubInputRef.value?.focus()
+    const el = editSubInputRef.value
+    el?.focus()
+    if (el && caretPos != null) {
+      const pos = Math.min(caretPos, el.value.length)
+      el.setSelectionRange(pos, pos)
+    }
     autoGrowEditSub()
   })
+}
+
+// Clicking a sub's text jumps straight into editing at the clicked
+// position, same as handleTitleClick above.
+function handleSubTitleClick(sub: Sub, e: MouseEvent) {
+  startEditSub(sub, caretOffsetFromEvent(e))
 }
 
 function saveEditSub() {
@@ -1194,9 +1205,9 @@ function onExpandLeave(el: Element, done: () => void) {
 }
 
 // Opens the card (if needed) and jumps straight into editing.
-function openForEdit() {
+function openForEdit(caretPos?: number | null) {
   openTagMenuId.value = props.todo.id
-  startEdit()
+  startEdit(caretPos)
 }
 
 // Current's double-click equivalent: opens the same tag/date editor Overview
@@ -1204,34 +1215,46 @@ function openForEdit() {
 // check-menu first if that's what was open. Picking a new date here still
 // leaves the todo in Current throughout: commitDraftTags (see draftTags
 // above) only ever writes tags/loopInterval, never inToday.
-function openEditFromToday() {
+function openEditFromToday(caretPos?: number | null) {
   openCheckMenuId.value = null
   openTagMenuId.value = props.todo.id
-  startEdit()
+  startEdit(caretPos)
 }
 
-// Manual single/double click detection on the title, instead of the native
-// dblclick event — that fires two real `click`s first (which would toggle
-// the card open then shut again before the dblclick lands), and mobile
-// browsers often don't fire it reliably for a double-tap at all. A plain
-// click is held back briefly to see if a second one follows; if so, it's
-// treated as a double-click and opens straight into editing instead.
-let titleClickTimer: ReturnType<typeof setTimeout> | null = null
-
-function handleTitleClick() {
-  if (justDragged) { justDragged = false; return }
-  if (titleClickTimer) {
-    clearTimeout(titleClickTimer)
-    titleClickTimer = null
-    if (props.mode === 'all') openForEdit()
-    else openEditFromToday()
-    return
+// Resolves a mouse click to a character offset in the clicked text, so
+// clicking into a title/sub mid-word can drop the edit caret at that exact
+// spot instead of always landing at the start. caretRangeFromPoint is the
+// standard (Chrome/Safari); Firefox only has caretPositionFromPoint. Neither
+// is on the official TS DOM lib for the other browser's method, hence `any`.
+function caretOffsetFromEvent(e: MouseEvent): number | null {
+  const doc = document as any
+  if (typeof doc.caretRangeFromPoint === 'function') {
+    const range = doc.caretRangeFromPoint(e.clientX, e.clientY)
+    return range ? range.startOffset : null
   }
-  titleClickTimer = setTimeout(() => {
-    titleClickTimer = null
+  if (typeof doc.caretPositionFromPoint === 'function') {
+    const pos = doc.caretPositionFromPoint(e.clientX, e.clientY)
+    return pos ? pos.offset : null
+  }
+  return null
+}
+
+// Clicking the title text jumps straight into editing at the clicked
+// position, but only once the card is already open — on a closed card the
+// first click just opens it, same as clicking anywhere else on the card
+// (todo-card-main's own click handler), so a closed card never skips
+// straight past "open" into "edit" on a single click.
+function handleTitleClick(e: MouseEvent) {
+  if (justDragged) { justDragged = false; return }
+  const isOpen = props.mode === 'today' ? showMenu.value : showTagMenu.value
+  if (!isOpen) {
     if (props.mode === 'today') toggleCheckMenu()
     else toggleTagMenu()
-  }, 280)
+    return
+  }
+  const caretPos = caretOffsetFromEvent(e)
+  if (props.mode === 'all') openForEdit(caretPos)
+  else openEditFromToday(caretPos)
 }
 
 // Quick priority toggle for Current's card row — the only other way to set
@@ -1291,11 +1314,16 @@ function scrollCardIntoView() {
   setTimeout(doScroll, 350)
 }
 
-function startEdit() {
+function startEdit(caretPos?: number | null) {
   editTitle.value = props.todo.title
   isEditing.value = true
   nextTick(() => {
-    editInputRef.value?.focus()
+    const el = editInputRef.value
+    el?.focus()
+    if (el && caretPos != null) {
+      const pos = Math.min(caretPos, el.value.length)
+      el.setSelectionRange(pos, pos)
+    }
     autoGrow()
     scrollCardIntoView()
   })
@@ -1975,7 +2003,6 @@ onUnmounted(() => {
   // to have it hidden, regardless of unmount timing.
   if (openCheckMenuId.value === props.todo.id) openCheckMenuId.value = null
   if (activeCardApi.value?.todoId === props.todo.id) activeCardApi.value = null
-  if (titleClickTimer) clearTimeout(titleClickTimer)
   // The showMenu/showTagMenu watch above is normally what removes these —
   // but that's a queued job, and this component can unmount in the very
   // same flush that set showMenu/showTagMenu back to false (e.g. Done for
@@ -2118,16 +2145,16 @@ onUnmounted(() => {
           <span
             v-else
             class="todo-title"
+            :class="{ editable: mode === 'today' ? showMenu : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
           >{{ todo.title }}</span>
 
-          <!-- When card is open (either mode): pencil starts editing; once
-               editing, it swaps to the accept/check button. Delete now
-               only lives here — not on the closed card — so it isn't a
-               single stray click away during normal browsing. Applies in
-               Current too since double-clicking a Current card's title opens
-               this same editor (see openEditFromToday). -->
+          <!-- When card is open (either mode) and not editing: just Delete —
+               clicking the title text itself now starts editing directly
+               (handleTitleClick), so no separate Edit trigger is needed here
+               any more. Delete only lives here — not on the closed card — so
+               it isn't a single stray click away during normal browsing. -->
           <template v-if="showTagMenu && !isEditing">
             <button
               class="card-btn card-btn--delete"
@@ -2135,9 +2162,6 @@ onUnmounted(() => {
               @click.stop="pendingDelete = true"
             >
               <Trash2 :size="18" />
-            </button>
-            <button class="card-btn card-btn--circle" title="Edit" @click.stop="startEdit">
-              <Pencil :size="10" />
             </button>
           </template>
 
@@ -2186,32 +2210,21 @@ onUnmounted(() => {
             </button>
           </template>
 
-          <!-- Today mode: quick priority toggle + remove from today -->
+          <!-- Today mode: quick priority toggle + remove from today. No
+               separate "active" tint here: the whole card already goes
+               ink-colored once priority is on (see .priority above), so
+               layering ink-dark on top of that would just read as low
+               contrast rather than a clearer state. Stays visible even once
+               the card is open — clicking the title text now starts editing
+               directly (handleTitleClick), so this slot no longer needs to
+               swap to an Edit trigger. -->
           <template v-else>
-            <!-- No separate "active" tint here: the whole card already goes
-                 ink-colored once priority is on (see .priority above), so
-                 layering ink-dark on top of that would just read as low
-                 contrast rather than a clearer state. Swaps to Edit once
-                 expanded instead of adding a third icon — priority is
-                 still reachable from inside the editor's tag-row, so this
-                 slot doesn't need to carry both at once. Reuses
-                 openEditFromToday, same as double-clicking the title:
-                 closes the check-menu and jumps straight into the editor. -->
             <button
-              v-if="!showMenu"
               class="card-btn card-btn--circle"
               :title="isPriority ? 'Remove priority' : 'Set priority'"
               @click.stop="togglePriority"
             >
               <Flag :size="10" :fill="isPriority ? 'currentColor' : 'none'" />
-            </button>
-            <button
-              v-else
-              class="card-btn card-btn--circle"
-              title="Edit"
-              @click.stop="openEditFromToday"
-            >
-              <Pencil :size="10" />
             </button>
             <button
               class="card-btn"
@@ -2252,19 +2265,11 @@ onUnmounted(() => {
                 class="sub-title"
                 :class="{ done: !!sub.completedAt }"
                 :style="font ? { fontFamily: font } : {}"
+                @click.stop="handleSubTitleClick(sub, $event)"
               >{{ sub.title }}</span>
 
               <button
-                v-if="editingSubId !== sub.id"
-                type="button"
-                class="sub-edit"
-                title="Edit sub"
-                @click.stop="startEditSub(sub)"
-              >
-                <Pencil :size="11" />
-              </button>
-              <button
-                v-else
+                v-if="editingSubId === sub.id"
                 type="button"
                 class="sub-edit"
                 title="Save"
@@ -2813,6 +2818,10 @@ onUnmounted(() => {
   line-height: 1.35;
 }
 
+.todo-title.editable {
+  cursor: text;
+}
+
 .card-btn {
   display: flex;
   align-items: center;
@@ -2993,6 +3002,7 @@ onUnmounted(() => {
   line-height: 1.3;
   font-size: 0.92em;
   margin-top: 1px;
+  cursor: text;
 }
 
 .sub-title.done {
