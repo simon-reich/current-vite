@@ -57,6 +57,11 @@
   .sidebar .tag-x {
     font-size: 12px;
   }
+
+  .sidebar-right .tag-new-input--inline {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
 }
 
 /* Calm, understated entrance for the app shell (side menu + top menu) on
@@ -522,11 +527,11 @@
 
 .all-btn {
   background: none;
-  border: 2px solid var(--ink);
+  border: var(--chip-border-width) solid var(--ink);
   border-radius: var(--radius);
   color: var(--ink);
-  font-size: 13px;
-  padding: 4px 10px;
+  font-size: var(--chip-font-size);
+  padding: var(--chip-padding-v) var(--chip-padding-h);
   /* Buttons render in the mono font (see base.css), so every character is
      the same width — "prio" (4 chars) is unavoidably wider than "all" (3
      chars) at their natural content width. A min-width doesn't fix that
@@ -591,10 +596,10 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
-  border: 2px solid var(--ink);
+  padding: var(--chip-padding-v) var(--chip-padding-h);
+  border: var(--chip-border-width) solid var(--ink);
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: var(--chip-font-size);
   color: var(--ink);
   max-width: 100%;
   min-width: 0;
@@ -622,7 +627,7 @@
 .tag-label {
   cursor: pointer;
   user-select: none;
-  line-height: 1.4;
+  line-height: var(--chip-line-height);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -681,32 +686,123 @@
   padding: 4px;
 }
 
-/* ── Focus Date widget head (Overview only) ── */
-.focus-date-head {
+/* ── Sidebar body, right column (Overview only) — the tag filters that used
+   to live in the left .sidebar, now here; the Focus-Date-Pille took their
+   old spot in .sidebar-head instead (see .sidebar-focus-date-slot below).
+   Reuses .sidebar's own layout wholesale (padding, scroll, entrance
+   animation, .tag-list spacing) — only the grid column differs. ── */
+.sidebar-right {
   grid-column: 3;
-  grid-row: 2;
-  display: flex;
-  /* Without an explicit align-items, this flex item defaults to `stretch`
-     — the widget button then filled the entire 1fr content row (nearly
-     the full viewport height) instead of sizing to its own content. */
-  align-items: flex-start;
-  justify-content: flex-end;
-  /* Same top offset as .content-inner's own 36px padding-top (see below)
-     — .focus-date-head is a plain grid-row:2 item with no other vertical
-     offset in play (unlike .sidebar, whose "all" button needs the extra
-     .tag-list margin-top documented there to cancel out the scroll-
-     divider's own negative margin) — matching content-inner's top padding
-     directly is what actually lines this up with it. */
-  padding: 36px 16px 0;
 }
 
-/* Tablet uses .tablet-focus-date-widget-slot/.tablet-settings-btn (see
-   tablet.css) instead — same "own version below 1024px" pattern as
+/* Right column: same .tag-list as the left sidebar, but every row
+   (All/Prio/Date, the tag-add row, each tag chip) hugs the column's right
+   edge instead of its left — .tag-list's own align-items:flex-start is
+   correct for the left sidebar, wrong here. */
+.sidebar-right .tag-list {
+  align-items: flex-end;
+}
+
+/* Tablet/phone show the widget/tag-panel via their own dedicated slots
+   instead (see .tablet-focus-date-widget-slot below, mobile.css's
+   .mobile-tags-panel) — same "own version below 1024px" pattern as
    .expand-subs-row in Current.vue. */
 @media (max-width: 1024px) {
-  .focus-date-head {
+  .sidebar-right {
     display: none;
   }
+}
+
+/* Focus-Date-Pille's new spot in .sidebar-head (Overview only) — just needs
+   to not stretch to .sidebar-head's own align-items:center cross-size. */
+.sidebar-focus-date-slot {
+  display: flex;
+}
+
+/* Plus-icon-expandable tag input, on top of the right sidebar's tag chips —
+   perspectively the tag input doesn't need permanent space, it's used
+   rarely (see CLAUDE.md). Same vertical slot in .tag-list's stack as the
+   old standalone .tag-new-input used to occupy. Always spans the full
+   column width with its content right-justified — collapsed, that just
+   puts the circle flush against the same right edge every tag chip sits
+   against; expanded, the input's width transitions 0 → 100% while staying
+   right-justified, so it visibly grows out to the left from the circle's
+   fixed position instead of the row itself shifting. */
+.tag-add-row {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 7px;
+}
+
+/* Derived from the same --chip-* variables .tag-chip/.all-btn/.tag-label
+   themselves use (see base.css) — not a copy of their current numbers, an
+   actual reference to them, so this stays in sync automatically if those
+   ever change. Shared by both .tag-add-btn and .tag-new-input--inline: the
+   button/input v-if swap is instant, not animated (only width
+   transitions), so any height mismatch between the two would jump
+   .tag-list's rows below by that delta the moment you click. */
+.tag-add-btn,
+.tag-new-input--inline {
+  height: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
+}
+
+/* Plain circle, not the rectangular tag/all-btn frame — width pinned to
+   the same height above so it's an actual circle, not an oval. */
+.tag-add-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(2 * var(--chip-padding-v) + 2 * var(--chip-border-width) + var(--chip-font-size) * var(--chip-line-height));
+  border: var(--chip-border-width) solid var(--ink);
+  border-radius: 50%;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, transform 0.15s;
+}
+
+.tag-add-btn:hover {
+  color: var(--ink-dark);
+  border-color: var(--ink-dark);
+}
+
+@media (hover: hover) {
+  .tag-add-btn:hover {
+    transform: scale(1.08);
+  }
+}
+
+.tag-new-input--inline {
+  width: 100%;
+  padding: 0 var(--chip-padding-h);
+  font-size: var(--chip-font-size);
+  line-height: calc(var(--chip-font-size) * var(--chip-line-height));
+}
+
+/* Fast width-grow instead of an instant pop — the plus circle vanishes the
+   instant the input mounts (v-if swap, no transition of its own — brief
+   enough next to the input's own animation not to read as a separate
+   step) while the input itself grows open. Quick on purpose (CLAUDE.md:
+   shouldn't hold anything up) — noticeably snappier than the sub-menu
+   reveals in useQuickExpand.ts, which have more visual weight (height +
+   content) to justify their extra 40ms. */
+.tag-input-grow-enter-active {
+  transition: width 0.12s ease-out, opacity 0.1s ease-out;
+  overflow: hidden;
+}
+
+.tag-input-grow-leave-active {
+  transition: width 0.09s ease-in, opacity 0.07s ease-in;
+  overflow: hidden;
+}
+
+.tag-input-grow-enter-from,
+.tag-input-grow-leave-to {
+  width: 0;
+  opacity: 0;
 }
 
 /* Tablet-only flex items inside .tablet-header-right (see tablet.css) —

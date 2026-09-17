@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks } from '@lucide/vue'
+import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks, Plus } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo } from './stores/todos'
@@ -229,7 +229,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
     if (window.innerWidth <= DESKTOP_BREAKPOINT) return
     if (route.path !== '/all') return
     e.preventDefault()
-    tagInputRef.value?.focus()
+    openTagInput()
     return
   }
 
@@ -311,15 +311,11 @@ const calendarNavRef = ref<{ $el: HTMLElement } | null>(null)
 const sortListBtnRef = ref<HTMLElement | null>(null)
 const sortOrderBtnRef = ref<HTMLElement | null>(null)
 const settingsBtnRef = ref<HTMLElement | null>(null)
-// A/P/D's targets: whichever All/Prio/Date trio is actually on screen —
-// the sidebar list's own buttons with tags on, the standalone
-// desktop-all-priority-row's with tags off.
+// A/P/D's targets — Overview's All/Prio/Date trio, always in the right
+// sidebar now (see .sidebar-right).
 const allBtnSidebarRef = ref<HTMLElement | null>(null)
 const prioBtnSidebarRef = ref<HTMLElement | null>(null)
 const loopBtnSidebarRef = ref<HTMLElement | null>(null)
-const allBtnRowRef = ref<HTMLElement | null>(null)
-const prioBtnRowRef = ref<HTMLElement | null>(null)
-const loopBtnRowRef = ref<HTMLElement | null>(null)
 
 interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'right' }
 const shortcutHints = ref<ShortcutHint[]>([])
@@ -357,16 +353,21 @@ const calendarHintParts: HintPart[] = [
 // line the rest of the plain-pill hints share (see the 'S' targets entry).
 const expandSubsHintPos = ref<{ x: number; y: number } | null>(null)
 
+// Overview's All/Prio/Date trio now always lives in the right-column tag
+// filters (allBtnSidebarRef etc.), regardless of themeStore.tagsEnabled —
+// the row/tagsEnabled fallback (allBtnRowRef etc.) only still exists for
+// other routes' sidebar-head (Current/Settings/Calendar), which A/P/D's
+// hints never target (see the `route.path === '/all'` guard below).
 function getAllBtnRect(): DOMRect | null {
-  return (themeStore.tagsEnabled ? allBtnSidebarRef.value : allBtnRowRef.value)?.getBoundingClientRect() ?? null
+  return allBtnSidebarRef.value?.getBoundingClientRect() ?? null
 }
 
 function getPrioBtnRect(): DOMRect | null {
-  return (themeStore.tagsEnabled ? prioBtnSidebarRef.value : prioBtnRowRef.value)?.getBoundingClientRect() ?? null
+  return prioBtnSidebarRef.value?.getBoundingClientRect() ?? null
 }
 
 function getLoopBtnRect(): DOMRect | null {
-  return (themeStore.tagsEnabled ? loopBtnSidebarRef.value : loopBtnRowRef.value)?.getBoundingClientRect() ?? null
+  return loopBtnSidebarRef.value?.getBoundingClientRect() ?? null
 }
 
 function computeShortcutHints() {
@@ -381,7 +382,7 @@ function computeShortcutHints() {
     // itself.
     { key: 'S', el: route.path === '/all' ? sortOrderBtnRef.value : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
-    { key: 'T', el: route.path === '/all' && themeStore.tagsEnabled ? tagInputRef.value : null },
+    { key: 'T', el: route.path === '/all' && themeStore.tagsEnabled ? (tagInputOpen.value ? tagInputRef.value : tagAddBtnRef.value) : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
   const measured = targets
@@ -621,6 +622,24 @@ function handleTagKey(e: KeyboardEvent) {
     }
   })
   tagInput.value = ''
+}
+
+// Overview's right-column tag filters: the tag input is collapsed behind a
+// plus icon by default (see App.vue's `.tag-add-row`) — it's needed rarely
+// enough that it doesn't deserve permanent space next to the filter chips.
+// Reuses tagInputRef/tagInput/handleTagKey above, which sidebar-head's own
+// (route !== '/all') tag input no longer overlaps with once expanded.
+const tagInputOpen = ref(false)
+const tagAddBtnRef = ref<HTMLElement | null>(null)
+
+async function openTagInput() {
+  tagInputOpen.value = true
+  await nextTick()
+  tagInputRef.value?.focus()
+}
+
+function onTagInputBlur() {
+  if (!tagInput.value) tagInputOpen.value = false
 }
 
 const activeTagIds = ref<string[]>([])
@@ -1005,44 +1024,49 @@ watch(() => route.path, () => {
     }"
   >
 
-    <!-- ══ DESKTOP: Sidebar head (tag input, or All/Priority when tags are off) ══ -->
+    <!-- ══ DESKTOP: Sidebar head — Overview: Focus-Date-Pille (moved here
+         from the right column, see .sidebar-right below for what took its
+         old spot); other routes: tag input, or All/Priority when tags are
+         off, unchanged ══ -->
     <div class="sidebar-head desktop-only">
-      <input
-        v-if="themeStore.tagsEnabled"
-        ref="tagInputRef"
-        v-model="tagInput"
-        class="tag-new-input"
-        placeholder="tag, ... + enter"
-        @keydown="handleTagKey"
-      />
-      <div v-else class="desktop-all-priority-row">
-        <button
-          ref="allBtnRowRef"
-          class="all-btn"
-          :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
-          @click="clearAllFilters"
-        >
-          all
-        </button>
-
-        <button
-          ref="prioBtnRowRef"
-          class="all-btn priority-btn"
-          :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
-          @click="toggleTag(PRIORITY_TAG_ID)"
-        >
-          prio
-        </button>
-
-        <button
-          ref="loopBtnRowRef"
-          class="all-btn loop-btn"
-          :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
-          @click="cycleLoopFilter"
-        >
-          date
-        </button>
+      <div v-if="route.path === '/all'" class="sidebar-focus-date-slot">
+        <FocusDateWidget v-if="themeStore.dateListsEnabled" />
       </div>
+      <template v-else>
+        <input
+          v-if="themeStore.tagsEnabled"
+          ref="tagInputRef"
+          v-model="tagInput"
+          class="tag-new-input"
+          placeholder="tag, ... + enter"
+          @keydown="handleTagKey"
+        />
+        <div v-else class="desktop-all-priority-row">
+          <button
+            class="all-btn"
+            :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
+            @click="clearAllFilters"
+          >
+            all
+          </button>
+
+          <button
+            class="all-btn priority-btn"
+            :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
+            @click="toggleTag(PRIORITY_TAG_ID)"
+          >
+            prio
+          </button>
+
+          <button
+            class="all-btn loop-btn"
+            :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
+            @click="cycleLoopFilter"
+          >
+            date
+          </button>
+        </div>
+      </template>
     </div>
 
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
@@ -1204,8 +1228,9 @@ watch(() => route.path, () => {
         </nav>
 
         <!-- Tablet-width only — real desktop shows the widget elsewhere
-             (.focus-date-head, or the Current sidebar's Date-List nav) and
-             Settings in its own .settings-head, so both stay hidden there
+             (.sidebar-head's .sidebar-focus-date-slot, or the Current
+             sidebar's Date-List nav) and Settings in its own .settings-head,
+             so both stay hidden there
              (see .tablet-focus-date-widget-slot/
              .tablet-settings-btn in layout.css). Settings sits flush at
              this row's right edge; the widget/lists button centers itself
@@ -1250,19 +1275,19 @@ watch(() => route.path, () => {
       </div>
     </div>
 
-    <!-- ══ DESKTOP: Sidebar body (tag list / Current Date-List nav) ══ -->
+    <!-- ══ DESKTOP: Sidebar body — Overview + Current both show the
+         Date-List nav here now (Overview's tag filters moved to the right,
+         see .sidebar-right below) ══ -->
     <aside
-      v-if="route.path === '/current' ? themeStore.dateListsEnabled : themeStore.tagsEnabled"
+      v-if="(route.path === '/current' || route.path === '/all') ? themeStore.dateListsEnabled : themeStore.tagsEnabled"
       ref="sidebarRef"
       class="sidebar desktop-only"
       @scroll="onSidebarScroll"
     >
       <ScrollDivider class="sidebar-scroll-divider" :visible="sidebarScrolled" />
 
-      <!-- Current view: Date-List navigation replaces the (here pointless,
-           Current is unfilterable) tag-filter UI entirely — same .tag-list
-           stack/alignment as Overview's All/Prio/Date + tags below it, so
-           both sidebar contents read as one consistent layout. -->
+      <!-- Current view: Date-List navigation switches which date's list is
+           being viewed (viewingDate). -->
       <div v-if="route.path === '/current'" class="tag-list">
         <button
           class="all-btn date-nav-btn"
@@ -1298,8 +1323,91 @@ watch(() => route.path, () => {
         </div>
       </div>
 
-      <!-- Overview: existing tag-filter UI -->
+      <!-- Overview: same Date-List nav, but picking a date sets the
+           Focus-Date-Pille's target (themeStore.selectedFocusDate) instead
+           of switching which list is being viewed — Overview always shows
+           the full pool, there's nothing here to "view" per date. No
+           "current" entry (nothing to reset to) or dimming on missing
+           lists (picking today/tomorrow as a target is always valid, a
+           list is created lazily the first time a todo actually lands on
+           it). -->
+      <div v-else-if="route.path === '/all'" class="tag-list">
+        <button
+          class="all-btn date-nav-btn"
+          :class="{ active: themeStore.selectedFocusDate === todayStr() }"
+          @click="themeStore.setSelectedFocusDate(todayStr())"
+        >
+          today
+        </button>
+        <button
+          class="all-btn date-nav-btn loop-btn"
+          :class="{ active: themeStore.selectedFocusDate === tomorrowStr() }"
+          @click="themeStore.setSelectedFocusDate(tomorrowStr())"
+        >
+          tomorrow
+        </button>
+
+        <div
+          v-for="dateStr in upcomingFocusDates"
+          :key="dateStr"
+          class="tag-chip date-nav-upcoming-chip"
+          :class="{ active: themeStore.selectedFocusDate === dateStr }"
+        >
+          <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatUpcomingDate(dateStr) }}</span>
+        </div>
+      </div>
+
+      <!-- Any other route (Settings/Calendar background): original
+           tag-filter UI, unchanged. -->
       <div v-else class="tag-list">
+        <button
+          class="all-btn"
+          :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
+          @click="clearAllFilters"
+        >
+          all
+        </button>
+
+        <button
+          class="all-btn priority-btn"
+          :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
+          @click="toggleTag(PRIORITY_TAG_ID)"
+        >
+          prio
+        </button>
+
+        <button
+          class="all-btn loop-btn"
+          :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
+          @click="cycleLoopFilter"
+        >
+          date
+        </button>
+
+        <div
+          v-for="tag in store.userTags"
+          :key="tag.id"
+          class="tag-chip"
+          :class="{
+            active: effectiveFilterTagIds.includes(tag.id),
+            dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
+          }"
+        >
+          <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
+          <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══ DESKTOP: Sidebar body, right column — Overview's tag filters,
+         moved here from the left (see .sidebar above for what took their
+         old spot). Always shows All/Prio/Date; tag chips + the
+         plus-icon-expandable tag input only when tags are enabled. ══ -->
+    <aside
+      v-if="route.path === '/all'"
+      class="sidebar sidebar-right desktop-only"
+    >
+      <div class="tag-list">
         <button
           ref="allBtnSidebarRef"
           class="all-btn"
@@ -1327,18 +1435,44 @@ watch(() => route.path, () => {
           date
         </button>
 
-        <div
-          v-for="tag in store.userTags"
-          :key="tag.id"
-          class="tag-chip"
-          :class="{
-            active: effectiveFilterTagIds.includes(tag.id),
-            dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
-          }"
-        >
-          <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
-          <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
-        </div>
+        <template v-if="themeStore.tagsEnabled">
+          <div class="tag-add-row">
+            <button
+              v-if="!tagInputOpen"
+              ref="tagAddBtnRef"
+              type="button"
+              class="tag-add-btn"
+              title="Add tag"
+              @click="openTagInput"
+            >
+              <Plus :size="12" />
+            </button>
+            <Transition name="tag-input-grow">
+              <input
+                v-if="tagInputOpen"
+                ref="tagInputRef"
+                v-model="tagInput"
+                class="tag-new-input tag-new-input--inline"
+                placeholder="tag, ... + enter"
+                @keydown="handleTagKey"
+                @blur="onTagInputBlur"
+              />
+            </Transition>
+          </div>
+
+          <div
+            v-for="tag in store.userTags"
+            :key="tag.id"
+            class="tag-chip"
+            :class="{
+              active: effectiveFilterTagIds.includes(tag.id),
+              dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
+            }"
+          >
+            <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
+            <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
+          </div>
+        </template>
       </div>
     </aside>
 
@@ -1357,12 +1491,6 @@ watch(() => route.path, () => {
       >
         <Settings :size="30" />
       </button>
-    </div>
-
-    <!-- ══ DESKTOP: Focus Date widget — Overview only, right column under
-         Settings, level with the all/prio/date filter row on the left ══ -->
-    <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="focus-date-head desktop-only">
-      <FocusDateWidget />
     </div>
 
     <!-- ══ MOBILE: Tag panel (full screen, replaces main-head + content) ══ -->

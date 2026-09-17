@@ -34,6 +34,17 @@
   --ink-dark: #4a4545;
   --radius: 6px;
 
+  /* .tag-chip/.all-btn/.tag-label's shared box model (layout.css) — pulled
+     out into variables so anything that needs to match a tag's exact size
+     (e.g. the tag-add circle/input in the Overview sidebar, see
+     .tag-add-btn/.tag-new-input--inline) can reference the same numbers
+     instead of copying them, and stays in sync if these ever change. */
+  --chip-padding-v: 4px;
+  --chip-padding-h: 10px;
+  --chip-border-width: 2px;
+  --chip-font-size: 13px;
+  --chip-line-height: 1.4;
+
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);
   font-size: 16px;
   color: var(--ink);
