@@ -586,7 +586,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickE
 import { activeModal } from '../composables/useModalGuard'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
-import { todayStr } from '../composables/useToday'
+import { todayStr, tomorrowStr } from '../composables/useToday'
 import LoopPicker from './LoopPicker.vue'
 
 const props = defineProps<{
@@ -1624,7 +1624,12 @@ const armedZone = ref<'date' | 'focus'>('focus')
 const ZONE_ENTER_DATE_OFFSET = -24
 const ZONE_EXIT_DATE_OFFSET = -8
 
+// Same "today"/"tomorrow" special-casing as the Current sidebar's Date-List
+// nav (see App.vue) — a raw D/M reads as just another date otherwise, even
+// for the two days a swipe-planned todo is most likely to land on.
 function formatShortDate(dateStr: string): string {
+  if (dateStr === todayStr()) return 'today'
+  if (dateStr === tomorrowStr()) return 'tomorrow'
   const [, m, d] = dateStr.split('-')
   return `${d}/${m}`
 }
@@ -2303,7 +2308,7 @@ onUnmounted(() => {
             <button
               v-if="themeStore.dateListsEnabled"
               class="card-btn calendar-plus-btn"
-              :title="`Plan for ${themeStore.selectedFocusDate}`"
+              :title="`Plan for ${formatShortDate(themeStore.selectedFocusDate)}`"
               @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
             >
               <CalendarPlus :size="18" />

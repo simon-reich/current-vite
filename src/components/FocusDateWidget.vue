@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useThemeStore } from '../stores/theme'
-import { WEEKDAY_LABELS } from '../composables/useToday'
+import { WEEKDAY_LABELS, todayStr, tomorrowStr } from '../composables/useToday'
 import DatePickerModal from './DatePickerModal.vue'
 
 // The Overview-only control for picking which date new "plan ahead"
@@ -15,13 +15,16 @@ import DatePickerModal from './DatePickerModal.vue'
 const themeStore = useThemeStore()
 const showModal = ref(false)
 
+// Same "today"/"tomorrow" special-casing as the Current sidebar's Date-List
+// nav (see App.vue) and TodoCard's swipe-zone label — this widget picks
+// the very same date those plan onto, so it should read the same way.
 function parts(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(y, m - 1, d)
+  const main = dateStr === todayStr() ? 'today' : dateStr === tomorrowStr() ? 'tomorrow' : `${String(d).padStart(2, '0')} ${String(m).padStart(2, '0')}`
   return {
     weekday: WEEKDAY_LABELS[date.getDay()],
-    day: String(d).padStart(2, '0'),
-    month: String(m).padStart(2, '0'),
+    main,
     year: String(y),
   }
 }
@@ -41,7 +44,7 @@ function pick(dateStr: string) {
     @click="showModal = true"
   >
     <span class="fdw-weekday">{{ display.weekday }}</span>
-    <span class="fdw-main">{{ display.day }} {{ display.month }}</span>
+    <span class="fdw-main">{{ display.main }}</span>
     <span class="fdw-year">{{ display.year }}</span>
   </button>
 

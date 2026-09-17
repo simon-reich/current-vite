@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { todayStr, tomorrowStr } from './useToday'
 
 export interface Toast {
   id: number
@@ -60,7 +61,15 @@ export function spawnRemovedFromCurrentToast(todoId: string) {
 // The card doesn't move anywhere (see stores/todos.ts's assignFocusDate) —
 // same "rises from the card's own position" idea as the other two above,
 // just labeled with the target date instead of "Current".
+// Same "today"/"tomorrow" special-casing as FocusDateWidget/TodoCard's
+// swipe-zone label — this fires for the exact same plan-ahead action.
 export function spawnPlannedForDateToast(todoId: string, dateStr: string) {
-  const [, m, d] = dateStr.split('-')
-  spawnCardMoveToast(todoId, `planned for ${d}/${m}`)
+  let label: string
+  if (dateStr === todayStr()) label = 'today'
+  else if (dateStr === tomorrowStr()) label = 'tomorrow'
+  else {
+    const [, m, d] = dateStr.split('-')
+    label = `${d}/${m}`
+  }
+  spawnCardMoveToast(todoId, `planned for ${label}`)
 }
