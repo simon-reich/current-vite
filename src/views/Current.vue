@@ -108,9 +108,18 @@ function doneForToday(id: string) {
 // Below the todo list, no divider — see CLAUDE.md's Checks section for the
 // full design rationale (background reminders, lower weight than a Todo).
 
+// A Date List preview is a full preview of that day, Checks included, not
+// just Todos — see CLAUDE.md's Date Lists section. checkDisplayDate powers
+// both which checks show (checksDueOn) and which date isCompletedOn reads
+// off; viewingLockedDate (already used for Todos' Done/Done-for-today)
+// reused as-is to lock ticking a Check on a day that hasn't arrived yet.
+const checkDisplayDate = computed(() => viewingDate.value ?? todayStr())
+const displayedChecks = computed(() => viewingDate.value ? checksStore.checksDueOn(viewingDate.value) : checksStore.todayChecks)
+
 function onToggleCheck(check: CheckItem, event: MouseEvent) {
-  const becomingChecked = !checksStore.isCompletedOn(check, todayStr())
-  checksStore.toggleCompletion(check.id)
+  if (viewingLockedDate.value) return
+  const becomingChecked = !checksStore.isCompletedOn(check, checkDisplayDate.value)
+  checksStore.toggleCompletion(check.id, checkDisplayDate.value)
   if (becomingChecked && themeStore.celebrationsEnabled) {
     burstCheckbox(event.currentTarget as HTMLElement)
   }
@@ -225,21 +234,22 @@ function editFromAllChecks(check: CheckItem) {
         </div>
         <span class="checks-action-label" :class="{ visible: checksHover }">{{ checksHover === 'edit' ? 'edit checks' : 'add check' }}</span>
       </div>
-      <div v-if="checksStore.todayChecks.length" class="check-row">
+      <div v-if="displayedChecks.length" class="check-row">
         <button
-          v-for="check in checksStore.todayChecks"
+          v-for="check in displayedChecks"
           :key="check.id"
           type="button"
           class="check-pill"
-          :class="{ done: checksStore.isCompletedOn(check, todayStr()) }"
+          :class="{ done: checksStore.isCompletedOn(check, checkDisplayDate) }"
           @click="openEditCheck(check)"
         >
           <span
             class="check-box"
-            :class="{ checked: checksStore.isCompletedOn(check, todayStr()) }"
+            :class="{ checked: checksStore.isCompletedOn(check, checkDisplayDate), locked: viewingLockedDate }"
+            :title="viewingLockedDate ? 'This day hasn\'t arrived yet' : undefined"
             @click.stop="onToggleCheck(check, $event)"
           >
-            <Check v-if="checksStore.isCompletedOn(check, todayStr())" :size="10" />
+            <Check v-if="checksStore.isCompletedOn(check, checkDisplayDate)" :size="10" />
           </span>
           <span class="check-label">{{ check.title }}</span>
         </button>
@@ -542,6 +552,15 @@ function editFromAllChecks(check: CheckItem) {
 
 .check-box.checked {
   background: var(--ink);
+}
+
+/* Same "not due yet" lock as TodoCard's Done/Done-for-today row for a
+   future Date List preview — pointer-events:none instead of a disabled
+   attribute (this is a span, not a button), so the click falls through to
+   the surrounding .check-pill and still opens the edit modal. */
+.check-box.locked {
+  cursor: default;
+  pointer-events: none;
 }
 
 .check-label {

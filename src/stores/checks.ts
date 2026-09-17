@@ -76,9 +76,16 @@ export const useChecksStore = defineStore('checks', () => {
   function refreshToday() {
     today.value = todayStr()
   }
-  const todayChecks = computed(() =>
-    activeChecks.value.filter(c => isLoopDueToday(c.schedule, new Date(`${today.value}T12:00:00`)))
-  )
+
+  // General form of todayChecks below — which Checks are due on an
+  // arbitrary date, not just today. Used by Current.vue's Date List
+  // preview so a future list reads as a real preview of that day (Checks
+  // included, not just Todos) — see CLAUDE.md's Date Lists section.
+  function checksDueOn(dateStr: string) {
+    return activeChecks.value.filter(c => isLoopDueToday(c.schedule, new Date(`${dateStr}T12:00:00`)))
+  }
+
+  const todayChecks = computed(() => checksDueOn(today.value))
 
   function isCompletedOn(check: Check, dateStr: string): boolean {
     return check.completedDates.includes(dateStr)
@@ -154,7 +161,7 @@ export const useChecksStore = defineStore('checks', () => {
     // state
     checks,
     // getters
-    activeChecks, todayChecks,
+    activeChecks, todayChecks, checksDueOn,
     completedOn, isCompletedOn, titleOn,
     // actions
     addCheck, updateCheck, deleteCheck, toggleCompletion, refreshToday, importChecks,
