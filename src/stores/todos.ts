@@ -178,8 +178,19 @@ export const useTodosStore = defineStore('todos', () => {
     return [...dates].sort()
   })
 
+  // A Date List preview is a full preview of that day, not just what's
+  // explicitly planned there — a Date Todo (loop/once) due on `dateStr`
+  // belongs on it too, computed live off its current schedule rather than
+  // stored anywhere, so a later reschedule/interval edit is reflected
+  // automatically without this list needing to be touched. Mirrors how
+  // checksStore.checksDueOn does the same for Checks — see CLAUDE.md's
+  // Date Lists section.
   function todosForFocusDate(dateStr: string): Todo[] {
-    return todos.value.filter(t => !t.completedAt && !t.deletedAt && t.focusDates?.includes(dateStr))
+    return todos.value.filter(t =>
+      !t.completedAt && !t.deletedAt &&
+      (t.focusDates?.includes(dateStr) ||
+        (t.loopInterval && isLoopDueToday(t.loopInterval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))))
+    )
   }
 
   // Completed / worked-on todos for a given calendar day (YYYY-MM-DD), used
