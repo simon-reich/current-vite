@@ -846,7 +846,12 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
 
 function onSubGripPointerMove(e: PointerEvent) {
   if (!dragSubId.value || dragSubStepY <= 0) return
-  const deltaY = e.clientY - dragSubStartClientY
+  // Clamp to the first/last sub's slot — otherwise the dragged row keeps
+  // following the pointer past the list's own edges instead of stopping
+  // there, even though it can never actually reorder past first/last.
+  const minY = -dragSubStartIndex.value * dragSubStepY
+  const maxY = (props.todo.subs.length - 1 - dragSubStartIndex.value) * dragSubStepY
+  const deltaY = Math.max(minY, Math.min(e.clientY - dragSubStartClientY, maxY))
   dragSubTranslateY.value = deltaY
   const steps = Math.round(deltaY / dragSubStepY)
   dragSubCurrentIndex.value = Math.max(0, Math.min(dragSubStartIndex.value + steps, props.todo.subs.length - 1))
