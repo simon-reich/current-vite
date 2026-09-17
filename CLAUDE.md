@@ -1,5 +1,11 @@
 # Todo App – CLAUDE.md
 
+## Oberstes Arbeitsprinzip: Code reusable halten, Single Source of Truth
+
+Dieselbe Logik/dasselbe Markup darf nicht an mehreren Stellen im Code parallel existieren, wenn es dasselbe Konzept ausdrückt (z.B. eine Tag-Filter-Liste, eine Date-List-Nav). Ziel: eine Änderung an so einem Konzept lässt sich an **einer** Stelle machen, nicht an mehreren verstreuten Kopien, die man händisch synchron halten muss. Vor dem Bauen von etwas Neuem prüfen, ob eine bestehende Komponente/Funktion/ein bestehendes Pattern wiederverwendet statt dupliziert werden kann.
+
+Das ist unabhängig davon, ob Code aktuell benutzt oder nur auskommentiert/inaktiv ist – auskommentierter Code für "brauchen wir vielleicht später wieder" ist völlig in Ordnung (siehe z.B. die Frame-Celebrations, aktuell auskommentiert zugunsten der Partikel-Celebrations, oben im Celebration-Abschnitt). Das Problem ist ausschließlich echte Duplikation derselben Sache an mehreren Stellen im aktiven Code.
+
 ## Projektübersicht
 
 Minimalistische Single-Page Todo-App. Kein Backend, kein Server, kein Login. Alles läuft im Browser via localStorage. Exportierbar als JSON.
@@ -241,7 +247,7 @@ Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.v
 - **S** – Sort togglen (Datum ↔ A–Z). Nur Overview, sonst No-Op.
 - **G** – Grid/List togglen. Nur Overview, sonst No-Op.
 - **N** – Fokus ins Add-Todo-Feld ("new"). Overview + Current.
-- **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Current ist nicht filterbar, das gesamte Tag-/Filter-Menü ist dort ausgegraut und inert.
+- **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Current ist nicht filterbar, das Tag-/Filter-Menü wird dort gar nicht erst gerendert (kein ausgegrautes Fallback mehr).
 - **A** – All-Filter (löscht jeden aktiven Tag-/Prio-/Date-Filter auf einmal). Nur Overview.
 - **P** – Prio-Filter togglen. Nur Overview.
 - **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Current (Current) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei ↑↓ (Karten-Cycling) vs. diesem ganzen Einzeltasten-Block sind beide Zustände gegenseitig ausschließend.

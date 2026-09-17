@@ -1079,49 +1079,18 @@ watch(() => route.path, () => {
     }"
   >
 
-    <!-- ══ DESKTOP: Sidebar head — Overview: Focus-Date-Pille (moved here
-         from the right column, see .sidebar-right below for what took its
-         old spot); other routes: tag input, or All/Priority when tags are
-         off, unchanged ══ -->
+    <!-- ══ DESKTOP: Sidebar head — Overview-only: Focus-Date-Pille (moved
+         here from the right column, see .sidebar-right below for what took
+         its old spot). Every other route renders nothing here — this used
+         to show an inert, grayed-out copy of the tag-filter row on
+         Current/Settings/Calendar (dimmed via #app.is-current/is-settings/
+         is-calendar .sidebar-head), which was leftover chrome nobody
+         actually needed once those views got their own left-sidebar
+         content (Date-List nav, or nothing at all). ══ -->
     <div class="sidebar-head desktop-only">
       <div v-if="route.path === '/all'" class="sidebar-focus-date-slot">
         <FocusDateWidget v-if="themeStore.dateListsEnabled" />
       </div>
-      <template v-else>
-        <input
-          v-if="themeStore.tagsEnabled"
-          ref="tagInputRef"
-          v-model="tagInput"
-          class="tag-new-input"
-          placeholder="tag, ... + enter"
-          @keydown="handleTagKey"
-        />
-        <div v-else class="desktop-all-priority-row">
-          <button
-            class="all-btn"
-            :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
-            @click="clearAllFilters"
-          >
-            all
-          </button>
-
-          <button
-            class="all-btn priority-btn"
-            :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
-            @click="toggleTag(PRIORITY_TAG_ID)"
-          >
-            prio
-          </button>
-
-          <button
-            class="all-btn loop-btn"
-            :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
-            @click="cycleLoopFilter"
-          >
-            date
-          </button>
-        </div>
-      </template>
     </div>
 
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
@@ -1334,7 +1303,7 @@ watch(() => route.path, () => {
          Date-List nav here now (Overview's tag filters moved to the right,
          see .sidebar-right below) ══ -->
     <aside
-      v-if="(route.path === '/current' || route.path === '/all') ? themeStore.dateListsEnabled : themeStore.tagsEnabled"
+      v-if="(route.path === '/current' || route.path === '/all') && themeStore.dateListsEnabled"
       ref="sidebarRef"
       class="sidebar desktop-only"
       @scroll="onSidebarScroll"
@@ -1429,47 +1398,6 @@ watch(() => route.path, () => {
           :class="{ active: themeStore.selectedFocusDate === dateStr }"
         >
           <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatUpcomingDate(dateStr) }}</span>
-        </div>
-      </div>
-
-      <!-- Any other route (Settings/Calendar background): original
-           tag-filter UI, unchanged. -->
-      <div v-else class="tag-list">
-        <button
-          class="all-btn"
-          :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
-          @click="clearAllFilters"
-        >
-          all
-        </button>
-
-        <button
-          class="all-btn priority-btn"
-          :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
-          @click="toggleTag(PRIORITY_TAG_ID)"
-        >
-          prio
-        </button>
-
-        <button
-          class="all-btn loop-btn"
-          :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
-          @click="cycleLoopFilter"
-        >
-          date
-        </button>
-
-        <div
-          v-for="tag in store.userTags"
-          :key="tag.id"
-          class="tag-chip"
-          :class="{
-            active: effectiveFilterTagIds.includes(tag.id),
-            dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
-          }"
-        >
-          <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
-          <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
         </div>
       </div>
     </aside>

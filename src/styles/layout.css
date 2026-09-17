@@ -116,28 +116,6 @@
   color: var(--ink);
 }
 
-/* Tags off: All/Prio stacked where the tag input used to be — same pairing
-   as the normal sidebar tag-list's own vertical All/Priority pair.
-   .priority-btn's own margin-bottom (spacing it from the tag list below in
-   the normal sidebar body) doesn't apply in this standalone context. */
-.desktop-all-priority-row {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  /* .sidebar-head centers its child vertically (fine for the single-line
-     tag input) — but stacked two buttons tall, that centering would push
-     "all"'s top edge well above the add-todo input's top edge in the main
-     head across the grid. Pin to the top instead, then nudge down by the
-     measured (input height − button height) / 2 so "all"'s top edge lines
-     up with the input's, not just with sidebar-head's own padding. */
-  align-self: flex-start;
-  margin-top: 8.75px;
-}
-
-.desktop-all-priority-row .loop-btn {
-  margin-bottom: 0;
-}
-
 /* ── Main head ── */
 .main-head {
   grid-column: 2;
@@ -820,15 +798,14 @@
   display: contents;
 }
 
-/* ── Settings/Calendar active: dim + lock unrelated UI ── */
-#app.is-settings .sidebar-head,
-#app.is-settings .tag-list,
+/* ── Settings/Calendar active: dim + lock unrelated UI. .sidebar-head and
+   the aside's .tag-list no longer render any content on these routes at
+   all (see App.vue), so they're not listed here anymore — nothing left to
+   dim. ── */
 #app.is-settings .all-btn,
 #app.is-settings .sort-btn,
 #app.is-settings .add-wrapper,
 #app.is-settings .mobile-tags-btn,
-#app.is-calendar .sidebar-head,
-#app.is-calendar .tag-list,
 #app.is-calendar .all-btn,
 #app.is-calendar .add-wrapper,
 #app.is-calendar .mobile-tags-btn {
@@ -856,13 +833,12 @@
 
 /* ── Current active: same dim + lock, but NOT .add-wrapper — Current still
    lets you add a todo (auto-sent straight to today), so its tag-picking
-   checkbox row has to stay usable. Current's tag-filter row itself
-   (.sidebar-head, its own .tag-list/.all-btn copy shown when tags are
-   disabled) is still unfilterable there, so that one stays visibly inert.
-   The desktop sidebar's OWN .tag-list is excluded here — in Current it no
-   longer holds tag filters but the Current/Today/Tomorrow Date-List nav
-   (see .date-nav-list below), which stays fully usable. */
-#app.is-current .sidebar-head,
+   checkbox row has to stay usable. .sidebar-head renders nothing on
+   Current at all now (see App.vue), so only the mobile tags-panel opener
+   needs locking here — Current isn't filterable, and the desktop sidebar's
+   OWN .tag-list is excluded since in Current it no longer holds tag
+   filters but the Current/Today/Tomorrow Date-List nav (see
+   .date-nav-list below), which stays fully usable. */
 #app.is-current .mobile-tags-btn {
   pointer-events: none;
   opacity: 0.35;
