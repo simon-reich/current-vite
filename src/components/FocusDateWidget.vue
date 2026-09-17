@@ -89,6 +89,15 @@ function pick(dateStr: string) {
      44px) — border included since this is border-box, matching how that
      height reads including its own 2px border. */
   height: 44px;
+  /* The day/month layout's own natural width is the floor everything else
+     has to fit inside — today/tomorrow must never make the pill smaller
+     (or bigger) than this. Alternate template branches can't share a size
+     the way simultaneously-rendered siblings could, so this has to be an
+     explicit number rather than something the browser derives on its own;
+     picked generous enough to comfortably fit "tomorrow" too (see
+     .fdw-special below, which just fills whatever width this ends up
+     being instead of sizing itself). */
+  min-width: 152px;
   background: var(--bg);
   color: var(--ink);
   border: 2px solid var(--ink);
@@ -159,11 +168,14 @@ function pick(dateStr: string) {
   border-right: 1px solid var(--ink);
 }
 
-/* today/tomorrow: the day/month cells collapse into this one, centered,
-   generously min-widthed to fit "tomorrow" (the longest label) without
-   growing further — switching between the two never resizes the pill. */
+/* today/tomorrow: the day/month cells collapse into this one. flex:1
+   fills whatever width .focus-date-widget's own min-width established
+   (see there) instead of sizing itself off its own text — otherwise
+   "today" and "tomorrow" would each settle at their own natural width and
+   visibly resize the pill switching between them. */
 .fdw-special {
-  min-width: 96px;
+  flex: 1;
+  min-width: 0;
   padding: 5px 16px;
   font-size: 15px;
   font-weight: 700;
