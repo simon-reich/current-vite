@@ -67,7 +67,7 @@ function nextOccurrenceKey(t: Todo): number {
 }
 
 const filteredTodos = computed(() => {
-  let result = store.activeTodos.filter(t => !t.inToday)
+  let result = store.activeTodos.filter(t => !t.inCurrent)
   if (effectiveFilterTagIds.value.length > 0) {
     result = result.filter(t => t.tags.some(tid => effectiveFilterTagIds.value.includes(tid)))
   }
@@ -103,13 +103,13 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 // already makes the move plain on its own.
 function sendToCurrent(id: string, obvious?: boolean) {
   if (!obvious) spawnSentToCurrentToast(id)
-  store.sendToToday(id)
+  store.sendToCurrent(id)
 }
 
 // Per-card calendar-icon quick-assign (see TodoCard.vue's CalendarPlus
 // button) and the swipe-split's top zone both plan a todo onto the
 // widget's currently selected date — see stores/todos.ts's Date Lists
-// section. Doesn't touch `inToday`, so the card stays right here in
+// section. Doesn't touch `inCurrent`, so the card stays right here in
 // Overview (see the plan's "Overview bleibt unberührt" guarantee).
 function sendToFocusDate(id: string) {
   store.assignFocusDate(id, themeStore.selectedFocusDate)
@@ -130,14 +130,14 @@ function sendToFocusDate(id: string) {
         :index="index"
         :grid-mode="true"
         mode="all"
-        @send-to-today="sendToCurrent"
+        @send-to-current="sendToCurrent"
         @send-to-focus-date="sendToFocusDate"
-        @remove-from-today="store.removeFromToday($event)"
+        @remove-from-current="store.removeFromCurrent($event)"
         @delete="store.deleteTodo($event)"
       />
     </div>
     <p v-else class="empty">
-      {{ store.activeTodos.filter(t => !t.inToday).length === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
+      {{ store.activeTodos.filter(t => !t.inCurrent).length === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
     </p>
   </div>
 </template>

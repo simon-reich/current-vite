@@ -388,7 +388,7 @@ export async function playFrameCelebration(config: CelebrationConfig) {
 // Every available frame-animation celebration, keyed by name — see the
 // "Celebration-Animationen" section in CLAUDE.md before adding another.
 // Which key a given todo gets is decided once, in stores/todos.ts's
-// sendToToday (see Todo.celebration and useCelebrations.ts) — not here;
+// sendToCurrent (see Todo.celebration and useCelebrations.ts) — not here;
 // this map only knows how to actually render a given key. Each celebration
 // needs all three tiers (desktop/tablet/phone, see CelebrationTier) —
 // there's no single-tier fallback, since a viewport can only ever ask for
@@ -535,7 +535,7 @@ const editIntentId = vueRef<string | null>(null)
 // view-switching, with no way to tell from the outside.
 interface ActiveCardApi {
   todoId: string
-  mode: 'all' | 'today'
+  mode: 'all' | 'current'
   getSiblingIds: () => string[] | undefined
   isEditing: () => boolean
   saveEdit: () => void
@@ -547,7 +547,7 @@ const activeCardApi = vueRef<ActiveCardApi | null>(null)
 // state along: tabbing away from an actively-edited title lands in the next
 // card's edit mode too, tabbing away from a merely-open card just opens the
 // next one the same way. A Current card whose tag/date editor is open (see
-// openEditFromToday) counts as "open the editor" too, not "open the
+// openEditFromCurrent) counts as "open the editor" too, not "open the
 // check-menu" — otherwise tabbing out of a Current edit landed back on the
 // check-menu's Done/Done-for-today row instead of carrying the edit along.
 export function cycleOpenCard(direction: 1 | -1) {
@@ -562,7 +562,7 @@ export function cycleOpenCard(direction: 1 | -1) {
   const wasTagMenuOpen = openTagMenuId.value === api.todoId
   if (wasEditing) api.saveEdit()
   if (wasEditing) editIntentId.value = nextId
-  if (api.mode === 'today' && !wasTagMenuOpen) openCheckMenuId.value = nextId
+  if (api.mode === 'current' && !wasTagMenuOpen) openCheckMenuId.value = nextId
   else openTagMenuId.value = nextId
 }
 
@@ -590,7 +590,7 @@ import LoopPicker from './LoopPicker.vue'
 
 const props = defineProps<{
   todo: Todo
-  mode: 'all' | 'today'
+  mode: 'all' | 'current'
   font?: string
   /** Ids of every todo in the current list, in render order — lets Tab/
    *  Shift+Tab jump straight to the next/previous card while one is open. */
@@ -710,8 +710,8 @@ const tagMenuTags = computed(() => themeStore.tagsEnabled ? store.tags : store.t
 // shows exactly what happened, so it stays silent; the same move
 // triggered less visibly (D/Enter shortcut, swipe) gets the toast.
 const emit = defineEmits<{
-  'send-to-today': [id: string, obvious?: boolean]
-  'remove-from-today': [id: string, obvious?: boolean]
+  'send-to-current': [id: string, obvious?: boolean]
+  'remove-from-current': [id: string, obvious?: boolean]
   'send-to-focus-date': [id: string]
   'complete': [id: string]
   'done-for-today': [id: string]
@@ -722,10 +722,10 @@ const showMenu = computed(() => openCheckMenuId.value === props.todo.id)
 const showTagMenu = computed(() => openTagMenuId.value === props.todo.id)
 
 // showTagMenu covers both Overview's tag/date editor and Current's own
-// title-edit, which reuses openTagMenuId too (see openEditFromToday) —
+// title-edit, which reuses openTagMenuId too (see openEditFromCurrent) —
 // either of those, or Current's Done/Done-for-today menu, means some editor
 // surface of the card is genuinely open right now.
-const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'today' && showMenu.value))
+const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'current' && showMenu.value))
 
 // Subs are collapsed by default — shown once the card is genuinely open
 // (see above), or forced via Current's "expand all" toggle.
@@ -991,7 +991,7 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
     burstCheckbox(event.currentTarget as HTMLElement)
   }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
-  if (!wasAllDone && nowAllDone && props.mode === 'today' && !showMenu.value) {
+  if (!wasAllDone && nowAllDone && props.mode === 'current' && !showMenu.value) {
     openCheckMenuId.value = props.todo.id
   }
 }
@@ -1021,7 +1021,7 @@ let justDragged = false
 
 function toggleCheckMenu() {
   if (justDragged) { justDragged = false; return }
-  // This card's own tag/date editor (openEditFromToday) is already open —
+  // This card's own tag/date editor (openEditFromCurrent) is already open —
   // a plain click on the card body here means "I'm done with this edit",
   // same as toggleTagMenu's re-click-to-close in Overview. Without this,
   // it fell through to the willOpen branch below and swapped straight into
@@ -1036,7 +1036,7 @@ function toggleCheckMenu() {
   const willOpen = openCheckMenuId.value !== props.todo.id
   // Opening a check-menu (this card's own, or by clicking a different
   // Current card entirely) would otherwise leave whichever card's tag/date
-  // editor is currently open (see openEditFromToday) open alongside it —
+  // editor is currently open (see openEditFromCurrent) open alongside it —
   // close it first, same as opening a tag-menu already unconditionally
   // closes any open check-menu below.
   if (willOpen && openTagMenuId.value) openTagMenuId.value = null
@@ -1077,7 +1077,7 @@ function closeOnOutside(e: MouseEvent) {
 // card without touching anything still closes the menu on every card it
 // passes through, and that alone shouldn't repeatedly override
 // processedToday and re-send an already-handled-today todo. Also skipped
-// if it's already in Current (mode 'today' edits, via openEditFromToday) —
+// if it's already in Current (mode 'current' edits, via openEditFromCurrent) —
 // nothing to send.
 let discardDraftTagsOnClose = false
 watch(showTagMenu, (isOpen, wasOpen) => {
@@ -1110,8 +1110,8 @@ watch(showTagMenu, (isOpen, wasOpen) => {
       if (isLoop.value) {
         runLoopSchedule(store)
         const interval = props.todo.loopInterval
-        if (loopChanged && interval && !props.todo.inToday && isLoopDueToday(interval, new Date(), props.todo.createdAt.slice(0, 10))) {
-          emit('send-to-today', props.todo.id)
+        if (loopChanged && interval && !props.todo.inCurrent && isLoopDueToday(interval, new Date(), props.todo.createdAt.slice(0, 10))) {
+          emit('send-to-current', props.todo.id)
         }
       }
     }
@@ -1156,12 +1156,12 @@ function onCardKeydown(e: KeyboardEvent) {
   // see its own comment). Overview's tag menu already has the editor UI
   // open (showTagMenu), so a plain startEdit() is enough there. Current's
   // check-menu doesn't: it needs the same swap to the tag/date editor
-  // that double-clicking the title or F does (openEditFromToday), closing
+  // that double-clicking the title or F does (openEditFromCurrent), closing
   // the check-menu first, before it can start editing.
   if (e.key === ' ' && cardActuallyOpen.value) {
     e.preventDefault()
     if (showTagMenu.value) startEdit()
-    else openEditFromToday()
+    else openEditFromCurrent()
     return
   }
   // D — delete in Overview (opens the same confirm modal the Trash icon/
@@ -1171,7 +1171,7 @@ function onCardKeydown(e: KeyboardEvent) {
   if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     if (showTagMenu.value) pendingDelete.value = true
-    else if (showMenu.value) emit('remove-from-today', props.todo.id)
+    else if (showMenu.value) emit('remove-from-current', props.todo.id)
     return
   }
   // F — sends to Current (Overview only), same move as its own "+" button.
@@ -1181,7 +1181,7 @@ function onCardKeydown(e: KeyboardEvent) {
   if (e.key.toLowerCase() === 'f' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     commitDraftTags()
-    emit('send-to-today', props.todo.id)
+    emit('send-to-current', props.todo.id)
     return
   }
   if (e.key !== 'Escape' && e.key !== 'Enter') return
@@ -1301,11 +1301,11 @@ function openForEdit(caretPos?: number | null) {
 }
 
 // Current's double-click equivalent: opens the same tag/date editor Overview
-// uses, on top of a 'today'-mode card — closes the Done/Done-for-today
+// uses, on top of a 'current'-mode card — closes the Done/Done-for-today
 // check-menu first if that's what was open. Picking a new date here still
 // leaves the todo in Current throughout: commitDraftTags (see draftTags
-// above) only ever writes tags/loopInterval, never inToday.
-function openEditFromToday(caretPos?: number | null) {
+// above) only ever writes tags/loopInterval, never inCurrent.
+function openEditFromCurrent(caretPos?: number | null) {
   openCheckMenuId.value = null
   openTagMenuId.value = props.todo.id
   startEdit(caretPos)
@@ -1336,25 +1336,25 @@ function caretOffsetFromEvent(e: MouseEvent): number | null {
 // straight past "open" into "edit" on a single click.
 function handleTitleClick(e: MouseEvent) {
   if (justDragged) { justDragged = false; return }
-  // In 'today' mode "open" covers both the check-menu (showMenu) and the
-  // full tag/date editor (showTagMenu, e.g. after openEditFromToday) —
+  // In 'current' mode "open" covers both the check-menu (showMenu) and the
+  // full tag/date editor (showTagMenu, e.g. after openEditFromCurrent) —
   // checking showMenu alone made a title click during an active full edit
   // (focus moved to a sub, then back to the title) register as "closed" and
   // fall into toggleCheckMenu(), which treats that as "done editing" and
   // collapses the whole card instead of re-entering the title edit.
-  const isOpen = props.mode === 'today' ? (showMenu.value || showTagMenu.value) : showTagMenu.value
+  const isOpen = props.mode === 'current' ? (showMenu.value || showTagMenu.value) : showTagMenu.value
   if (!isOpen) {
-    if (props.mode === 'today') toggleCheckMenu()
+    if (props.mode === 'current') toggleCheckMenu()
     else toggleTagMenu()
     return
   }
   const caretPos = caretOffsetFromEvent(e)
   if (props.mode === 'all') openForEdit(caretPos)
-  else openEditFromToday(caretPos)
+  else openEditFromCurrent(caretPos)
 }
 
 // Quick priority toggle for Current's card row — the only other way to set
-// priority is opening the tag menu, which doesn't exist in 'today' mode
+// priority is opening the tag menu, which doesn't exist in 'current' mode
 // (Current cards use the check-menu instead, see toggleCheckMenu). Reuses
 // updateTags so unchecking loop-orphan cleanup etc. stays in one place.
 function togglePriority() {
@@ -1585,7 +1585,7 @@ const canDrag = computed(() => !isEditing.value && !showTagMenu.value && !showMe
 const swipeAction = computed(() => {
   if (armedDir.value === 1) {
     return props.mode === 'all'
-      ? { label: props.todo.inToday ? 'Remove' : 'Current' }
+      ? { label: props.todo.inCurrent ? 'Remove' : 'Current' }
       : { label: 'Complete' }
   }
   if (armedDir.value === -1) {
@@ -1603,7 +1603,7 @@ const swipeArmed = computed(() => armedDir.value !== 0)
 // future-dated widget selection reads as "plan ahead" rather than another
 // "Current" button.
 const showSwipeZoneSplit = computed(() =>
-  props.mode === 'all' && !props.todo.inToday && themeStore.dateListsEnabled
+  props.mode === 'all' && !props.todo.inCurrent && themeStore.dateListsEnabled
 )
 
 // Which of the two zones a rightward swipe currently targets — top (date)
@@ -1673,7 +1673,7 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
 }
 
 // The three position slots (focus/date/delete) are reused as-is for
-// Current's own swipe (mode 'today') — same geometry, different actions:
+// Current's own swipe (mode 'current') — same geometry, different actions:
 // the 'focus' slot becomes Done-for-today, the 'date' slot becomes Done,
 // the 'delete' slot becomes Remove. Keeps one single hand-tuned layout
 // instead of a second one to keep in sync, and means Current and Overview
@@ -1685,7 +1685,7 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
 // here is a plain removal, same as the threshold model's own "Remove"
 // vs. "Current" split.
 //
-// Current (mode 'today'): all three always apply, except previewLocked
+// Current (mode 'current'): all three always apply, except previewLocked
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-today
 // stay locked out there same as the check-row buttons do, leaving only
 // Remove.
@@ -1697,14 +1697,14 @@ const zones = computed<SwipeZone[]>(() => {
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    if (!props.todo.inToday && themeStore.dateListsEnabled) {
+    if (!props.todo.inCurrent && themeStore.dateListsEnabled) {
       const [dx, dy, radius] = zoneOffset('date')
       list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
     }
     const [ddx, ddy, dradius] = zoneOffset('delete')
     list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
     const [fdx, fdy, fradius] = zoneOffset('focus')
-    list.push({ key: 'focus', label: props.todo.inToday ? 'Remove' : 'Current', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+    list.push({ key: 'focus', label: props.todo.inCurrent ? 'Remove' : 'Current', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
   } else {
     if (!props.previewLocked) {
       const [fdx, fdy, fradius] = zoneOffset('focus')
@@ -1980,15 +1980,15 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       emit('send-to-focus-date', props.todo.id)
     } else if (hit === 'focus') {
       await flyOutRight()
-      if (!props.todo.inToday) emit('send-to-today', props.todo.id)
-      else emit('remove-from-today', props.todo.id)
+      if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
+      else emit('remove-from-current', props.todo.id)
     } else {
       springBackToCenter()
     }
     return
   }
 
-  if (SWIPE_MODE === 'zones' && props.mode === 'today') {
+  if (SWIPE_MODE === 'zones' && props.mode === 'current') {
     // Same three slots as Overview (see zones computed) — 'focus' is
     // Done, 'date' is Done-for-today, 'delete' is Remove. Remove is
     // non-destructive (the todo just goes back to the pool), unlike
@@ -1998,7 +1998,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
     zoneHit.value = null
     if (hit === 'delete') {
       await flyOutLeft()
-      emit('remove-from-today', props.todo.id)
+      emit('remove-from-current', props.todo.id)
     } else if (hit === 'date') {
       springBackToCenter()
       handleDoneForToday(props.todo.id)
@@ -2028,7 +2028,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       pendingDelete.value = true
     } else {
       await flyOutLeft()
-      emit('remove-from-today', props.todo.id)
+      emit('remove-from-current', props.todo.id)
     }
   } else if (swipedRight) {
     if (props.mode === 'all') {
@@ -2040,14 +2040,14 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       // motion values. Spring back in place instead and let the caller's
       // toast + this card's own "just planned" pulse (see plannedPulse)
       // carry the "yes, that worked" feedback.
-      if (!props.todo.inToday && showSwipeZoneSplit.value && armedZone.value === 'date') {
+      if (!props.todo.inCurrent && showSwipeZoneSplit.value && armedZone.value === 'date') {
         springBackToCenter()
         triggerPlannedPulse()
         emit('send-to-focus-date', props.todo.id)
       } else {
         await flyOutRight()
-        if (!props.todo.inToday) emit('send-to-today', props.todo.id)
-        else emit('remove-from-today', props.todo.id)
+        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
+        else emit('remove-from-current', props.todo.id)
       }
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
@@ -2225,7 +2225,7 @@ onUnmounted(() => {
       >
         <div
           class="todo-card-main"
-          @click.stop="mode === 'today' ? toggleCheckMenu() : toggleTagMenu()"
+          @click.stop="mode === 'current' ? toggleCheckMenu() : toggleTagMenu()"
         >
           <textarea
             v-if="isEditing"
@@ -2244,7 +2244,7 @@ onUnmounted(() => {
           <span
             v-else
             class="todo-title"
-            :class="{ editable: mode === 'today' ? (showMenu || showTagMenu) : showTagMenu }"
+            :class="{ editable: mode === 'current' ? (showMenu || showTagMenu) : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
           >{{ todo.title }}</span>
@@ -2280,10 +2280,10 @@ onUnmounted(() => {
                (delete moved into the open state, see above) -->
           <template v-else-if="mode === 'all'">
             <button
-              v-if="!todo.inToday"
+              v-if="!todo.inCurrent"
               class="card-btn"
               title="Add to current"
-              @click.stop="emit('send-to-today', todo.id, true)"
+              @click.stop="emit('send-to-current', todo.id, true)"
             >
               <CirclePlus :size="18" />
             </button>
@@ -2291,7 +2291,7 @@ onUnmounted(() => {
               v-else
               class="card-btn"
               title="Remove from current"
-              @click.stop="emit('remove-from-today', todo.id, true)"
+              @click.stop="emit('remove-from-current', todo.id, true)"
             >
               <CircleMinus :size="18" />
             </button>
@@ -2328,7 +2328,7 @@ onUnmounted(() => {
             <button
               class="card-btn"
               title="Move back to overview"
-              @click.stop="emit('remove-from-today', todo.id, true)"
+              @click.stop="emit('remove-from-current', todo.id, true)"
             >
               <CircleMinus :size="18" />
             </button>
@@ -2424,7 +2424,7 @@ onUnmounted(() => {
         </Transition>
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
-          <div v-if="showMenu && mode === 'today'" class="check-row">
+          <div v-if="showMenu && mode === 'current'" class="check-row">
             <span v-if="previewLocked" class="check-opt check-opt--locked" title="This day hasn't arrived yet">
               <Clock :size="16" /> <span>Not due yet</span>
             </span>

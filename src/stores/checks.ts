@@ -72,7 +72,7 @@ export const useChecksStore = defineStore('checks', () => {
   const activeChecks = computed(() => checks.value.filter(c => !c.deletedAt))
 
   // Checks due today — purely computed from each Check's own schedule, not
-  // a stored flag (unlike Todo.inToday). A Check has no "sent to Current"
+  // a stored flag (unlike Todo.inCurrent). A Check has no "sent to Current"
   // step to undo, so there's nothing here that needs Todo's
   // focusAddedAt/processedToday bookkeeping or a midnight store-mutation
   // pass (runLoopSchedule's equivalent) — it just needs to actually

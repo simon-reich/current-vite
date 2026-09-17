@@ -62,7 +62,11 @@ export interface Todo {
   title: string
   tags: string[]
   createdAt: string
-  inToday: boolean
+  /** Whether this todo is on Current — a day-agnostic, persistent list the
+   *  user curates by hand (see CLAUDE.md's Pool concept). Named `inCurrent`,
+   *  not `inToday`: despite "Done for today" being how you clear an item off
+   *  it, membership itself has no date attached and never resets. */
+  inCurrent: boolean
   /** Optional sub-todos — live and die with this todo, no independent
    *  schedule/archive of their own (unlike Checks). See Sub above. */
   subs: Sub[]
@@ -74,9 +78,9 @@ export interface Todo {
   loopInterval?: LoopInterval
   /** Sorted ISO dates (YYYY-MM-DD) this todo is planned on a future/today
    *  Date List for — see CLAUDE.md's "Date Lists" section. Independent of
-   *  `inToday`: a todo can sit on any number of these while still showing
-   *  normally in Overview (and can additionally be in the default Current
-   *  list at the same time). Absent/empty = not planned on any list. */
+   *  `inCurrent`: a todo can sit on any number of these while still showing
+   *  normally in Overview (and can additionally be in Current at the same
+   *  time). Absent/empty = not planned on any list. */
   focusDates?: string[]
   /** Set when `rolloverExpiredFocusDates` auto-returns an unfinished
    *  Date-List todo to the pool at day-change — bumps it to the top of
@@ -86,14 +90,14 @@ export interface Todo {
   poolBumpedAt?: string
   /** Which celebration (see TodoCard.vue's "Celebration-Animationen"
    *  section) plays when this todo is completed — assigned once in
-   *  sendToToday below, fixed for as long as it stays in Current, rather
+   *  sendToCurrent below, fixed for as long as it stays in Current, rather
    *  than re-rolled every time its check-menu happens to open. Absent for
    *  a todo that's never been sent to Current since this field existed. */
   celebration?: CelebrationKey
   /** Set instead of actually removing the todo when it's deleted while it
    *  still has calendar-relevant history (a completedAt or a non-empty
    *  workLog) — see deleteTodo below. Filtered out of every active list
-   *  (activeTodos/todayTodos) same as completedAt, but the calendar still
+   *  (activeTodos/currentTodos) same as completedAt, but the calendar still
    *  reads completedAt/workLog directly off it, so deleting a todo can
    *  never retroactively erase days it already showed on past calendars.
    *  A todo that was deleted with no history at all (never completed, no
@@ -133,7 +137,7 @@ export const useTodosStore = defineStore('todos', () => {
           title: entry.title,
           tags: [],
           createdAt: entry.workLog[0] ?? (entry.done ? `${entry.done}T00:00:00.000Z` : new Date().toISOString()),
-          inToday: false,
+          inCurrent: false,
           subs: [],
           workLog: entry.workLog,
           completedAt: entry.done ? `${entry.done}T00:00:00.000Z` : undefined,
@@ -152,36 +156,25 @@ export const useTodosStore = defineStore('todos', () => {
 
   // Whether a Date List exists for `dateStr` — purely derived from
   // `focusDates`, no separate list entity (see CLAUDE.md's Date Lists
-  // section). Only ever meaningful for today when deciding what Current
-  // shows; kept general so runLoopSchedule can reuse it.
+  // section). Used for today specifically to decide whether a newly-due
+  // Date Todo should also join that list (see runLoopSchedule/App.vue's
+  // addTodo), and generally for the sidebar's Today/Tomorrow nav.
   function hasFocusDateList(dateStr: string): boolean {
     if (!useThemeStore().dateListsEnabled) return false
     return todos.value.some(t => !t.completedAt && !t.deletedAt && t.focusDates?.includes(dateStr))
   }
 
-  // A Date List for today, once it exists, replaces the default Current
-  // list entirely for that day (explicit product decision — see plan
-  // discussion) rather than merging with whatever's in `inToday`. Due
-  // loop/once todos still auto-join it (runLoopSchedule routes them here
-  // instead of into `inToday` on such a day — see useLoopSchedule.ts).
-  const todayTodos = computed(() => {
-    const today = todayStr()
-    if (hasFocusDateList(today)) {
-      return todos.value.filter(t => {
-        if (t.completedAt || t.deletedAt) return false
-        if (t.focusDates?.includes(today)) return true
-        // A due loop/once todo auto-joins today's Date List (see comment
-        // above), but isLoopDueToday doesn't know about "done for today" —
-        // it stays due for the rest of the day regardless. Without this
-        // check a loop todo checked off via doneForToday (which already
-        // clears it from focusDates) would still pass this OR branch and
-        // never disappear from Current, unlike a plain inToday todo.
-        const alreadyDoneToday = t.workLog.some(ts => ts.slice(0, 10) === today)
-        return !alreadyDoneToday && t.loopInterval && isLoopDueToday(t.loopInterval, new Date(), t.createdAt.slice(0, 10))
-      })
-    }
-    return todos.value.filter(t => t.inToday && !t.completedAt && !t.deletedAt)
-  })
+  // Current is purely `inCurrent` — day-agnostic, never auto-swapped for a
+  // Date List (explicit product decision reversing an earlier one: Current
+  // and "today's Date List" are two genuinely independent lists, not one
+  // replacing the other; see CLAUDE.md's Date Lists section). A due
+  // loop/once todo lands in inCurrent via runLoopSchedule/sendToCurrent
+  // same as ever, and — separately, if a Date List for today exists —
+  // also gets assigned today's focusDate; the two memberships don't affect
+  // each other.
+  const currentTodos = computed(() =>
+    todos.value.filter(t => t.inCurrent && !t.completedAt && !t.deletedAt)
+  )
 
   // Unique future (> today) dates with at least one active todo planned on
   // them — feeds the Calendar's Date-List markers and Current's Lists panel.
@@ -233,7 +226,7 @@ export const useTodosStore = defineStore('todos', () => {
       title: title.trim(),
       tags: extra.tags ?? [],
       createdAt: new Date().toISOString(),
-      inToday: false,
+      inCurrent: false,
       subs: (extra.subs ?? []).map(subTitle => ({ id: uuid(), title: subTitle.trim() })).filter(s => s.title),
       workLog: [],
       loopInterval: extra.loopInterval,
@@ -305,64 +298,78 @@ export const useTodosStore = defineStore('todos', () => {
     }
   }
 
-  function sendToToday(id: string) {
+  function sendToCurrent(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
-      todo.inToday = true
+      todo.inCurrent = true
       todo.focusAddedAt = new Date().toISOString()
       // Fresh roll each time it re-enters Current, not just once ever — see
       // Todo.celebration's own comment.
       todo.celebration = drawCelebrationKey()
-      // Once today already has its own Date List, todayTodos reads
-      // exclusively off focusDates — a plain `inToday` flag on some other
-      // todo is invisible to it. Without this, sending a todo to Current
-      // while today's Date List is active pulled it out of Overview
-      // (filtered on !inToday) without it ever appearing in Current,
-      // vanishing from both. removeFromToday already mirrors this via
-      // unassignFocusDate, so this keeps the two symmetric.
-      if (hasFocusDateList(todayStr())) assignFocusDate(id, todayStr())
     }
   }
 
-  // Leaving today's Current, however the todo got there — whether via the
-  // default `inToday` flag or via today's own Date List. Callers (the
-  // CircleMinus button, swipe-left, the D shortcut) don't need to know
-  // which mechanism is currently showing the card.
-  function removeFromToday(id: string) {
+  // Leaving Current — purely the `inCurrent` flag, independent of any Date
+  // List this todo might also be on (see currentTodos above).
+  function removeFromCurrent(id: string) {
     const todo = todos.value.find(t => t.id === id)
-    if (todo) {
-      todo.inToday = false
-      unassignFocusDate(id, todayStr())
-    }
+    if (todo) todo.inCurrent = false
   }
 
   function completeTodo(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
       todo.completedAt = new Date().toISOString()
-      todo.inToday = false
+      todo.inCurrent = false
       // A real Done means this todo is finished, period — pull it off
       // every future Date List it was still planned on, not just today's.
       todo.focusDates = undefined
     }
   }
 
+  // A "Date Todo" (once or loop, see LoopInterval) auto-joins both Current
+  // and today's Date List as one due occurrence (see runLoopSchedule/
+  // addTodo in App.vue) — its two memberships aren't independent choices
+  // the way a plain todo's are, they're the same occurrence showing twice.
+  function isDateTodo(todo: Todo): boolean {
+    return !!todo.loopInterval && todo.tags.includes(LOOP_TAG_ID)
+  }
+
+  // Current's own "done for today" — inCurrent + workLog, plus (for a Date
+  // Todo only) also clears today's focusDate, since for those the two
+  // memberships are one occurrence (see isDateTodo). A plain todo stays
+  // list-scoped — checking it off here never touches focusDates.
   function doneForToday(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
-      const now = new Date()
-      todo.workLog.push(now.toISOString())
-      todo.inToday = false
-      // Only today's slot is handled — a todo can be planned on several
-      // future Date Lists at once (see focusDates), and "done for today"
-      // says nothing about those other days.
-      unassignFocusDate(id, todayStr())
-      // Opt-in per-todo (see LoopInterval.rescheduleFromCompletion) — the
-      // next occurrence counts from this check-off instead of the
-      // original fixed schedule.
-      if (todo.loopInterval?.rescheduleFromCompletion && (todo.loopInterval.mode ?? 'loop') === 'loop') {
-        todo.loopInterval.startDate = now.toISOString().slice(0, 10)
-      }
+      todo.workLog.push(new Date().toISOString())
+      todo.inCurrent = false
+      if (isDateTodo(todo)) unassignFocusDate(id, todayStr())
+      applyLoopReschedule(todo)
+    }
+  }
+
+  // The Date List equivalent of doneForToday — unassigns just this one
+  // date (a todo can be planned on several Date Lists at once). For a
+  // plain todo that leaves `inCurrent` untouched, mirroring doneForToday's
+  // own isolation; for a Date Todo checked off on *today's* list, it also
+  // clears `inCurrent` (same occurrence, see isDateTodo/doneForToday).
+  function doneForTodayOnDate(id: string, dateStr: string) {
+    const todo = todos.value.find(t => t.id === id)
+    if (todo) {
+      todo.workLog.push(new Date().toISOString())
+      unassignFocusDate(id, dateStr)
+      if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
+      applyLoopReschedule(todo)
+    }
+  }
+
+  // Opt-in per-todo (see LoopInterval.rescheduleFromCompletion) — the next
+  // occurrence counts from this check-off instead of the original fixed
+  // schedule. Shared by both doneForToday variants above.
+  function applyLoopReschedule(todo: Todo) {
+    if (todo.loopInterval?.rescheduleFromCompletion && (todo.loopInterval.mode ?? 'loop') === 'loop') {
+      todo.loopInterval.startDate = new Date().toISOString().slice(0, 10)
     }
   }
 
@@ -418,6 +425,20 @@ export const useTodosStore = defineStore('todos', () => {
   function ensureSubsField() {
     todos.value.forEach(todo => {
       if (!todo.subs) todo.subs = []
+    })
+  }
+
+  // Todos persisted before the `inToday` → `inCurrent` rename still carry
+  // the old field name in localStorage — without this, every existing
+  // Current list would read as empty the moment this version loads (see
+  // ensureSubsField above for why this can't run any earlier than
+  // App.vue's onMounted). Copies the legacy value over once, then leaves
+  // the stale `inToday` key sitting unused in the persisted JSON — harmless,
+  // never read again.
+  function ensureInCurrentField() {
+    todos.value.forEach(todo => {
+      const legacy = todo as unknown as { inToday?: boolean; inCurrent?: boolean }
+      if (typeof legacy.inCurrent !== 'boolean') legacy.inCurrent = legacy.inToday ?? false
     })
   }
 
@@ -488,7 +509,7 @@ export const useTodosStore = defineStore('todos', () => {
           title: entry.title,
           tags: [],
           createdAt: entry.workLog[0] ?? (entry.done ? `${entry.done}T00:00:00.000Z` : new Date().toISOString()),
-          inToday: false,
+          inCurrent: false,
           subs: [],
           workLog: entry.workLog,
           completedAt: entry.done ? `${entry.done}T00:00:00.000Z` : undefined,
@@ -502,12 +523,12 @@ export const useTodosStore = defineStore('todos', () => {
     // state
     todos, tags,
     // getters
-    activeTodos, todayTodos, userTags, futureFocusDates,
+    activeTodos, currentTodos, userTags, futureFocusDates,
     completedOn, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
-    addTodo, updateTodo, deleteTodo, sendToToday, removeFromToday, completeTodo, doneForToday,
+    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, doneForToday, doneForTodayOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub,
-    addTag, deleteTag, ensureSystemTags, ensureSubsField,
+    addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,
     importData,
   }

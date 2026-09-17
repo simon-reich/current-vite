@@ -4,7 +4,7 @@ import { RouterView, useRouter, useRoute } from 'vue-router'
 import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
-import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval } from './stores/todos'
+import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo } from './stores/todos'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
 import { useScrollTracking } from './composables/useScrollTracking'
@@ -510,6 +510,7 @@ function onVisibilityChange() {
 onMounted(() => {
   store.ensureSystemTags()
   store.ensureSubsField()
+  store.ensureInCurrentField()
   themeStore.apply(themeStore.activeBg, themeStore.activeGray)
   lastViewportHeight = window.visualViewport?.height ?? 0
   window.visualViewport?.addEventListener('resize', onViewportResize)
@@ -572,8 +573,8 @@ const checksStore = useChecksStore()
 //   const todo = id ? store.todos.find(t => t.id === id) : undefined
 //   if (!todo || !themeStore.celebrationsEnabled) return
 //   // Falls back to drawing (and persisting) a fresh key here for a todo
-//   // that was already inToday before Todo.celebration existed —
-//   // sendToToday normally assigns it.
+//   // that was already inCurrent before Todo.celebration existed —
+//   // sendToCurrent normally assigns it.
 //   const key = todo.celebration ?? drawCelebrationKey()
 //   if (!todo.celebration) store.updateTodo(todo.id, { celebration: key })
 //   showCelebrationTeaser(key)
@@ -847,22 +848,31 @@ function addTodo() {
   // runLoopSchedule). It's created and stays in the pool instead.
   const dateTodoNotYetDue = !!todo.loopInterval && !isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))
   if (route.path === '/current') {
-    if (!dateTodoNotYetDue) store.sendToToday(todo.id)
+    if (!dateTodoNotYetDue) sendNewTodoToCurrent(todo)
   }
   // A brand-new loop todo due today (e.g. start date = today, daily)
   // shouldn't have to wait for the next reload/midnight check — but
   // sending it instantly made it look like the add itself had failed
-  // (the todo never showed up in All, since All filters out inToday).
+  // (the todo never showed up in All, since All filters out inCurrent).
   // Let it appear in the list first, then move it the same way clicking
   // its own "+" button would, with a toast explaining where it went.
   else if (todo.loopInterval && !dateTodoNotYetDue) {
     setTimeout(() => {
       spawnSentToCurrentToast(todo.id)
-      store.sendToToday(todo.id)
+      sendNewTodoToCurrent(todo)
     }, 600)
   }
   resetTodoDraft()
   todoInputRef.value?.blur()
+}
+
+// Same rule runLoopSchedule follows for an already-existing due Date Todo:
+// it always joins Current, and — only if today's Date List already exists
+// (never creates one from nothing) — also joins that. A plain todo (no
+// loopInterval) never gets a focusDate here, this is Date-Todo-only.
+function sendNewTodoToCurrent(todo: Todo) {
+  store.sendToCurrent(todo.id)
+  if (todo.loopInterval && store.hasFocusDateList(todayDateStr())) store.assignFocusDate(todo.id, todayDateStr())
 }
 
 // ── Sort: toggle between date (newest first) and A–Z ──

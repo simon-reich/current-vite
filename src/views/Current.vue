@@ -40,7 +40,7 @@ function todayStr(): string {
 // (see App.vue's #app.is-current rules, which gray out that whole filter
 // UI here instead of just silently ignoring it).
 const defaultCurrentTodos = computed(() => {
-  return [...store.todayTodos].sort((a, b) => {
+  return [...store.currentTodos].sort((a, b) => {
     const rankDiff = rank(a) - rank(b)
     if (rankDiff !== 0) return rankDiff
     // Falls back to createdAt for todos already in Current from before
@@ -88,14 +88,23 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 
 // Mirrors AllTodos.vue's sendToCurrent, `obvious` included — a card leaving
 // this list otherwise just vanishes with no explanation. Toast rises from
-// the card's own position, skipped for a direct CircleMinus click. Removing
-// from a future Date List (see viewingDate) only ever unassigns that one
-// date — removeFromToday's own "leaves however it got there" behavior is
-// specifically for today's Current, not a day that hasn't arrived yet.
-function removeFromCurrent(id: string, obvious?: boolean) {
+// the card's own position, skipped for a direct CircleMinus click. Current
+// and a Date List are independent (see stores/todos.ts), so which one this
+// affects depends on which one is actually being viewed. Named removeCard,
+// not removeFromCurrent, to not collide with the store action of that name
+// this calls in the default (non-Date-List) branch.
+function removeCard(id: string, obvious?: boolean) {
   if (!obvious) spawnRemovedFromCurrentToast(id)
   if (viewingLockedDate.value) store.unassignFocusDate(id, viewingDate.value!)
-  else store.removeFromToday(id)
+  else store.removeFromCurrent(id)
+}
+
+// Current and a Date List are independent lists (see stores/todos.ts) — a
+// card's "done for today" here has to affect whichever one is actually
+// being viewed, not always Current's own inCurrent-based version.
+function doneForToday(id: string) {
+  if (viewingDate.value) store.doneForTodayOnDate(id, viewingDate.value)
+  else store.doneForToday(id)
 }
 
 // ── Checks ──
@@ -183,10 +192,10 @@ function editFromAllChecks(check: CheckItem) {
         :index="index"
         :force-expand-subs="themeStore.expandCurrentSubs"
         :preview-locked="viewingLockedDate"
-        mode="today"
-        @remove-from-today="removeFromCurrent"
+        mode="current"
+        @remove-from-current="removeCard"
         @complete="store.completeTodo($event)"
-        @done-for-today="store.doneForToday($event)"
+        @done-for-today="doneForToday"
         @delete="store.deleteTodo($event)"
       />
     </div>
