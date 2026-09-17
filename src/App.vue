@@ -998,11 +998,23 @@ function formatPresetDate(dateStr: string): string {
   return formatUpcomingDate(dateStr)
 }
 
-// A view must never show something half-previewed when re-entered (same
-// rule as the open-card-closes-on-view-switch behavior elsewhere) — leaving
-// Current always resets back to the default list.
+// Overview and Current share one "currently focused Date List" concept —
+// tapping back and forth between them (Tab, nav icons, ...) carries
+// whichever date was selected across instead of losing your place: leaving
+// Current for Overview with a Date List open hands that date to the
+// Focus-Date-Pille (themeStore.selectedFocusDate), and arriving at Current
+// from Overview opens whatever date the pille was already pointed at. Only
+// Current's own "current" pool (viewingDate === null) has no Overview
+// equivalent to sync, so it's simply left alone. viewingDate itself is
+// never reset elsewhere either — a Settings or Calendar detour leaves it
+// exactly as it was, so coming back to Current (directly, or via Overview)
+// still shows whatever list you were last on.
 watch(() => route.path, (path, prevPath) => {
-  if (prevPath === '/current' && path !== '/current') viewingDate.value = null
+  if (prevPath === '/current' && path === '/all') {
+    if (viewingDate.value) themeStore.setSelectedFocusDate(viewingDate.value)
+  } else if (prevPath === '/all' && path === '/current') {
+    viewingDate.value = themeStore.selectedFocusDate
+  }
 })
 
 // ── Scroll dividers ──
