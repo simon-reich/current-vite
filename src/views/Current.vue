@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, inject } from 'vue'
 import type { Ref } from 'vue'
-import { Plus, Check, Pencil, ListChecks, ChevronLeft } from '@lucide/vue'
+import { Plus, Check, Pencil, ChevronLeft } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -49,11 +49,12 @@ const defaultCurrentTodos = computed(() => {
   })
 })
 
-// null = the default Current list above. Set via ListsPanel.vue's picker —
-// swaps this whole view for one other Date List's todos instead of
-// stacking it in a separate cramped overlay (see ListsPanel.vue, which is
-// now purely a date picker/deleter, no embedded preview of its own).
-const viewingDate = ref<string | null>(null)
+// null = the default Current list above. Set from App.vue's desktop sidebar
+// Date-List nav, or via ListsPanel.vue's picker on tablet/phone — swaps
+// this whole view for one other Date List's todos instead of stacking it
+// in a separate cramped overlay. Owned by App.vue (its sidebar buttons sit
+// outside the RouterView), injected here like listsPanelOpen above.
+const viewingDate = inject<Ref<string | null>>('viewingDate')!
 
 const displayedTodos = computed(() => {
   if (!viewingDate.value) return defaultCurrentTodos.value
@@ -170,18 +171,6 @@ function editFromAllChecks(check: CheckItem) {
         <span class="switch-knob" />
       </button>
     </div>
-
-    <!-- Desktop only (CSS-hidden on tablet/phone, which use App.vue's own
-         icon-rail/bottom-nav triggers for the same listsPanelOpen ref) —
-         browse/delete other Date Lists, see ListsPanel.vue. -->
-    <button
-      v-if="themeStore.dateListsEnabled"
-      type="button"
-      class="lists-btn-desktop"
-      @click="listsPanelOpen = true"
-    >
-      <ListChecks :size="14" /> <span>lists</span>
-    </button>
 
     <div v-if="displayedTodos.length" class="todo-wrap">
       <TodoCard
@@ -359,42 +348,6 @@ function editFromAllChecks(check: CheckItem) {
   color: var(--ink);
   font-family: var(--font-mono, monospace);
   opacity: 0.7;
-}
-
-/* Same fixed-corner approach as .expand-subs-row right above (which this
-   sits directly under) — Current's Subs toggle only renders when there's a
-   list to show subs on, so this can't just be "the next row" in normal
-   flow; it needs its own fixed anchor a row's height lower. Hides below
-   1024px the same way — see the tablet/phone triggers in App.vue instead. */
-.lists-btn-desktop {
-  position: fixed;
-  top: 196px;
-  right: 52px;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  opacity: 0.7;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font-mono, monospace);
-  cursor: pointer;
-  transition: opacity 0.1s;
-}
-
-@media (hover: hover) {
-  .lists-btn-desktop:hover {
-    opacity: 1;
-  }
-}
-
-@media (max-width: 1024px) {
-  .lists-btn-desktop {
-    display: none;
-  }
 }
 
 /* Same switch look as Settings.vue's daily-shuffle toggle — duplicated

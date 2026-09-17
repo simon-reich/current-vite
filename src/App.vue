@@ -911,6 +911,48 @@ provide('sortKey', sortKey)
 const listsPanelOpen = ref(false)
 provide('listsPanelOpen', listsPanelOpen)
 
+// ── Current-view sidebar: Current/Today/Tomorrow + upcoming Date Lists ──
+// viewingDate now lives here (not in Current.vue) since the desktop sidebar
+// buttons that drive it sit in App.vue, outside the RouterView — same
+// provide/inject direction as listsPanelOpen above.
+const viewingDate = ref<string | null>(null)
+provide('viewingDate', viewingDate)
+
+function todayDateStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function tomorrowDateStr(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+const hasTodayList = computed(() => store.hasFocusDateList(todayDateStr()))
+const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrowDateStr()))
+
+// Further-out lists, excluding tomorrow (which already has its own button).
+const upcomingFocusDates = computed(() => store.futureFocusDates.filter(d => d !== tomorrowDateStr()))
+
+// "TUE, 07.07" — uppercase weekday first, then day.month (day-before-month,
+// not the US month-before-day order), no year (Date Lists only ever cover
+// the near future in practice, see rolloverExpiredFocusDates clearing out
+// stale ones). Same WEEKDAY_LABELS set as FocusDateWidget.vue.
+const UPCOMING_WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+function formatUpcomingDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const weekday = UPCOMING_WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()]
+  return `${weekday}, ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}`
+}
+
+// A view must never show something half-previewed when re-entered (same
+// rule as the open-card-closes-on-view-switch behavior elsewhere) — leaving
+// Current always resets back to the default list.
+watch(() => route.path, (path, prevPath) => {
+  if (prevPath === '/current' && path !== '/current') viewingDate.value = null
+})
+
 // ── Scroll dividers ──
 const mainContentRef = useTemplateRef<HTMLElement>('mainContent')
 const contentInnerRef = useTemplateRef<HTMLElement>('contentInner')
@@ -1166,10 +1208,10 @@ watch(() => route.path, () => {
           </RouterLink>
         </nav>
 
-        <!-- Tablet-width only — real desktop shows the widget/"lists"
-             button elsewhere (.focus-date-head, Current.vue's
-             .lists-btn-desktop) and Settings in its own .settings-head, so
-             both stay hidden there (see .tablet-focus-date-widget-slot/
+        <!-- Tablet-width only — real desktop shows the widget elsewhere
+             (.focus-date-head, or the Current sidebar's Date-List nav) and
+             Settings in its own .settings-head, so both stay hidden there
+             (see .tablet-focus-date-widget-slot/
              .tablet-settings-btn in layout.css). Settings sits flush at
              this row's right edge; the widget/lists button centers itself
              in whatever space is left before it (see .tablet-header-right
@@ -1213,10 +1255,56 @@ watch(() => route.path, () => {
       </div>
     </div>
 
-    <!-- ══ DESKTOP: Sidebar body (tag list) ══ -->
-    <aside v-if="themeStore.tagsEnabled" ref="sidebarRef" class="sidebar desktop-only" @scroll="onSidebarScroll">
+    <!-- ══ DESKTOP: Sidebar body (tag list / Current Date-List nav) ══ -->
+    <aside
+      v-if="route.path === '/current' ? themeStore.dateListsEnabled : themeStore.tagsEnabled"
+      ref="sidebarRef"
+      class="sidebar desktop-only"
+      @scroll="onSidebarScroll"
+    >
       <ScrollDivider class="sidebar-scroll-divider" :visible="sidebarScrolled" />
-      <div class="tag-list">
+
+      <!-- Current view: Date-List navigation replaces the (here pointless,
+           Current is unfilterable) tag-filter UI entirely — same .tag-list
+           stack/alignment as Overview's All/Prio/Date + tags below it, so
+           both sidebar contents read as one consistent layout. -->
+      <div v-if="route.path === '/current'" class="tag-list">
+        <button
+          class="all-btn date-nav-btn"
+          :class="{ active: viewingDate === null }"
+          @click="viewingDate = null"
+        >
+          current
+        </button>
+        <button
+          class="all-btn date-nav-btn"
+          :class="{ active: viewingDate === todayDateStr(), dimmed: !hasTodayList }"
+          :disabled="!hasTodayList"
+          @click="viewingDate = todayDateStr()"
+        >
+          today
+        </button>
+        <button
+          class="all-btn date-nav-btn loop-btn"
+          :class="{ active: viewingDate === tomorrowDateStr(), dimmed: !hasTomorrowList }"
+          :disabled="!hasTomorrowList"
+          @click="viewingDate = tomorrowDateStr()"
+        >
+          tomorrow
+        </button>
+
+        <div
+          v-for="dateStr in upcomingFocusDates"
+          :key="dateStr"
+          class="tag-chip"
+          :class="{ active: viewingDate === dateStr }"
+        >
+          <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
+        </div>
+      </div>
+
+      <!-- Overview: existing tag-filter UI -->
+      <div v-else class="tag-list">
         <button
           ref="allBtnSidebarRef"
           class="all-btn"

@@ -636,6 +636,24 @@
   padding: 0;
 }
 
+/* ── Current sidebar: Date-List nav (reuses .tag-list/.all-btn/.tag-chip
+   for a consistent look with Overview's sidebar — same vertical stack,
+   same left edge, same trio-then-list spacing via .loop-btn's margin). ── */
+.date-nav-btn {
+  /* "tomorrow" doesn't fit .all-btn's 56px (sized for "prio") — widen just
+     these three, same fixed-width-for-the-trio approach as .all-btn itself. */
+  width: 84px;
+}
+
+.date-nav-btn:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.date-nav-upcoming-btn {
+  cursor: pointer;
+}
+
 /* ── Settings head ── */
 .settings-head {
   grid-column: 3;
@@ -674,7 +692,7 @@
 
 /* Tablet uses .tablet-focus-date-widget-slot/.tablet-settings-btn (see
    tablet.css) instead — same "own version below 1024px" pattern as
-   .expand-subs-row/.lists-btn-desktop in Current.vue. */
+   .expand-subs-row in Current.vue. */
 @media (max-width: 1024px) {
   .focus-date-head {
     display: none;
@@ -737,22 +755,19 @@
 
 /* ── Current active: same dim + lock, but NOT .add-wrapper — Current still
    lets you add a todo (auto-sent straight to today), so its tag-picking
-   checkbox row has to stay usable. Current is deliberately unfilterable
-   (see AllTodos/Current.vue), so every filter/tag control it can't affect
-   reads as visibly inert instead of just silently doing nothing. */
+   checkbox row has to stay usable. Current's tag-filter row itself
+   (.sidebar-head, its own .tag-list/.all-btn copy shown when tags are
+   disabled) is still unfilterable there, so that one stays visibly inert.
+   The desktop sidebar's OWN .tag-list is excluded here — in Current it no
+   longer holds tag filters but the Current/Today/Tomorrow Date-List nav
+   (see .date-nav-list below), which stays fully usable. */
 #app.is-current .sidebar-head,
-#app.is-current .tag-list,
-#app.is-current .all-btn,
 #app.is-current .mobile-tags-btn {
   pointer-events: none;
   opacity: 0.35;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-}
-
-#app.is-current .sidebar {
-  overflow-y: hidden;
 }
 
 /* ── Main content ── */
