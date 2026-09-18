@@ -72,6 +72,16 @@ export interface Todo {
    *  normally in Overview (and can additionally be in Current at the same
    *  time). Absent/empty = not planned on any list. */
   focusDates?: string[]
+  /** Sorted ISO dates (YYYY-MM-DD) a due Date Todo (`loopInterval` set) was
+   *  explicitly removed from that future Date List's live preview —
+   *  `todosForFocusDate` normally recomputes a due Date Todo onto every
+   *  matching day's preview from its schedule alone (nothing stored), so
+   *  without this a removal would just reappear on the next render/reload.
+   *  Only meaningful for `loopInterval` todos; only future dates ever get
+   *  added (see `unassignFocusDate`) and stale entries are trimmed the same
+   *  way as `focusDates` in `rolloverExpiredFocusDates`. Re-assigning the
+   *  todo to that date (`assignFocusDate`) clears the exclusion again. */
+  excludedFocusDates?: string[]
   /** Set when `rolloverExpiredFocusDates` auto-returns an unfinished
    *  Date-List todo to the pool at day-change — bumps it to the top of
    *  Overview's "date" sort (see AllTodos.vue's lastTouched) without
@@ -189,7 +199,8 @@ export const useTodosStore = defineStore('todos', () => {
     return todos.value.filter(t =>
       !t.completedAt && !t.deletedAt &&
       (t.focusDates?.includes(dateStr) ||
-        (t.loopInterval && isLoopDueToday(t.loopInterval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))))
+        (t.loopInterval && !t.excludedFocusDates?.includes(dateStr) &&
+          isLoopDueToday(t.loopInterval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))))
     )
   }
 
@@ -394,13 +405,30 @@ export const useTodosStore = defineStore('todos', () => {
     const dates = new Set(todo.focusDates ?? [])
     dates.add(dateStr)
     todo.focusDates = [...dates].sort()
+    if (todo.excludedFocusDates?.includes(dateStr)) {
+      todo.excludedFocusDates = todo.excludedFocusDates.filter(d => d !== dateStr)
+      if (!todo.excludedFocusDates.length) todo.excludedFocusDates = undefined
+    }
   }
 
+  // A Date Todo (loopInterval) due on a future dateStr isn't actually in
+  // focusDates — it only shows there because todosForFocusDate recomputes
+  // it live (see there). Removing it from that day's preview therefore
+  // can't just be an array removal like a normal assignment; it has to be
+  // recorded as an explicit exclusion, or the next render/reload would
+  // recompute it right back onto the list.
   function unassignFocusDate(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
-    if (!todo?.focusDates) return
-    todo.focusDates = todo.focusDates.filter(d => d !== dateStr)
-    if (!todo.focusDates.length) todo.focusDates = undefined
+    if (!todo) return
+    if (todo.focusDates?.includes(dateStr)) {
+      todo.focusDates = todo.focusDates.filter(d => d !== dateStr)
+      if (!todo.focusDates.length) todo.focusDates = undefined
+    }
+    if (todo.loopInterval && dateStr > todayStr()) {
+      const excluded = new Set(todo.excludedFocusDates ?? [])
+      excluded.add(dateStr)
+      todo.excludedFocusDates = [...excluded].sort()
+    }
   }
 
   function deleteFocusDateList(dateStr: string) {
@@ -419,11 +447,20 @@ export const useTodosStore = defineStore('todos', () => {
     const today = todayStr()
     const now = new Date().toISOString()
     todos.value.forEach(t => {
-      if (!t.focusDates?.length) return
-      const remaining = t.focusDates.filter(d => d >= today)
-      if (remaining.length === t.focusDates.length) return
-      t.focusDates = remaining.length ? remaining : undefined
-      t.poolBumpedAt = now
+      if (t.focusDates?.length) {
+        const remaining = t.focusDates.filter(d => d >= today)
+        if (remaining.length !== t.focusDates.length) {
+          t.focusDates = remaining.length ? remaining : undefined
+          t.poolBumpedAt = now
+        }
+      }
+      // Same trim for excludedFocusDates — a past exclusion is meaningless
+      // (that day's preview is history now) and would otherwise just grow
+      // forever on a recurring Date Todo.
+      if (t.excludedFocusDates?.length) {
+        const remaining = t.excludedFocusDates.filter(d => d >= today)
+        t.excludedFocusDates = remaining.length ? remaining : undefined
+      }
     })
   }
 
