@@ -411,12 +411,17 @@ export const useTodosStore = defineStore('todos', () => {
     }
   }
 
-  // A Date Todo (loopInterval) due on a future dateStr isn't actually in
-  // focusDates — it only shows there because todosForFocusDate recomputes
-  // it live (see there). Removing it from that day's preview therefore
+  // A Date Todo (loopInterval) due on dateStr isn't actually in focusDates
+  // — it only shows there because todosForFocusDate recomputes it live
+  // (see there), today's own Date List included (runLoopSchedule assigns
+  // it a real focusDates entry for today, but the live recompute still
+  // fires on top of that and would just re-add it the instant the stored
+  // entry above is removed). Removing it from that day's preview therefore
   // can't just be an array removal like a normal assignment; it has to be
   // recorded as an explicit exclusion, or the next render/reload would
-  // recompute it right back onto the list.
+  // recompute it right back onto the list. dateStr >= today, not > —
+  // excluding only future dates left today's own Date List unable to drop
+  // a Date Todo at all.
   function unassignFocusDate(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
@@ -424,7 +429,7 @@ export const useTodosStore = defineStore('todos', () => {
       todo.focusDates = todo.focusDates.filter(d => d !== dateStr)
       if (!todo.focusDates.length) todo.focusDates = undefined
     }
-    if (todo.loopInterval && dateStr > todayStr()) {
+    if (todo.loopInterval && dateStr >= todayStr()) {
       const excluded = new Set(todo.excludedFocusDates ?? [])
       excluded.add(dateStr)
       todo.excludedFocusDates = [...excluded].sort()
