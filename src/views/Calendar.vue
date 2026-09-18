@@ -10,7 +10,6 @@ import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
-import IconLabelButton from '../components/IconLabelButton.vue'
 
 const store = useTodosStore()
 const router = useRouter()
@@ -296,25 +295,21 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               <p v-else class="day-plan-empty">no activities planned for this day yet</p>
 
               <div class="day-plan-actions">
-                <IconLabelButton
-                  compact
-                  :circle-size="26"
-                  :icon-size="11"
-                  :icon="Plus"
-                  label="add"
-                  title="Plan this day in Overview"
-                  @click="planThisDay"
-                />
-                <IconLabelButton
-                  v-if="plannedOnDay.length"
-                  compact
-                  :circle-size="26"
-                  :icon-size="11"
-                  :icon="Pencil"
-                  label="edit"
-                  title="Edit this day's list in Current"
-                  @click="editThisDayList"
-                />
+                <span
+                  class="icon-side-label"
+                  :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
+                >
+                  <span class="icon-side-label-text">add</span>
+                  <button type="button" class="icon-circle-btn" title="Plan this day in Overview" @click="planThisDay">
+                    <Plus :size="10" />
+                  </button>
+                </span>
+                <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
+                  <button type="button" class="icon-circle-btn" title="Edit this day's list in Current" @click="editThisDayList">
+                    <Pencil :size="10" />
+                  </button>
+                  <span class="icon-side-label-text">edit</span>
+                </span>
               </div>
             </div>
 
@@ -478,9 +473,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   text-align: center;
 }
 
-/* Sits centered under the planned list (or its empty state) — .compact
-   IconLabelButtons keep their hover-label from pushing the other button
-   sideways (see IconLabelButton.vue), so they can sit this close together. */
+/* Sits centered under the planned list (or its empty state). Icon buttons
+   themselves are .icon-circle-btn, shared with Current.vue's Checks
+   add/edit icons via base.css, no local redefinition. Each icon's own
+   label unrolls sideways on hover — add's to its left, edit's to its
+   right — via base.css's .icon-side-label, absolutely positioned so an
+   unrolling label never affects layout: the two icons stay exactly where
+   they are, only the label grows into the empty space beside them. */
 .day-plan-actions {
   display: flex;
   align-items: center;

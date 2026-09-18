@@ -79,3 +79,107 @@ input::placeholder, textarea::placeholder {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--ink); }
+
+/* Small icon-only circle button — dim by default, brightens on hover. One
+   shared class instead of every view redefining the same circle (Current's
+   Checks add/edit icons, Calendar's day-detail Add/Edit icons, ...). */
+.icon-circle-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
+@media (hover: hover) {
+  .icon-circle-btn:hover {
+    opacity: 0.9;
+  }
+}
+
+/* Label that fades in below a row of .icon-circle-btn icons, rolled up to
+   nothing until one of them is hovered — used by Current's Checks add/edit
+   icons, whichever was hovered last decides the text via the ".visible"
+   modifier + surrounding component's own hover-state ref. Stays dim even
+   once visible, same as the icons' own hover state; there's no
+   permanent-on-touch fallback since there's no sensible single default
+   between two equally-likely actions — the icons carry the meaning on
+   their own there. */
+.icon-action-label {
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono, monospace);
+  color: var(--ink);
+  text-align: center;
+  transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
+}
+
+.icon-action-label.visible {
+  max-height: 20px;
+  opacity: 0.5;
+  margin-top: 5px;
+}
+
+/* Label that unrolls sideways next to a single .icon-circle-btn on hover,
+   pure-CSS (no hover-state ref needed) — used by Calendar's day-detail
+   Add/Edit icons, where each icon needs its own independent label instead
+   of one shared label below the row (see .icon-action-label above). The
+   wrapping element (class "icon-side-label", plus "--left" or "--right")
+   must be position:relative and size itself to the icon alone — the label
+   is absolutely positioned, so unrolling it never shifts the icon or any
+   sibling. */
+.icon-side-label {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Fixed, content-width box anchored exactly 6px off the icon on both
+   variants (not a width/max-width that grows from 0) — a growing box
+   depends on text-align/letter-spacing to land its visible glyphs flush
+   against the icon, and those never quite matched between the two
+   variants. Anchoring the box itself at a fixed offset removes that
+   dependency entirely, so the 6px gap is identical by construction. The
+   "unroll" is a fade + small slide instead of a width reveal. */
+.icon-side-label-text {
+  position: absolute;
+  top: 50%;
+  width: max-content;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: var(--ink);
+  transition: opacity 0.2s ease, transform 0.25s ease;
+}
+
+.icon-side-label--left .icon-side-label-text {
+  right: calc(100% + 6px);
+  transform: translateY(-50%) translateX(-4px);
+}
+
+.icon-side-label--right .icon-side-label-text {
+  left: calc(100% + 6px);
+  transform: translateY(-50%) translateX(4px);
+}
+
+@media (hover: hover) {
+  .icon-side-label:hover .icon-side-label-text {
+    opacity: 0.5;
+    transform: translateY(-50%) translateX(0);
+  }
+}

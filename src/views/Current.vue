@@ -104,9 +104,18 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 // affects depends on which one is actually being viewed. Named removeCard,
 // not removeFromCurrent, to not collide with the store action of that name
 // this calls in the default (non-Date-List) branch.
+//
+// Branches on viewingDate, not viewingLockedDate (same as doneForToday
+// below) — displayedTodos itself is driven by todosForFocusDate whenever
+// any Date List is being viewed, today's included, so removing a card from
+// *that* list has to unassign the focus date regardless of whether today
+// counts as "locked". Using viewingLockedDate here used to leave today's
+// own Date List calling plain removeFromCurrent instead — which only
+// flips inCurrent, a flag todosForFocusDate never even looks at, so the
+// card just stayed put.
 function removeCard(id: string, obvious?: boolean) {
   if (!obvious) spawnRemovedFromCurrentToast(id)
-  if (viewingLockedDate.value) store.unassignFocusDate(id, viewingDate.value!)
+  if (viewingDate.value) store.unassignFocusDate(id, viewingDate.value)
   else store.removeFromCurrent(id)
 }
 
@@ -235,7 +244,7 @@ function editFromAllChecks(check: CheckItem) {
         <div class="checks-icons">
           <button
             type="button"
-            class="checks-icon-btn"
+            class="icon-circle-btn"
             title="Add check"
             @click="openAddCheck"
             @mouseenter="checksHover = 'add'"
@@ -246,7 +255,7 @@ function editFromAllChecks(check: CheckItem) {
           <button
             v-if="checksStore.activeChecks.length"
             type="button"
-            class="checks-icon-btn"
+            class="icon-circle-btn"
             title="Edit checks"
             @click="openAllChecks"
             @mouseenter="checksHover = 'edit'"
@@ -255,7 +264,7 @@ function editFromAllChecks(check: CheckItem) {
             <Pencil :size="10" />
           </button>
         </div>
-        <span class="checks-action-label" :class="{ visible: checksHover }">{{ checksHover === 'edit' ? 'edit checks' : 'add check' }}</span>
+        <span class="icon-action-label" :class="{ visible: checksHover }">{{ checksHover === 'edit' ? 'edit checks' : 'add check' }}</span>
       </div>
       <div v-if="displayedChecks.length" class="check-row">
         <button
@@ -475,58 +484,12 @@ function editFromAllChecks(check: CheckItem) {
   gap: 8px;
 }
 
-.checks-icon-btn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 17px;
-  height: 17px;
-  border: 1px solid var(--ink);
-  border-radius: 50%;
-  background: none;
-  padding: 0;
-  color: var(--ink);
-  cursor: pointer;
-  /* Same resting/hover opacity as .check-pill's checkboxes — one
-     consistent "dim, brightens on hover" treatment across the whole
-     Checks UI instead of a separate color-based one just for this icon. */
-  opacity: 0.55;
-  transition: opacity 0.1s;
-}
-
-@media (hover: hover) {
-  .checks-icon-btn:hover {
-    opacity: 0.9;
-  }
-}
-
-/* Rolled up to nothing by default, unrolling directly under the icon row
-   once either one is hovered (see checksHover in the script) — whichever
-   was hovered last decides the text, "add check" or "edit checks". Stays
-   dim even once visible, same as the icons' own hover state; there's no
-   permanent-on-touch fallback here (unlike the old single-button
-   version) since there's no sensible single default between two
-   equally-likely actions — the icons (+ and pencil) carry the meaning on
-   their own there, same as e.g. TodoCard's own icon-only buttons. */
-.checks-action-label {
-  display: block;
-  max-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  font-family: var(--font-mono, monospace);
-  color: var(--ink);
-  transition: max-height 0.18s ease, opacity 0.18s ease, margin-top 0.18s ease;
-}
-
-.checks-action-label.visible {
-  max-height: 20px;
-  opacity: 0.5;
-  margin-top: 5px;
-}
+/* Icon circle style (.icon-circle-btn) and the fade-in label below it
+   (.icon-action-label) both live in base.css, shared with Calendar.vue's
+   day-detail Add/Edit icons — same resting/hover opacity as .check-pill's
+   checkboxes below, one consistent "dim, brightens on hover" treatment
+   across the whole Checks UI. Which text shows ("add check" vs. "edit
+   checks") is decided here via checksHover in the script. */
 
 .check-row {
   display: flex;
