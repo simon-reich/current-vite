@@ -8,16 +8,26 @@ import { nextTick, watch } from 'vue'
 // hand with the Web Animations API instead, which the swipe/celebration
 // effects elsewhere in the app already rely on directly and know works.
 //
-// Usage: call useListFlip(() => idsInRenderOrder, selector) once per list
+// Usage: call useListFlip(() => idsInRenderOrder, container) once per list
 // view. Each item's root element must carry `data-flip-id="<id>"` (falls
 // through automatically onto a child component's root via a `data-flip-id`
 // prop/attr on the component tag). Whenever the id list changes, elements
 // whose position actually moved animate from their old spot to the new one.
-export function useListFlip(ids: () => string[], containerSelector: string) {
+//
+// `container` is either a CSS selector (page-level lists, unique in the
+// document — AllTodos/Current's own todo list) or a getter returning an
+// Element directly (per-instance lists that exist many times at once, e.g.
+// TodoCard's own sub-row list — one per card, so a selector alone couldn't
+// tell which instance to measure).
+export function useListFlip(ids: () => string[], container: string | (() => Element | null)) {
   let oldRects: Map<string, DOMRect> | null = null
 
+  function resolveContainer(): Element | null {
+    return typeof container === 'string' ? document.querySelector(container) : container()
+  }
+
   function capture() {
-    const container = document.querySelector(containerSelector)
+    const container = resolveContainer()
     if (!container) { oldRects = null; return }
     const map = new Map<string, DOMRect>()
     container.querySelectorAll<HTMLElement>('[data-flip-id]').forEach(el => {
@@ -31,7 +41,7 @@ export function useListFlip(ids: () => string[], containerSelector: string) {
     oldRects = null
     if (!captured) return
     await nextTick()
-    const container = document.querySelector(containerSelector)
+    const container = resolveContainer()
     if (!container) return
     container.querySelectorAll<HTMLElement>('[data-flip-id]').forEach(el => {
       const id = el.dataset.flipId!

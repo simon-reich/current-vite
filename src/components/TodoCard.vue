@@ -583,6 +583,7 @@ import { activeModal } from '../composables/useModalGuard'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr, tomorrowStr } from '../composables/useToday'
+import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
 
 const props = defineProps<{
@@ -819,9 +820,42 @@ function registerSubRowEl(id: string, el: Element | null) {
   else subRowEls.delete(id)
 }
 
-// Row height alone undercounts the step by the .sub-row flex gap — reading
-// it back from the parent's computed style keeps this in sync with that
-// CSS value instead of duplicating the 6px as a magic number here too.
+// Animates a sub's own jump to a new spot in its list — used for the sink
+// on completion below (scheduleSubSink), and gets any other future sub
+// reorder (deletes/drag settling) the same smooth move for free rather
+// than a hard snap. One `.sub-row` container per card instance, so this
+// needs a direct element getter rather than useListFlip's page-level
+// selector variant (see useListFlip.ts).
+//
+// Frozen to its last snapshot for the entire duration of a manual grip
+// drag (dragSubId set) — a drag already drives every row's transform
+// itself (subRowStyle below), and letting FLIP's own Web Animations API
+// layer additionally animate the same elements mid-drag fought with that,
+// making an upward drag feel like it hit an invisible wall partway and
+// shoving other rows out of place. The snapshot only advances again once
+// dragging ends, so the drop still gets a normal settle animation.
+let subFlipIdsSnapshot: string[] = []
+function subFlipIds(): string[] {
+  if (dragSubId.value) return subFlipIdsSnapshot
+  subFlipIdsSnapshot = props.todo.subs.map(s => s.id)
+  return subFlipIdsSnapshot
+}
+const subRowContainerRef = ref<HTMLElement | null>(null)
+useListFlip(subFlipIds, () => subRowContainerRef.value)
+
+// How far the dragged row would have to travel to sit at each other index
+// — built once at drag start from every row's *actual* measured height
+// (not just the dragged row's own), since sub titles can wrap onto a
+// second line and rows are not all the same height. offsets[i] is the
+// deltaY that lands the dragged row exactly at index i: the summed height
+// (+gap) of every row strictly between the start index and i, signed for
+// direction. Using a single uniform step (the dragged row's own height)
+// here used to under/overshoot the real pixel distance whenever a row
+// along the way was a different height — the drag would visually hit a
+// wall short of the top, or sail straight past it, depending on which
+// rows happened to be taller/shorter than the one being dragged.
+let dragSubOffsets: number[] = []
+
 function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
   e.stopPropagation()
   e.preventDefault()
@@ -829,7 +863,24 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
   const index = props.todo.subs.findIndex(s => s.id === sub.id)
   if (!el || index === -1) return
   const gap = parseFloat(getComputedStyle(el.parentElement as HTMLElement).rowGap || '0') || 0
+  // Still just the dragged row's own height — this one drives how far a
+  // row it passes over slides aside to open its slot (always the dragged
+  // row's own size, regardless of that sibling's own height), which stays
+  // correct even with variable row heights (see subRowStyle).
   dragSubStepY = el.getBoundingClientRect().height + gap
+  const heights = props.todo.subs.map(s => (subRowEls.get(s.id)?.getBoundingClientRect().height ?? dragSubStepY) + gap)
+  const offsets = new Array(heights.length).fill(0)
+  let acc = 0
+  for (let i = index - 1; i >= 0; i--) {
+    acc += heights[i]
+    offsets[i] = -acc
+  }
+  acc = 0
+  for (let i = index + 1; i < heights.length; i++) {
+    acc += heights[i]
+    offsets[i] = acc
+  }
+  dragSubOffsets = offsets
   dragSubId.value = sub.id
   dragSubStartClientY = e.clientY
   dragSubTranslateY.value = 0
@@ -842,16 +893,27 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
 }
 
 function onSubGripPointerMove(e: PointerEvent) {
-  if (!dragSubId.value || dragSubStepY <= 0) return
+  if (!dragSubId.value || !dragSubOffsets.length) return
   // Clamp to the first/last sub's slot — otherwise the dragged row keeps
   // following the pointer past the list's own edges instead of stopping
   // there, even though it can never actually reorder past first/last.
-  const minY = -dragSubStartIndex.value * dragSubStepY
-  const maxY = (props.todo.subs.length - 1 - dragSubStartIndex.value) * dragSubStepY
+  const minY = dragSubOffsets[0]
+  const maxY = dragSubOffsets[dragSubOffsets.length - 1]
   const deltaY = Math.max(minY, Math.min(e.clientY - dragSubStartClientY, maxY))
   dragSubTranslateY.value = deltaY
-  const steps = Math.round(deltaY / dragSubStepY)
-  dragSubCurrentIndex.value = Math.max(0, Math.min(dragSubStartIndex.value + steps, props.todo.subs.length - 1))
+  // Nearest offset, not a fixed-step division — offsets are cumulative
+  // *real* distances now, so this is the index whose slot the dragged row
+  // has actually reached, however uneven the row heights along the way.
+  let nearestIndex = dragSubStartIndex.value
+  let nearestDistance = Infinity
+  dragSubOffsets.forEach((offset, i) => {
+    const distance = Math.abs(offset - deltaY)
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = i
+    }
+  })
+  dragSubCurrentIndex.value = nearestIndex
 }
 
 function onSubGripPointerUp() {
@@ -865,6 +927,7 @@ function onSubGripPointerUp() {
   dragSubId.value = null
   dragSubTranslateY.value = 0
   dragSubStepY = 0
+  dragSubOffsets = []
   dragSubStartIndex.value = -1
   dragSubCurrentIndex.value = -1
 }
@@ -977,6 +1040,66 @@ function onSubInputKeydown(e: KeyboardEvent) {
   }
 }
 
+// Checking a sub sinks it to the bottom of its own list after a delay
+// instead of instantly — long enough that an accidental tap can still be
+// undone with a quick second click before the item jumps away underneath
+// it. Keyed by sub id so several subs mid-delay at once don't clobber each
+// other; unchecking before the delay fires (or deleting the sub, see
+// handleDeleteSub) cancels its own pending sink. Re-sorted by
+// useListFlip's own watcher below.
+const SUB_SINK_DELAY_MS = 900
+const pendingSubSinkTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+// Once a sub has actually sunk, how many still-unchecked subs sat above it
+// at that moment is kept here (its "rank" among the unfinished ones) —
+// unchecking it later reinserts it at that same rank among whichever subs
+// are unchecked *now*, rather than just leaving it at the bottom or
+// restoring a stale absolute index that may no longer mean the same thing
+// after other subs were added/removed/completed meanwhile. Cleared again
+// once restored. Only set at the moment the sink actually fires (not when
+// merely scheduled), and never overwritten by a later sink while still
+// set, so a check/uncheck/check/uncheck sequence always restores relative
+// to the position from before the *first* sink in that sequence.
+const sunkSubRank = new Map<string, number>()
+
+function cancelSubSink(subId: string) {
+  const timer = pendingSubSinkTimers.get(subId)
+  if (timer) {
+    clearTimeout(timer)
+    pendingSubSinkTimers.delete(subId)
+  }
+}
+
+function scheduleSubSink(subId: string) {
+  cancelSubSink(subId)
+  if (props.todo.subs.length <= 1) return
+  pendingSubSinkTimers.set(subId, setTimeout(() => {
+    pendingSubSinkTimers.delete(subId)
+    const fromIndex = props.todo.subs.findIndex(s => s.id === subId)
+    if (fromIndex === -1) return
+    if (!sunkSubRank.has(subId)) {
+      const rank = props.todo.subs.slice(0, fromIndex).filter(s => !s.completedAt).length
+      sunkSubRank.set(subId, rank)
+    }
+    store.reorderSub(props.todo.id, subId, props.todo.subs.length - 1)
+  }, SUB_SINK_DELAY_MS))
+}
+
+// Mirror of scheduleSubSink for unchecking: only restores if this sub had
+// actually sunk (sunkSubRank set) — a plain uncheck of a sub that never
+// moved has nothing to undo. Rank is clamped against how many unchecked
+// subs (excluding this one, already unchecked again by the time this
+// runs) currently exist, so it degrades gracefully to "end of the
+// unchecked group" if others were completed/removed while this one sat
+// sunk at the bottom.
+function restoreSunkSub(subId: string) {
+  const rank = sunkSubRank.get(subId)
+  if (rank === undefined) return
+  sunkSubRank.delete(subId)
+  const uncheckedCount = props.todo.subs.filter(s => s.id !== subId && !s.completedAt).length
+  store.reorderSub(props.todo.id, subId, Math.min(rank, uncheckedCount))
+}
+
 // Toggling the last open sub complete auto-opens the Done/Done-for-today
 // menu (Current only) — a nudge to actually close the todo out, without
 // forcing it: the todo stays put if nothing's clicked. Only fires on the
@@ -988,6 +1111,12 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
   if (!wasChecked && themeStore.celebrationsEnabled) {
     burstCheckbox(event.currentTarget as HTMLElement)
   }
+  if (wasChecked) {
+    cancelSubSink(sub.id)
+    restoreSunkSub(sub.id)
+  } else {
+    scheduleSubSink(sub.id)
+  }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
   if (!wasAllDone && nowAllDone && props.mode === 'current' && !showMenu.value) {
     openCheckMenuId.value = props.todo.id
@@ -995,6 +1124,8 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
 }
 
 function handleDeleteSub(subId: string) {
+  cancelSubSink(subId)
+  sunkSubRank.delete(subId)
   store.deleteSub(props.todo.id, subId)
 }
 
@@ -2114,6 +2245,9 @@ watch(pendingDelete, (open) => {
 })
 
 onUnmounted(() => {
+  pendingSubSinkTimers.forEach(timer => clearTimeout(timer))
+  pendingSubSinkTimers.clear()
+  sunkSubRank.clear()
   cardResizeObserver?.disconnect()
   window.removeEventListener('pointerup', releaseGripFallback)
   window.removeEventListener('pointercancel', releaseGripFallback)
@@ -2363,11 +2497,12 @@ onUnmounted(() => {
         </div>
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
-          <div v-if="subsVisible && (todo.subs.length > 0 || subsAddVisible)" class="sub-row" @click.stop>
+          <div v-if="subsVisible && (todo.subs.length > 0 || subsAddVisible)" ref="subRowContainerRef" class="sub-row" @click.stop>
             <div
               v-for="(sub, subIndex) in todo.subs"
               :key="sub.id"
               :ref="(el) => registerSubRowEl(sub.id, el as Element | null)"
+              :data-flip-id="sub.id"
               class="sub-item"
               :class="{ dragging: dragSubId === sub.id }"
               :style="subRowStyle(sub, subIndex)"
