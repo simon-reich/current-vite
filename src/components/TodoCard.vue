@@ -737,6 +737,12 @@ const subsVisible = computed(() =>
 // was never actually opened would be a stray, unreachable-by-click field.
 const subsAddVisible = computed(() => themeStore.subsEnabled && cardActuallyOpen.value)
 
+// Only unchecked subs are manually reorderable (see onSubGripPointerDown/
+// subRowStyle) — a checked one's position is owned entirely by the
+// sink/restore mechanics above instead, and dragging is pointless with
+// fewer than two unchecked subs to reorder against anyway.
+const uncheckedSubsCount = computed(() => props.todo.subs.filter(s => !s.completedAt).length)
+
 // Editing an existing sub's title (typo fix, etc.) — separate from
 // newSubTitle/newSubInputRef below, which is only ever the trailing
 // add-row. At most one sub is ever being edited at a time.
@@ -843,12 +849,12 @@ function subFlipIds(): string[] {
 const subRowContainerRef = ref<HTMLElement | null>(null)
 useListFlip(subFlipIds, () => subRowContainerRef.value)
 
-// How far the dragged row would have to travel to sit at each other index
+// How far the dragged row would have to travel to sit at each other slot
 // — built once at drag start from every row's *actual* measured height
 // (not just the dragged row's own), since sub titles can wrap onto a
 // second line and rows are not all the same height. offsets[i] is the
-// deltaY that lands the dragged row exactly at index i: the summed height
-// (+gap) of every row strictly between the start index and i, signed for
+// deltaY that lands the dragged row exactly at slot i: the summed height
+// (+gap) of every row strictly between the start slot and i, signed for
 // direction. Using a single uniform step (the dragged row's own height)
 // here used to under/overshoot the real pixel distance whenever a row
 // along the way was a different height — the drag would visually hit a
@@ -856,11 +862,23 @@ useListFlip(subFlipIds, () => subRowContainerRef.value)
 // rows happened to be taller/shorter than the one being dragged.
 let dragSubOffsets: number[] = []
 
+// A checked sub can't be manually repositioned at all (its position is
+// owned by the sink/restore mechanics above, see scheduleSubSink), and an
+// unchecked one being dragged can only reorder among *other* unchecked
+// subs — it should never land inside or below the checked group. Both
+// rules fall out of restricting the whole drag (offsets, start/current
+// "index", the sibling shift in subRowStyle) to this ids-in-order
+// snapshot of just the unchecked subs, taken once at grip time, instead
+// of operating over the full todo.subs array including checked rows.
+let dragSubDraggableIds: string[] = []
+
 function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
   e.stopPropagation()
   e.preventDefault()
+  if (sub.completedAt) return
   const el = subRowEls.get(sub.id)
-  const index = props.todo.subs.findIndex(s => s.id === sub.id)
+  const draggableIds = props.todo.subs.filter(s => !s.completedAt).map(s => s.id)
+  const index = draggableIds.indexOf(sub.id)
   if (!el || index === -1) return
   const gap = parseFloat(getComputedStyle(el.parentElement as HTMLElement).rowGap || '0') || 0
   // Still just the dragged row's own height — this one drives how far a
@@ -868,7 +886,7 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
   // row's own size, regardless of that sibling's own height), which stays
   // correct even with variable row heights (see subRowStyle).
   dragSubStepY = el.getBoundingClientRect().height + gap
-  const heights = props.todo.subs.map(s => (subRowEls.get(s.id)?.getBoundingClientRect().height ?? dragSubStepY) + gap)
+  const heights = draggableIds.map(id => (subRowEls.get(id)?.getBoundingClientRect().height ?? dragSubStepY) + gap)
   const offsets = new Array(heights.length).fill(0)
   let acc = 0
   for (let i = index - 1; i >= 0; i--) {
@@ -881,6 +899,7 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
     offsets[i] = acc
   }
   dragSubOffsets = offsets
+  dragSubDraggableIds = draggableIds
   dragSubId.value = sub.id
   dragSubStartClientY = e.clientY
   dragSubTranslateY.value = 0
@@ -894,16 +913,16 @@ function onSubGripPointerDown(sub: Sub, e: PointerEvent) {
 
 function onSubGripPointerMove(e: PointerEvent) {
   if (!dragSubId.value || !dragSubOffsets.length) return
-  // Clamp to the first/last sub's slot — otherwise the dragged row keeps
-  // following the pointer past the list's own edges instead of stopping
-  // there, even though it can never actually reorder past first/last.
+  // Clamp to the first/last *unchecked* sub's slot — otherwise the
+  // dragged row keeps following the pointer past that group's own edges
+  // (including on into the checked group) instead of stopping there.
   const minY = dragSubOffsets[0]
   const maxY = dragSubOffsets[dragSubOffsets.length - 1]
   const deltaY = Math.max(minY, Math.min(e.clientY - dragSubStartClientY, maxY))
   dragSubTranslateY.value = deltaY
   // Nearest offset, not a fixed-step division — offsets are cumulative
-  // *real* distances now, so this is the index whose slot the dragged row
-  // has actually reached, however uneven the row heights along the way.
+  // *real* distances now, so this is the slot whose position the dragged
+  // row has actually reached, however uneven the row heights along the way.
   let nearestIndex = dragSubStartIndex.value
   let nearestDistance = Infinity
   dragSubOffsets.forEach((offset, i) => {
@@ -916,26 +935,60 @@ function onSubGripPointerMove(e: PointerEvent) {
   dragSubCurrentIndex.value = nearestIndex
 }
 
+// Translates a slot within dragSubDraggableIds (the unchecked-only
+// subset) to the matching absolute index for store.reorderSub. reorderSub
+// removes the dragged sub first and then re-inserts it, so the index it
+// wants is a position in that *post-removal* array — building `subs` by
+// filtering the dragged one out up front (rather than skipping it inline
+// while still counting positions in the original, longer array) keeps
+// every index this function returns in that same post-removal space,
+// checked subs included as real, still-occupied slots along the way. The
+// earlier version returned pre-removal indices instead, which landed the
+// dragged sub one slot too far into the checked group — e.g. swapped with
+// the first checked sub while aiming for "right after the last unchecked
+// one" (the array here is one shorter, so its index is one lower).
+function absoluteIndexForDraggableSlot(subId: string, slot: number): number {
+  const subs = props.todo.subs.filter(s => s.id !== subId)
+  let uncheckedSeen = 0
+  let lastUncheckedIndex = -1
+  for (let i = 0; i < subs.length; i++) {
+    if (subs[i].completedAt) continue
+    if (uncheckedSeen === slot) return i
+    lastUncheckedIndex = i
+    uncheckedSeen++
+  }
+  // slot was past the last unchecked sub — land right after it, not at
+  // the very end of the array (which could be past the checked group).
+  return lastUncheckedIndex + 1
+}
+
 function onSubGripPointerUp() {
   window.removeEventListener('pointermove', onSubGripPointerMove)
   window.removeEventListener('pointerup', onSubGripPointerUp)
   window.removeEventListener('pointercancel', onSubGripPointerUp)
   unlockScroll()
   if (dragSubId.value && dragSubCurrentIndex.value !== dragSubStartIndex.value) {
-    store.reorderSub(props.todo.id, dragSubId.value, dragSubCurrentIndex.value)
+    const toIndex = absoluteIndexForDraggableSlot(dragSubId.value, dragSubCurrentIndex.value)
+    store.reorderSub(props.todo.id, dragSubId.value, toIndex)
   }
   dragSubId.value = null
   dragSubTranslateY.value = 0
   dragSubStepY = 0
   dragSubOffsets = []
+  dragSubDraggableIds = []
   dragSubStartIndex.value = -1
   dragSubCurrentIndex.value = -1
 }
 
 // The dragged row follows the pointer 1:1 (no transition, or it'd lag);
-// every row it has passed over slides aside by exactly one step to open up
-// the drop slot, same visual language as most drag-reorder lists.
-function subRowStyle(sub: Sub, index: number) {
+// every *unchecked* row it has passed over slides aside by exactly one
+// step to open up the drop slot, same visual language as most
+// drag-reorder lists. Ranked against dragSubDraggableIds (the unchecked
+// subset), not the row's position in the full todo.subs array — a
+// checked row is never part of that subset and so never shifts, matching
+// it also never being reachable as a drop target (see
+// absoluteIndexForDraggableSlot above).
+function subRowStyle(sub: Sub) {
   if (dragSubId.value === sub.id) {
     return {
       transform: `translateY(${dragSubTranslateY.value}px)`,
@@ -945,9 +998,11 @@ function subRowStyle(sub: Sub, index: number) {
     }
   }
   if (!dragSubId.value || dragSubCurrentIndex.value === dragSubStartIndex.value) return {}
+  const rank = dragSubDraggableIds.indexOf(sub.id)
+  if (rank === -1) return {}
   const min = Math.min(dragSubStartIndex.value, dragSubCurrentIndex.value)
   const max = Math.max(dragSubStartIndex.value, dragSubCurrentIndex.value)
-  if (index < min || index > max) return {}
+  if (rank < min || rank > max) return {}
   const dir = dragSubCurrentIndex.value > dragSubStartIndex.value ? -1 : 1
   return { transform: `translateY(${dir * dragSubStepY}px)` }
 }
@@ -2499,13 +2554,13 @@ onUnmounted(() => {
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
           <div v-if="subsVisible && (todo.subs.length > 0 || subsAddVisible)" ref="subRowContainerRef" class="sub-row" @click.stop>
             <div
-              v-for="(sub, subIndex) in todo.subs"
+              v-for="sub in todo.subs"
               :key="sub.id"
               :ref="(el) => registerSubRowEl(sub.id, el as Element | null)"
               :data-flip-id="sub.id"
               class="sub-item"
               :class="{ dragging: dragSubId === sub.id }"
-              :style="subRowStyle(sub, subIndex)"
+              :style="subRowStyle(sub)"
             >
               <button
                 type="button"
@@ -2548,7 +2603,7 @@ onUnmounted(() => {
               </button>
 
               <button
-                v-if="todo.subs.length > 1"
+                v-if="!sub.completedAt && uncheckedSubsCount > 1"
                 type="button"
                 class="sub-grip"
                 title="Drag to reorder"
