@@ -494,6 +494,7 @@ function editFromAllChecks(check: CheckItem) {
 .check-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 20px;
   /* Lines Checks' left edge up with where a todo card's own drop shadow
      starts (box-shadow: 5px 5px 0 ..., see TodoCard.vue) rather than the
