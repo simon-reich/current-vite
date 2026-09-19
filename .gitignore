@@ -33,3 +33,5 @@ SPEC-flutter-port.md
 *.sw?
 
 scripts
+
+docs
