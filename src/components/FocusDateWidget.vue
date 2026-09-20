@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { WEEKDAY_LABELS, todayStr, tomorrowStr } from '../composables/useToday'
 import DatePickerModal from './DatePickerModal.vue'
+import FocusDatePanel from './FocusDatePanel.vue'
 
 // The Overview-only control for picking which date new "plan ahead"
 // assignments (swipe-split top zone, the per-card calendar icon) go to —
@@ -12,8 +13,17 @@ import DatePickerModal from './DatePickerModal.vue'
 // the date picker. Rendered at whichever spots App.vue/AllTodos.vue place
 // it per breakpoint (desktop/tablet/phone) — this component itself is
 // breakpoint-agnostic, callers control visibility/position via CSS.
+//
+// `panel`: tablet's own instance sets this — instead of the plain
+// centered DatePickerModal (desktop/phone's behavior, unchanged), a click
+// opens FocusDatePanel.vue, a slide-in with the same calendar plus the
+// today/tomorrow/upcoming Date-List nav desktop's sidebar already shows
+// permanently (which tablet, without that sidebar, otherwise has no way
+// to reach). Static per instance — never toggled at runtime.
+const props = defineProps<{ panel?: boolean }>()
 const themeStore = useThemeStore()
 const showModal = ref(false)
+const showPanel = ref(false)
 
 // Mechanical flip-calendar look: weekday/year stacked in their own cell,
 // day and month as two separate cells. For "today"/"tomorrow" (same
@@ -41,6 +51,11 @@ const display = computed(() => parts(themeStore.selectedFocusDate))
 function pick(dateStr: string) {
   themeStore.setSelectedFocusDate(dateStr)
 }
+
+function open() {
+  if (props.panel) showPanel.value = true
+  else showModal.value = true
+}
 </script>
 
 <template>
@@ -48,7 +63,7 @@ function pick(dateStr: string) {
     type="button"
     class="focus-date-widget"
     title="Change the plan-ahead target date"
-    @click="showModal = true"
+    @click="open"
   >
     <!-- Both branches always render, stacked on the same grid cell (see
          .fdw-row/.fdw-special below) — only one is ever visible, but
@@ -76,6 +91,11 @@ function pick(dateStr: string) {
     disable-past
     @update:model-value="pick"
     @close="showModal = false"
+  />
+  <FocusDatePanel
+    v-if="panel"
+    :open="showPanel"
+    @close="showPanel = false"
   />
 </template>
 

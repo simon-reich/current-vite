@@ -4,6 +4,7 @@ import { RouterView, useRouter, useRoute } from 'vue-router'
 import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks, Plus } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
+import FocusDateNav from './components/FocusDateNav.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo } from './stores/todos'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
@@ -12,7 +13,8 @@ import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickEx
 import { activeModal } from './composables/useModalGuard'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast, spawnSentToCurrentToast } from './composables/useToast'
-import { todayStr, tomorrowStr, localDateStr, WEEKDAY_LABELS } from './composables/useToday'
+import { todayStr, tomorrowStr } from './composables/useToday'
+import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
 import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
@@ -951,52 +953,10 @@ provide('listsPanelOpen', listsPanelOpen)
 const viewingDate = ref<string | null>(null)
 provide('viewingDate', viewingDate)
 
-const hasTodayList = computed(() => store.hasFocusDateList(todayStr()))
-const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrowStr()))
-
-// The next 7 days (today included) — always offered as selectable slots in
-// both Overview's and Current's Date-List nav, dimmed (never disabled) when
-// nothing's on them yet. A rolling window, not "this calendar week": always
-// exactly 7 entries regardless of which weekday today is. Anything beyond
-// this window falls back to the old membership-only behaviour (see
-// upcomingFocusDates below) — no presets past a week out.
-const presetWeekDates = computed(() => {
-  const dates: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date()
-    d.setDate(d.getDate() + i)
-    dates.push(localDateStr(d))
-  }
-  return dates
-})
-
-// Further-out lists beyond the preset week above — still purely
-// membership-driven (a date only shows up once something's actually on
-// it), since presetting weeks/months ahead would just be visual noise.
-const upcomingFocusDates = computed(() => {
-  const windowEnd = presetWeekDates.value[presetWeekDates.value.length - 1]
-  return store.futureFocusDates.filter(d => d > windowEnd)
-})
-
-// "TUE, 07.07" — uppercase weekday first, then day.month (day-before-month,
-// not the US month-before-day order), no year (Date Lists only ever cover
-// the near future in practice, see rolloverExpiredFocusDates clearing out
-// stale ones).
-function formatUpcomingDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const weekday = WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()]
-  return `${weekday}, ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}`
-}
-
-// Same as formatUpcomingDate, but special-cases today/tomorrow the same way
-// the Current sidebar's own dedicated buttons already read — used for the
-// preset week's day-3..7 slots (see the date-nav templates below), which
-// don't get their own hardcoded button.
-function formatPresetDate(dateStr: string): string {
-  if (dateStr === todayStr()) return 'today'
-  if (dateStr === tomorrowStr()) return 'tomorrow'
-  return formatUpcomingDate(dateStr)
-}
+// Date math shared by every Date-List nav rendering (this file's own
+// Current variant below, FocusDateNav.vue's Overview variant, and the
+// tablet slide-in panel) — see useFocusDateNav's own comment.
+const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
 
 // Overview and Current share one "currently focused Date List" concept —
 // tapping back and forth between them (Tab, nav icons, ...) carries
@@ -1234,7 +1194,7 @@ watch(() => route.path, () => {
             </div>
           </div>
           <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-input-focus-date-widget-slot">
-            <FocusDateWidget />
+            <FocusDateWidget panel />
           </div>
         </div>
 
@@ -1364,44 +1324,10 @@ watch(() => route.path, () => {
       <!-- Overview: same Date-List nav, but picking a date sets the
            Focus-Date-Pille's target (themeStore.selectedFocusDate) instead
            of switching which list is being viewed — Overview always shows
-           the full pool, there's nothing here to "view" per date. No
-           "current" entry (nothing to reset to); the preset week is always
-           clickable regardless of dimmed state (a target is valid whether
-           or not anything's on it yet — see presetWeekDates above). -->
-      <div v-else-if="route.path === '/all'" class="tag-list">
-        <button
-          class="all-btn date-nav-btn"
-          :class="{ active: themeStore.selectedFocusDate === todayStr(), dimmed: !hasTodayList }"
-          @click="themeStore.setSelectedFocusDate(todayStr())"
-        >
-          today
-        </button>
-        <button
-          class="all-btn date-nav-btn loop-btn"
-          :class="{ active: themeStore.selectedFocusDate === tomorrowStr(), dimmed: !hasTomorrowList }"
-          @click="themeStore.setSelectedFocusDate(tomorrowStr())"
-        >
-          tomorrow
-        </button>
-
-        <div
-          v-for="dateStr in presetWeekDates.slice(2)"
-          :key="dateStr"
-          class="tag-chip date-nav-upcoming-chip"
-          :class="{ active: themeStore.selectedFocusDate === dateStr, dimmed: !store.hasFocusDateList(dateStr) }"
-        >
-          <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatPresetDate(dateStr) }}</span>
-        </div>
-
-        <div
-          v-for="dateStr in upcomingFocusDates"
-          :key="dateStr"
-          class="tag-chip date-nav-upcoming-chip"
-          :class="{ active: themeStore.selectedFocusDate === dateStr }"
-        >
-          <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatUpcomingDate(dateStr) }}</span>
-        </div>
-      </div>
+           the full pool, there's nothing here to "view" per date. See
+           FocusDateNav.vue — also reused by the tablet slide-in panel
+           (FocusDatePanel.vue) below. -->
+      <FocusDateNav v-else-if="route.path === '/all'" />
     </aside>
 
     <!-- ══ DESKTOP: Sidebar body, right column — Overview's tag filters,
