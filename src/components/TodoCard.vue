@@ -1997,6 +1997,22 @@ function flyOutLeft(): Promise<void> {
   ]).then(() => {})
 }
 
+// A swipe-to-Current that (Date Lists on) never actually removes this card
+// from Overview shouldn't fly off to the side like flyOutRight — that
+// reads as "leaving", which it isn't. Just fades out fast right where the
+// card already sits (x/y untouched, unlike flyOutRight) — reads as
+// vanishing, not being thrown anywhere. Deliberately doesn't touch scale
+// (cardScale) here: `:while-drag`'s own scale is still settling back down
+// right at this exact moment (drag just ended), and driving cardScale from
+// both that and this at once is what produced an erratic, oversized flash
+// in an earlier version of this fix. Only regrowAtOrigin below (which
+// runs later, once this has already finished) touches scale, once that
+// settling is long done. Always pair with it once the actual state change
+// has been emitted.
+function vanishInPlace(): Promise<void> {
+  return animate(cardOpacity, 0, { duration: 0.15, ease: 'easeIn' }).finished
+}
+
 // Follows flyOutRight for a swipe-to-Current that (Date Lists on) never
 // actually removes this card from Overview — instead of sliding back in
 // from off-screen (springBackToCenter, which reads as "that didn't work"),
@@ -2215,16 +2231,23 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       triggerPlannedPulse()
       emit('send-to-focus-date', props.todo.id)
     } else if (hit === 'focus') {
-      await flyOutRight()
-      if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
-      else emit('remove-from-current', props.todo.id)
       // With Date Lists on, this todo never actually leaves Overview (see
       // stores/todos.ts's sendToCurrent/removeFromCurrent and AllTodos.vue's
-      // filteredTodos) — it just got flown out for nothing, so grow it back
-      // right here instead of leaving it stranded off-screen. Date Lists
-      // off is the old single-Current-pool app: the todo genuinely leaves
-      // this list, so there's nothing left here to grow back.
-      if (themeStore.dateListsEnabled) regrowAtOrigin()
+      // filteredTodos) — vanishInPlace + regrowAtOrigin reads as "gone,
+      // then here again", instead of flyOutRight's "thrown out" (which
+      // then has nowhere to go — the todo never left, see their own
+      // comments). Date Lists off is the old single-Current-pool app: the
+      // todo genuinely leaves this list, so it really does fly out.
+      if (themeStore.dateListsEnabled) {
+        await vanishInPlace()
+        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
+        else emit('remove-from-current', props.todo.id)
+        regrowAtOrigin()
+      } else {
+        await flyOutRight()
+        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
+        else emit('remove-from-current', props.todo.id)
+      }
     } else {
       springBackToCenter()
     }
@@ -2288,16 +2311,18 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
         springBackToCenter()
         triggerPlannedPulse()
         emit('send-to-focus-date', props.todo.id)
+      } else if (themeStore.dateListsEnabled) {
+        // Same Date-Lists-on/off split as the zones model's own 'focus'
+        // branch above — vanishInPlace + regrowAtOrigin instead of flying
+        // out to a "leaving" spot this todo never actually leaves.
+        await vanishInPlace()
+        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
+        else emit('remove-from-current', props.todo.id)
+        regrowAtOrigin()
       } else {
         await flyOutRight()
         if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
         else emit('remove-from-current', props.todo.id)
-        // Same Date-Lists-on/off split as the zones model's own 'focus'
-        // branch above — with Date Lists on, joining/leaving Current
-        // doesn't remove this card from Overview either, so grow it back
-        // right here (regrowAtOrigin) instead of leaving it stranded off-
-        // screen from the fly-out above.
-        if (themeStore.dateListsEnabled) regrowAtOrigin()
       }
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
