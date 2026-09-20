@@ -624,6 +624,10 @@ const enterDelay = props.gridMode
 const enterInitial = props.gridMode
   ? { opacity: 0, y: 0, scale: 0.75 }
   : { opacity: 0, y: 16, scale: 0.9 }
+// Shared with regrowAtOrigin's own manual replay of this same bounce below
+// — same bounce, two different triggers (Vue mount vs. an imperative
+// motion-value animation), so the spring itself lives in one place.
+const ENTER_SPRING = { type: 'spring', stiffness: 700, damping: 24, mass: 0.6 } as const
 
 const store = useTodosStore()
 const themeStore = useThemeStore()
@@ -1683,6 +1687,9 @@ const rotate = useTransform(x, [-200, 200], [-8, 8])
 // stays at 1 the rest of the time, so binding it in :style below is a
 // no-op until then.
 const cardOpacity = useMotionValue(1)
+// Only animated by regrowAtOrigin's "grow back into place" bounce — see its
+// own comment. Stays at 1 the rest of the time, same as cardOpacity above.
+const cardScale = useMotionValue(1)
 // Raw mirrors of physical position (used for the elevated z-index / lifted
 // state only — that has to reflect the actual on-screen offset, not the
 // relative swipe measurement below). Derived directly from position rather
@@ -1990,6 +1997,24 @@ function flyOutLeft(): Promise<void> {
   ]).then(() => {})
 }
 
+// Follows flyOutRight for a swipe-to-Current that (Date Lists on) never
+// actually removes this card from Overview — instead of sliding back in
+// from off-screen (springBackToCenter, which reads as "that didn't work"),
+// the card teleports invisibly back to its own spot (x/y snapped straight
+// to 0, no animation — cardOpacity is already 0 from flyOutRight, so this
+// isn't seen) and then grows into existence right there, replaying the
+// same mount-time bounce a brand new card gets (see enterInitial/
+// ENTER_SPRING) — reads as "this todo is still here too", not a reversal.
+function regrowAtOrigin(): Promise<void> {
+  x.set(0)
+  y.set(0)
+  cardScale.set(0.7)
+  return Promise.all([
+    animate(cardOpacity, 1, ENTER_SPRING).finished,
+    animate(cardScale, 1, ENTER_SPRING).finished,
+  ]).then(() => {})
+}
+
 // touch-action: pan-y means the browser is *allowed* to natively scroll the
 // list at the same time Motion is handling our horizontal drag — on a
 // diagonal-enough gesture both can end up running at once (card dragging
@@ -2193,6 +2218,13 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       await flyOutRight()
       if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
       else emit('remove-from-current', props.todo.id)
+      // With Date Lists on, this todo never actually leaves Overview (see
+      // stores/todos.ts's sendToCurrent/removeFromCurrent and AllTodos.vue's
+      // filteredTodos) — it just got flown out for nothing, so grow it back
+      // right here instead of leaving it stranded off-screen. Date Lists
+      // off is the old single-Current-pool app: the todo genuinely leaves
+      // this list, so there's nothing left here to grow back.
+      if (themeStore.dateListsEnabled) regrowAtOrigin()
     } else {
       springBackToCenter()
     }
@@ -2245,12 +2277,13 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
     if (props.mode === 'all') {
       // Planning onto a Date List never removes the card from Overview
       // (see stores/todos.ts's assignFocusDate) — flying it out like the
-      // other two branches below (which really do leave this list) left a
-      // permanently blank gap: the array never actually loses this todo,
-      // so nothing ever re-triggers an entrance to replace the flown-out
-      // motion values. Spring back in place instead and let the caller's
-      // toast + this card's own "just planned" pulse (see plannedPulse)
-      // carry the "yes, that worked" feedback.
+      // send-to-current branch below (which, Date Lists off, really does
+      // leave this list) left a permanently blank gap: the array never
+      // actually loses this todo, so nothing ever re-triggers an entrance
+      // to replace the flown-out motion values. Spring back in place
+      // instead and let the caller's toast + this card's own "just
+      // planned" pulse (see plannedPulse) carry the "yes, that worked"
+      // feedback.
       if (showSwipeZoneSplit.value && armedZone.value === 'date') {
         springBackToCenter()
         triggerPlannedPulse()
@@ -2259,6 +2292,12 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
         await flyOutRight()
         if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
         else emit('remove-from-current', props.todo.id)
+        // Same Date-Lists-on/off split as the zones model's own 'focus'
+        // branch above — with Date Lists on, joining/leaving Current
+        // doesn't remove this card from Overview either, so grow it back
+        // right here (regrowAtOrigin) instead of leaving it stranded off-
+        // screen from the fly-out above.
+        if (themeStore.dateListsEnabled) regrowAtOrigin()
       }
     } else {
       // Same as toggleCheckMenu: opening a check-menu (here via swipe)
@@ -2349,7 +2388,7 @@ onUnmounted(() => {
       class="todo-card-enter"
       :initial="enterInitial"
       :animate="{ opacity: 1, y: 0, scale: 1 }"
-      :transition="{ type: 'spring', stiffness: 700, damping: 24, mass: 0.6, delay: enterDelay }"
+      :transition="{ ...ENTER_SPRING, delay: enterDelay }"
     >
     <div
       ref="swipeContainerRef"
@@ -2431,7 +2470,7 @@ onUnmounted(() => {
         class="todo-card"
         :data-todo-id="todo.id"
         :class="{ 'has-tags': todo.tags.length, 'is-open': showMenu, priority: previewIsPriority, loop: previewIsLoop }"
-        :style="{ x, y, rotate, opacity: cardOpacity }"
+        :style="{ x, y, rotate, opacity: cardOpacity, scale: cardScale }"
         :drag="canDrag ? 'x' : false"
         :drag-momentum="false"
         :while-drag="{ scale: 1.05 }"
@@ -2693,9 +2732,9 @@ onUnmounted(() => {
            own overflow:hidden (for the check-row/tag-row corners, see
            comment near .swipe-container.loop::before) which would clip
            this if it lived inside and hung half off the edge. Bound to
-           the exact same x/y/rotate/opacity motion values as .todo-card's
-           own :style, so it rides along with every drag/fly-out in
-           lockstep without any of the double-transform math a
+           the exact same x/y/rotate/opacity/scale motion values as
+           .todo-card's own :style, so it rides along with every
+           drag/fly-out/regrow in lockstep without any of the double-transform math a
            parent-child version would need — two independent elements
            moving by the same amount reads identically to one element
            carrying the other. The centering-on-the-corner offset itself
@@ -2706,7 +2745,7 @@ onUnmounted(() => {
       <motion.div
         v-if="isRecurring"
         class="loop-badge-motion"
-        :style="{ x, y, rotate, opacity: cardOpacity }"
+        :style="{ x, y, rotate, opacity: cardOpacity, scale: cardScale }"
       >
         <span class="loop-badge">
           <RefreshCw :size="12" />
