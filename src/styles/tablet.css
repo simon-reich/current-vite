@@ -66,19 +66,29 @@
     grid-area: input;
   }
 
-  /* Tags/sort's actual rendered width comes entirely out of this column's
+  /* Mirrors .tablet-header-right/-right-center below, just flipped:
+     .tablet-left-cluster (the tags/sort icons) is flush at this column's
+     left edge and keeps its own natural width, while .tablet-header-
+     left-center is the other child and gets `flex: 1` — so it naturally
+     consumes exactly (this column's width − the icon cluster's width),
+     centering the date-picker pill within precisely the space between the
+     icon cluster and the center nav icons, not within this column's full
+     width (which would drift left by half the icon cluster's own width).
+     Tags/sort's actual rendered width comes entirely out of this column's
      own 1fr share (nothing painted outside it) — that's what keeps it
-     genuinely equal to .tablet-header-right's 1fr on the other side,
-     rather than adding extra width beyond a spacer that would then bias
-     "center" off-true-center. See .sort-nav's `order: -1` in layout.css
-     for why moving it here (from its old separate grid-area) doesn't
-     change anything about its own position on desktop. */
-  .tablet-left-cluster {
+     genuinely equal to .tablet-header-right's 1fr on the other side. */
+  .tablet-header-left {
     display: flex;
     grid-area: left;
     align-items: center;
+    width: 100%;
+  }
+
+  .tablet-left-cluster {
+    display: flex;
+    align-items: center;
     gap: 14px;
-    justify-content: flex-start;
+    flex-shrink: 0;
   }
 
   /* .sort-nav's `order: -1` (layout.css) is what keeps it visually first
@@ -92,19 +102,54 @@
     order: 1;
   }
 
+  .tablet-header-left-center {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* Overview's date-picker pill itself, inside .tablet-header-left-center
+     above. */
+  .tablet-left-focus-date-widget-slot {
+    display: flex;
+    align-items: center;
+  }
+
+  .tablet-left-focus-date-widget-slot .fdw-left {
+    min-width: 36px;
+    padding: 3px 6px;
+  }
+
+  .tablet-left-focus-date-widget-slot .fdw-num {
+    min-width: 26px;
+    padding: 3px 7px;
+    font-size: 19px;
+  }
+
+  .tablet-left-focus-date-widget-slot .fdw-weekday,
+  .tablet-left-focus-date-widget-slot .fdw-year {
+    font-size: 8px;
+  }
+
+  .tablet-left-focus-date-widget-slot .fdw-special {
+    min-width: 72px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
   .top-nav {
     grid-area: center;
   }
 
   /* Settings sits flush at this column's right edge; .tablet-header-
      right-center is the *only* other child and gets `flex: 1`, so it
-     naturally consumes exactly (this column's width − Settings' width)
-     — centering the widget/Lists button within precisely the space
-     between the view icons and Settings, not within this column's full
-     width (which would drift right by half of Settings' own width). When
-     neither the widget nor Lists renders at all (wrong route, feature
-     off), this collapses to the plain "Settings, flush right" row this
-     had before Date Lists existed. */
+     naturally centers the Lists button (Current only — the Overview
+     date-picker pill lives in .tablet-left-cluster now, see above) within
+     precisely the space between the view icons and Settings, not within
+     this column's full width (which would drift right by half of
+     Settings' own width). When Lists doesn't render at all (wrong route,
+     feature off), this collapses to the plain "Settings, flush right" row
+     this had before Date Lists existed. */
   .tablet-header-right {
     display: flex;
     grid-area: right;
@@ -121,34 +166,6 @@
   .tablet-settings-btn {
     display: flex;
     flex-shrink: 0;
-  }
-
-  /* Kept smaller here than desktop's own dedicated corner (.focus-date-
-     head) — this row is noticeably tighter. tablet.css is a plain global
-     stylesheet, not a scoped SFC block, so a bare descendant selector
-     already reaches into FocusDateWidget.vue's own scoped markup fine —
-     no :deep() needed (that's only meaningful inside a component's own
-     <style scoped>). */
-  .tablet-header-right-center .fdw-left {
-    min-width: 36px;
-    padding: 3px 6px;
-  }
-
-  .tablet-header-right-center .fdw-num {
-    min-width: 26px;
-    padding: 3px 7px;
-    font-size: 19px;
-  }
-
-  .tablet-header-right-center .fdw-weekday,
-  .tablet-header-right-center .fdw-year {
-    font-size: 8px;
-  }
-
-  .tablet-header-right-center .fdw-special {
-    min-width: 72px;
-    padding: 5px 10px;
-    font-size: 12px;
   }
 
   /* main-head-inner's grid spans the full row width, including the

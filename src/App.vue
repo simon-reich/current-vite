@@ -1108,64 +1108,80 @@ watch(() => route.path, () => {
              `display:contents` outside the tablet breakpoint, so moving it
              here in the template has no visual effect on desktop besides
              that. -->
-        <div class="tablet-left-cluster">
-          <div v-if="route.path === '/all'" class="sort-nav desktop-only">
-            <button
-              ref="sortListBtnRef"
-              :title="listView ? 'Switch to grid view' : 'Switch to list view'"
-              class="sort-btn"
-              @click="listView = !listView"
+        <div class="tablet-header-left">
+          <div class="tablet-left-cluster">
+            <div v-if="route.path === '/all'" class="sort-nav desktop-only">
+              <button
+                ref="sortListBtnRef"
+                :title="listView ? 'Switch to grid view' : 'Switch to list view'"
+                class="sort-btn"
+                @click="listView = !listView"
+              >
+                <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
+              </button>
+              <button
+                ref="sortOrderBtnRef"
+                :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+                class="sort-btn"
+                @click="toggleSort"
+              >
+                <ArrowUpDown :size="22" />
+              </button>
+            </div>
+
+            <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority
+                 toggle when tags are off — but in Current, tags are always
+                 inert (see #app.is-current's own dimming rules), so this
+                 slot shows the subs expand-toggle instead whenever Subs are
+                 enabled, taking priority over both other variants. -->
+            <div
+              v-if="route.path === '/current' && themeStore.subsEnabled"
+              class="mobile-subs-toggle mobile-only"
             >
-              <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
+              <span class="mobile-subs-label">subs</span>
+              <button
+                type="button"
+                class="mobile-subs-switch"
+                role="switch"
+                :aria-checked="themeStore.expandCurrentSubs"
+                :class="{ on: themeStore.expandCurrentSubs }"
+                @click="themeStore.toggleExpandCurrentSubs()"
+              >
+                <span class="mobile-subs-switch-knob" />
+              </button>
+            </div>
+            <button
+              v-else-if="themeStore.tagsEnabled"
+              class="mobile-tags-btn mobile-only"
+              title="Tags"
+              @click="showMobileTags = true"
+            >
+              <Tag :size="22" />
             </button>
             <button
-              ref="sortOrderBtnRef"
-              :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-              class="sort-btn"
-              @click="toggleSort"
+              v-else
+              class="mobile-tags-btn priority-toggle-btn mobile-only"
+              :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
+              :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+              @click="toggleTag(PRIORITY_TAG_ID)"
             >
-              <ArrowUpDown :size="22" />
+              <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
             </button>
           </div>
 
-          <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
-               when tags are off — but in Current, tags are always inert (see
-               #app.is-current's own dimming rules), so this slot shows the
-               subs expand-toggle instead whenever Subs are enabled, taking
-               priority over both other variants. -->
-          <div
-            v-if="route.path === '/current' && themeStore.subsEnabled"
-            class="mobile-subs-toggle mobile-only"
-          >
-            <span class="mobile-subs-label">subs</span>
-            <button
-              type="button"
-              class="mobile-subs-switch"
-              role="switch"
-              :aria-checked="themeStore.expandCurrentSubs"
-              :class="{ on: themeStore.expandCurrentSubs }"
-              @click="themeStore.toggleExpandCurrentSubs()"
-            >
-              <span class="mobile-subs-switch-knob" />
-            </button>
+          <!-- Tablet only — Overview's date-picker pill. Mirrors
+               .tablet-header-right/-right-center's own pattern (see below):
+               .tablet-header-left-center gets `flex: 1` and centers its
+               content, while .tablet-left-cluster (flush at this column's
+               left edge, above) keeps its own natural width — so the pill
+               centers itself in exactly the space between the left icon
+               cluster and the center nav icons, not against the row as a
+               whole. -->
+          <div class="tablet-header-left-center">
+            <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-left-focus-date-widget-slot">
+              <FocusDateWidget />
+            </div>
           </div>
-          <button
-            v-else-if="themeStore.tagsEnabled"
-            class="mobile-tags-btn mobile-only"
-            title="Tags"
-            @click="showMobileTags = true"
-          >
-            <Tag :size="22" />
-          </button>
-          <button
-            v-else
-            class="mobile-tags-btn priority-toggle-btn mobile-only"
-            :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-            :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
-            @click="toggleTag(PRIORITY_TAG_ID)"
-          >
-            <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
-          </button>
         </div>
 
         <!-- Add todo input -->
@@ -1251,21 +1267,15 @@ watch(() => route.path, () => {
           </RouterLink>
         </nav>
 
-        <!-- Tablet-width only — real desktop shows the widget elsewhere
-             (.sidebar-head's .sidebar-focus-date-slot, or the Current
-             sidebar's Date-List nav) and Settings in its own .settings-head,
-             so both stay hidden there
-             (see .tablet-focus-date-widget-slot/
-             .tablet-settings-btn in layout.css). Settings sits flush at
-             this row's right edge; the widget/lists button centers itself
-             in whatever space is left before it (see .tablet-header-right
-             in tablet.css) — not centered against the row as a whole,
-             specifically between the view icons and Settings as asked. -->
+        <!-- Tablet-width only — real desktop shows Settings in its own
+             .settings-head, so it stays hidden there (see
+             .tablet-settings-btn in layout.css). Current's Lists button
+             (the Overview date-picker pill moved to .tablet-left-cluster,
+             see above) centers itself in whatever space is left before
+             Settings (see .tablet-header-right in tablet.css) — not
+             centered against the row as a whole. -->
         <div class="tablet-header-right">
           <div class="tablet-header-right-center">
-            <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-focus-date-widget-slot">
-              <FocusDateWidget />
-            </div>
             <button
               v-if="themeStore.dateListsEnabled && route.path === '/current'"
               class="tablet-focus-date-widget-slot nav-icon"
