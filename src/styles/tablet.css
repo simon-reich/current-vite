@@ -62,33 +62,23 @@
     width: 100%;
   }
 
-  .add-wrapper {
-    grid-area: input;
-  }
-
-  /* Mirrors .tablet-header-right/-right-center below, just flipped:
-     .tablet-left-cluster (the tags/sort icons) is flush at this column's
-     left edge and keeps its own natural width, while .tablet-header-
-     left-center is the other child and gets `flex: 1` — so it naturally
-     consumes exactly (this column's width − the icon cluster's width),
-     centering the date-picker pill within precisely the space between the
-     icon cluster and the center nav icons, not within this column's full
-     width (which would drift left by half the icon cluster's own width).
-     Tags/sort's actual rendered width comes entirely out of this column's
-     own 1fr share (nothing painted outside it) — that's what keeps it
-     genuinely equal to .tablet-header-right's 1fr on the other side. */
-  .tablet-header-left {
+  /* Input row: the date-picker pill (Overview only) sits directly left of
+     the add-input itself, not down in the icon row — .add-wrapper already
+     carries its own `flex: 1` (layout.css), so it just shrinks to make
+     room for the pill instead of needing a centering trick. */
+  .tablet-input-row {
     display: flex;
-    grid-area: left;
+    grid-area: input;
     align-items: center;
-    width: 100%;
+    gap: 10px;
   }
 
   .tablet-left-cluster {
     display: flex;
+    grid-area: left;
     align-items: center;
     gap: 14px;
-    flex-shrink: 0;
+    justify-content: flex-start;
   }
 
   /* .sort-nav's `order: -1` (layout.css) is what keeps it visually first
@@ -102,36 +92,35 @@
     order: 1;
   }
 
-  .tablet-header-left-center {
+  /* Kept smaller here than desktop's own dedicated corner (.focus-date-
+     head) — this row is noticeably tighter. tablet.css is a plain global
+     stylesheet, not a scoped SFC block, so a bare descendant selector
+     already reaches into FocusDateWidget.vue's own scoped markup fine —
+     no :deep() needed (that's only meaningful inside a component's own
+     <style scoped>). */
+  .tablet-input-focus-date-widget-slot {
     display: flex;
-    flex: 1;
-    justify-content: center;
-  }
-
-  /* Overview's date-picker pill itself, inside .tablet-header-left-center
-     above. */
-  .tablet-left-focus-date-widget-slot {
-    display: flex;
+    flex-shrink: 0;
     align-items: center;
   }
 
-  .tablet-left-focus-date-widget-slot .fdw-left {
+  .tablet-input-focus-date-widget-slot .fdw-left {
     min-width: 36px;
     padding: 3px 6px;
   }
 
-  .tablet-left-focus-date-widget-slot .fdw-num {
+  .tablet-input-focus-date-widget-slot .fdw-num {
     min-width: 26px;
     padding: 3px 7px;
     font-size: 19px;
   }
 
-  .tablet-left-focus-date-widget-slot .fdw-weekday,
-  .tablet-left-focus-date-widget-slot .fdw-year {
+  .tablet-input-focus-date-widget-slot .fdw-weekday,
+  .tablet-input-focus-date-widget-slot .fdw-year {
     font-size: 8px;
   }
 
-  .tablet-left-focus-date-widget-slot .fdw-special {
+  .tablet-input-focus-date-widget-slot .fdw-special {
     min-width: 72px;
     padding: 5px 10px;
     font-size: 12px;
@@ -144,12 +133,12 @@
   /* Settings sits flush at this column's right edge; .tablet-header-
      right-center is the *only* other child and gets `flex: 1`, so it
      naturally centers the Lists button (Current only — the Overview
-     date-picker pill lives in .tablet-left-cluster now, see above) within
-     precisely the space between the view icons and Settings, not within
-     this column's full width (which would drift right by half of
-     Settings' own width). When Lists doesn't render at all (wrong route,
-     feature off), this collapses to the plain "Settings, flush right" row
-     this had before Date Lists existed. */
+     date-picker pill lives in the input row now, see .tablet-input-row
+     above) within precisely the space between the view icons and
+     Settings, not within this column's full width (which would drift
+     right by half of Settings' own width). When Lists doesn't render at
+     all (wrong route, feature off), this collapses to the plain "Settings,
+     flush right" row this had before Date Lists existed. */
   .tablet-header-right {
     display: flex;
     grid-area: right;

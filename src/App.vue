@@ -1108,141 +1108,133 @@ watch(() => route.path, () => {
              `display:contents` outside the tablet breakpoint, so moving it
              here in the template has no visual effect on desktop besides
              that. -->
-        <div class="tablet-header-left">
-          <div class="tablet-left-cluster">
-            <div v-if="route.path === '/all'" class="sort-nav desktop-only">
-              <button
-                ref="sortListBtnRef"
-                :title="listView ? 'Switch to grid view' : 'Switch to list view'"
-                class="sort-btn"
-                @click="listView = !listView"
-              >
-                <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
-              </button>
-              <button
-                ref="sortOrderBtnRef"
-                :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-                class="sort-btn"
-                @click="toggleSort"
-              >
-                <ArrowUpDown :size="22" />
-              </button>
-            </div>
-
-            <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority
-                 toggle when tags are off — but in Current, tags are always
-                 inert (see #app.is-current's own dimming rules), so this
-                 slot shows the subs expand-toggle instead whenever Subs are
-                 enabled, taking priority over both other variants. -->
-            <div
-              v-if="route.path === '/current' && themeStore.subsEnabled"
-              class="mobile-subs-toggle mobile-only"
-            >
-              <span class="mobile-subs-label">subs</span>
-              <button
-                type="button"
-                class="mobile-subs-switch"
-                role="switch"
-                :aria-checked="themeStore.expandCurrentSubs"
-                :class="{ on: themeStore.expandCurrentSubs }"
-                @click="themeStore.toggleExpandCurrentSubs()"
-              >
-                <span class="mobile-subs-switch-knob" />
-              </button>
-            </div>
+        <div class="tablet-left-cluster">
+          <div v-if="route.path === '/all'" class="sort-nav desktop-only">
             <button
-              v-else-if="themeStore.tagsEnabled"
-              class="mobile-tags-btn mobile-only"
-              title="Tags"
-              @click="showMobileTags = true"
+              ref="sortListBtnRef"
+              :title="listView ? 'Switch to grid view' : 'Switch to list view'"
+              class="sort-btn"
+              @click="listView = !listView"
             >
-              <Tag :size="22" />
+              <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
             </button>
             <button
-              v-else
-              class="mobile-tags-btn priority-toggle-btn mobile-only"
-              :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-              :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
-              @click="toggleTag(PRIORITY_TAG_ID)"
+              ref="sortOrderBtnRef"
+              :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+              class="sort-btn"
+              @click="toggleSort"
             >
-              <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
+              <ArrowUpDown :size="22" />
             </button>
           </div>
 
-          <!-- Tablet only — Overview's date-picker pill. Mirrors
-               .tablet-header-right/-right-center's own pattern (see below):
-               .tablet-header-left-center gets `flex: 1` and centers its
-               content, while .tablet-left-cluster (flush at this column's
-               left edge, above) keeps its own natural width — so the pill
-               centers itself in exactly the space between the left icon
-               cluster and the center nav icons, not against the row as a
-               whole. -->
-          <div class="tablet-header-left-center">
-            <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-left-focus-date-widget-slot">
-              <FocusDateWidget />
-            </div>
+          <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
+               when tags are off — but in Current, tags are always inert (see
+               #app.is-current's own dimming rules), so this slot shows the
+               subs expand-toggle instead whenever Subs are enabled, taking
+               priority over both other variants. -->
+          <div
+            v-if="route.path === '/current' && themeStore.subsEnabled"
+            class="mobile-subs-toggle mobile-only"
+          >
+            <span class="mobile-subs-label">subs</span>
+            <button
+              type="button"
+              class="mobile-subs-switch"
+              role="switch"
+              :aria-checked="themeStore.expandCurrentSubs"
+              :class="{ on: themeStore.expandCurrentSubs }"
+              @click="themeStore.toggleExpandCurrentSubs()"
+            >
+              <span class="mobile-subs-switch-knob" />
+            </button>
           </div>
+          <button
+            v-else-if="themeStore.tagsEnabled"
+            class="mobile-tags-btn mobile-only"
+            title="Tags"
+            @click="showMobileTags = true"
+          >
+            <Tag :size="22" />
+          </button>
+          <button
+            v-else
+            class="mobile-tags-btn priority-toggle-btn mobile-only"
+            :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
+            :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+            @click="toggleTag(PRIORITY_TAG_ID)"
+          >
+            <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
+          </button>
         </div>
 
-        <!-- Add todo input -->
-        <div class="add-wrapper" :class="{ 'add-wrapper--open': showTagModal && addTagModalTags.length }">
-          <input
-            ref="todoInputRef"
-            v-model="todoInput"
-            class="add-input"
-            placeholder="todo + enter"
-            @focus="onTodoFocus"
-            @input="onTodoInput"
-            @blur="onTodoBlur"
-            @keydown.enter.prevent="addTodo"
-            @keydown.escape="onTodoInputEscape"
-            @keydown="onTodoTitleTabKeydown"
-          />
-          <button
-            v-if="todoInput.length"
-            type="button"
-            class="add-input-clear"
-            title="Clear"
-            @mousedown.prevent="clearTodoInput"
-          >
-            <X :size="12" />
-          </button>
-          <div v-if="showTagModal && addTagModalTags.length" class="add-tag-row">
-            <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
-              <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
-                <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
-              </div>
-            </Transition>
-
-            <div v-if="themeStore.subsEnabled" class="add-subs-row">
-              <div v-if="newTodoSubs.length" class="add-subs-list">
-                <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
-                  {{ sub }}
-                  <button type="button" class="add-sub-chip-x" title="Remove" @mousedown.prevent="newTodoSubs.splice(i, 1)">
-                    <X :size="9" />
-                  </button>
-                </span>
-              </div>
-              <input
-                ref="newSubInputRef"
-                v-model="newSubDraft"
-                class="add-sub-input"
-                placeholder="sub + enter"
-                @focus="keepTodoModalOpen"
-                @keydown="onSubDraftKeydown"
-              />
-            </div>
-
-            <label
-              v-for="tag in addTagModalTags"
-              :key="tag.id"
-              class="tag-row-opt"
-              :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
-              @mousedown.prevent
+        <!-- Add todo input row — tablet only, Overview's date-picker pill
+             sits directly right of the input itself (see .tablet-input-row
+             in tablet.css, `display:contents` outside that breakpoint so
+             this wrapper has no effect on desktop/phone). -->
+        <div class="tablet-input-row">
+          <div class="add-wrapper" :class="{ 'add-wrapper--open': showTagModal && addTagModalTags.length }">
+            <input
+              ref="todoInputRef"
+              v-model="todoInput"
+              class="add-input"
+              placeholder="todo + enter"
+              @focus="onTodoFocus"
+              @input="onTodoInput"
+              @blur="onTodoBlur"
+              @keydown.enter.prevent="addTodo"
+              @keydown.escape="onTodoInputEscape"
+              @keydown="onTodoTitleTabKeydown"
+            />
+            <button
+              v-if="todoInput.length"
+              type="button"
+              class="add-input-clear"
+              title="Clear"
+              @mousedown.prevent="clearTodoInput"
             >
-              <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
-              <span>{{ tag.label }}</span>
-            </label>
+              <X :size="12" />
+            </button>
+            <div v-if="showTagModal && addTagModalTags.length" class="add-tag-row">
+              <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
+                <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
+                  <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
+                </div>
+              </Transition>
+
+              <div v-if="themeStore.subsEnabled" class="add-subs-row">
+                <div v-if="newTodoSubs.length" class="add-subs-list">
+                  <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
+                    {{ sub }}
+                    <button type="button" class="add-sub-chip-x" title="Remove" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                      <X :size="9" />
+                    </button>
+                  </span>
+                </div>
+                <input
+                  ref="newSubInputRef"
+                  v-model="newSubDraft"
+                  class="add-sub-input"
+                  placeholder="sub + enter"
+                  @focus="keepTodoModalOpen"
+                  @keydown="onSubDraftKeydown"
+                />
+              </div>
+
+              <label
+                v-for="tag in addTagModalTags"
+                :key="tag.id"
+                class="tag-row-opt"
+                :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
+                @mousedown.prevent
+              >
+                <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
+                <span>{{ tag.label }}</span>
+              </label>
+            </div>
+          </div>
+          <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-input-focus-date-widget-slot">
+            <FocusDateWidget />
           </div>
         </div>
 

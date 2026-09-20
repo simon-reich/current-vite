@@ -782,7 +782,7 @@
    hidden by default so they don't also show up in desktop's own flex row
    here. */
 .tablet-focus-date-widget-slot,
-.tablet-left-focus-date-widget-slot,
+.tablet-input-focus-date-widget-slot,
 .tablet-settings-btn {
   display: none;
 }
@@ -795,8 +795,7 @@
    tablet.css). */
 .tablet-header-right,
 .tablet-header-right-center,
-.tablet-header-left,
-.tablet-header-left-center,
+.tablet-input-row,
 .tablet-left-cluster {
   display: contents;
 }
