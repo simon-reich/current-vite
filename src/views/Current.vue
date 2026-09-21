@@ -202,8 +202,9 @@ function editFromAllChecks(check: CheckItem) {
         type="button"
         class="switch"
         role="switch"
-        :aria-checked="themeStore.expandCurrentSubs"
-        :class="{ on: themeStore.expandCurrentSubs }"
+        :aria-checked="themeStore.expandCurrentSubs === 'full'"
+        :title="`subs: ${themeStore.expandCurrentSubs}`"
+        :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
         @click="themeStore.toggleExpandCurrentSubs()"
       >
         <span class="switch-knob" />
@@ -432,6 +433,14 @@ function editFromAllChecks(check: CheckItem) {
   background: var(--ink);
   opacity: 0.35;
   transition: transform 0.15s, background 0.15s, opacity 0.15s;
+}
+
+/* Middle position of the three-state cycle (off → half → full) — track
+   stays unfilled like off, knob just moves halfway and darkens a notch to
+   read as "in between" rather than fully on or off. */
+.switch.half .switch-knob {
+  opacity: 0.7;
+  transform: translateX(7.5px);
 }
 
 .switch.on .switch-knob {

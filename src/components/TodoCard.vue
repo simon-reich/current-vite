@@ -573,7 +573,7 @@ export function closeActiveCard() {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
@@ -604,8 +604,9 @@ const props = defineProps<{
   gridMode?: boolean
   /** Current's own "expand all subs" toggle (see Current.vue) — forces the
    *  sub-list open even while the card itself is closed, without also
-   *  opening the Done/Done-for-today menu. */
-  forceExpandSubs?: boolean
+   *  opening the Done/Done-for-today menu. 'half' shows only unchecked
+   *  subs, 'full' shows every sub including already-checked ones. */
+  forceExpandSubs?: 'half' | 'full' | 'off'
   /** Current's "Lists" panel previewing a future Date List (see
    *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-today are
    *  locked out until that date is actually today; removing from the list
@@ -730,9 +731,11 @@ const showTagMenu = computed(() => openTagMenuId.value === props.todo.id)
 const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'current' && showMenu.value))
 
 // Subs are collapsed by default — shown once the card is genuinely open
-// (see above), or forced via Current's "expand all" toggle.
+// (see above), or forced via Current's "expand all" toggle ('half'/'full',
+// 'off' behaves like the toggle not being set at all).
+const forceExpandActive = computed(() => !!props.forceExpandSubs && props.forceExpandSubs !== 'off')
 const subsVisible = computed(() =>
-  themeStore.subsEnabled && (cardActuallyOpen.value || !!props.forceExpandSubs)
+  themeStore.subsEnabled && (cardActuallyOpen.value || forceExpandActive.value)
 )
 
 // The add-sub row only makes sense while the card is genuinely open —
@@ -740,6 +743,51 @@ const subsVisible = computed(() =>
 // existing subs to skim, but offering an input to type into a card that
 // was never actually opened would be a stray, unreachable-by-click field.
 const subsAddVisible = computed(() => themeStore.subsEnabled && cardActuallyOpen.value)
+
+// Half-mode: a sub just checked off stays visible for a moment instead of
+// vanishing the instant it's checked (see scheduleHalfHide below) — its id
+// sits here for that whole window (sink wait + settle + fade), so
+// visibleSubs keeps rendering it even though it's technically completedAt
+// already. halfHiddenLeavingIds is the final sub-window of that: the fade
+// itself (see .sub-item--leaving below).
+const halfHiddenPendingIds = reactive(new Set<string>())
+const halfHiddenLeavingIds = reactive(new Set<string>())
+
+// Which subs actually render: an explicitly opened card always shows every
+// sub (the user is in there to edit, not skim). Otherwise it's driven by
+// Current's toggle alone — 'half' hides already-checked subs so the list
+// reads as "what's left" (except one mid-vanish, see halfHiddenPendingIds
+// above), 'full' (or the card not being force-expanded at all) shows
+// everything.
+const visibleSubs = computed(() =>
+  !cardActuallyOpen.value && props.forceExpandSubs === 'half'
+    ? props.todo.subs.filter(s => !s.completedAt || halfHiddenPendingIds.has(s.id))
+    : props.todo.subs
+)
+
+// Half-mode hides completed subs entirely (see visibleSubs above) — this
+// surfaces that there's more to see without opening the card, but only
+// while there's actually something hidden to report. A sub still mid-vanish
+// (halfHiddenPendingIds) isn't "hidden" yet — it's still on screen — so it
+// doesn't count here either.
+const hiddenCompletedSubsCount = computed(() => {
+  if (cardActuallyOpen.value || props.forceExpandSubs !== 'half') return 0
+  return props.todo.subs.filter(s => s.completedAt && !halfHiddenPendingIds.has(s.id)).length
+})
+
+// Leaving this display context entirely (card opens, or the toggle moves
+// off 'half') drops any in-flight vanish immediately — there's nothing left
+// to animate once the filtering that motivated it no longer applies, and a
+// stale fade-out could otherwise resurface (as an already-invisible row)
+// the next time half mode is re-entered for this card.
+watch(() => [cardActuallyOpen.value, props.forceExpandSubs] as const, ([open, mode]) => {
+  if (open || mode !== 'half') {
+    pendingHalfHideTimers.forEach(t => clearTimeout(t))
+    pendingHalfHideTimers.clear()
+    halfHiddenPendingIds.clear()
+    halfHiddenLeavingIds.clear()
+  }
+})
 
 // Only unchecked subs are manually reorderable (see onSubGripPointerDown/
 // subRowStyle) — a checked one's position is owned entirely by the
@@ -1159,6 +1207,43 @@ function restoreSunkSub(subId: string) {
   store.reorderSub(props.todo.id, subId, Math.min(rank, uncheckedCount))
 }
 
+// Half-mode only (see visibleSubs/halfHiddenPendingIds above): a checked sub
+// isn't yanked out of the list instantly, it goes through the same three
+// beats as the rest of this section reads out loud — wait (matching
+// SUB_SINK_DELAY_MS, the same pause scheduleSubSink already gives you to
+// undo an accidental tap), sink (scheduleSubSink's own reorder-to-bottom,
+// already running in parallel, slides it down past the still-open subs),
+// then fade — only once it's actually settled at the bottom, not
+// overlapping the slide.
+const HALF_HIDE_SETTLE_MS = 350
+const HALF_HIDE_LEAVE_MS = 260
+const pendingHalfHideTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function cancelHalfHide(subId: string) {
+  halfHiddenPendingIds.delete(subId)
+  halfHiddenLeavingIds.delete(subId)
+  const timer = pendingHalfHideTimers.get(subId)
+  if (timer) {
+    clearTimeout(timer)
+    pendingHalfHideTimers.delete(subId)
+  }
+}
+
+function scheduleHalfHide(subId: string) {
+  cancelHalfHide(subId)
+  halfHiddenPendingIds.add(subId)
+  pendingHalfHideTimers.set(subId, setTimeout(() => {
+    pendingHalfHideTimers.set(subId, setTimeout(() => {
+      halfHiddenLeavingIds.add(subId)
+      pendingHalfHideTimers.set(subId, setTimeout(() => {
+        pendingHalfHideTimers.delete(subId)
+        halfHiddenLeavingIds.delete(subId)
+        halfHiddenPendingIds.delete(subId)
+      }, HALF_HIDE_LEAVE_MS))
+    }, HALF_HIDE_SETTLE_MS))
+  }, SUB_SINK_DELAY_MS))
+}
+
 // Toggling the last open sub complete auto-opens the Done/Done-for-today
 // menu (Current only) — a nudge to actually close the todo out, without
 // forcing it: the todo stays put if nothing's clicked. Only fires on the
@@ -1173,8 +1258,12 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
   if (wasChecked) {
     cancelSubSink(sub.id)
     restoreSunkSub(sub.id)
+    cancelHalfHide(sub.id)
   } else {
     scheduleSubSink(sub.id)
+    if (!cardActuallyOpen.value && props.forceExpandSubs === 'half') {
+      scheduleHalfHide(sub.id)
+    }
   }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
   if (!wasAllDone && nowAllDone && props.mode === 'current' && !showMenu.value) {
@@ -1185,6 +1274,7 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
 function handleDeleteSub(subId: string) {
   cancelSubSink(subId)
   sunkSubRank.delete(subId)
+  cancelHalfHide(subId)
   store.deleteSub(props.todo.id, subId)
 }
 
@@ -2367,6 +2457,8 @@ onUnmounted(() => {
   pendingSubSinkTimers.forEach(timer => clearTimeout(timer))
   pendingSubSinkTimers.clear()
   sunkSubRank.clear()
+  pendingHalfHideTimers.forEach(timer => clearTimeout(timer))
+  pendingHalfHideTimers.clear()
   cardResizeObserver?.disconnect()
   window.removeEventListener('pointerup', releaseGripFallback)
   window.removeEventListener('pointercancel', releaseGripFallback)
@@ -2616,14 +2708,14 @@ onUnmounted(() => {
         </div>
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
-          <div v-if="subsVisible && (todo.subs.length > 0 || subsAddVisible)" ref="subRowContainerRef" class="sub-row" @click.stop>
+          <div v-if="subsVisible && (visibleSubs.length > 0 || subsAddVisible)" ref="subRowContainerRef" class="sub-row" @click.stop>
             <div
-              v-for="sub in todo.subs"
+              v-for="sub in visibleSubs"
               :key="sub.id"
               :ref="(el) => registerSubRowEl(sub.id, el as Element | null)"
               :data-flip-id="sub.id"
               class="sub-item"
-              :class="{ dragging: dragSubId === sub.id }"
+              :class="{ dragging: dragSubId === sub.id, 'sub-item--leaving': !cardActuallyOpen && halfHiddenLeavingIds.has(sub.id) }"
               :style="subRowStyle(sub)"
             >
               <button
@@ -2686,6 +2778,8 @@ onUnmounted(() => {
                 <Trash2 :size="12" />
               </button>
             </div>
+
+            <div v-if="hiddenCompletedSubsCount > 0" class="sub-hint" :style="font ? { fontFamily: font } : {}">({{ hiddenCompletedSubsCount }} done)</div>
 
             <div v-if="subsAddVisible" class="sub-item sub-item--add">
               <span class="sub-box sub-box--empty" aria-hidden="true" />
@@ -3380,11 +3474,19 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.2s ease;
 }
 
 .sub-item.dragging {
   transition: none;
+}
+
+/* Half-mode's final beat for a just-checked sub (see scheduleHalfHide) —
+   fades out in place once it's sunk to the bottom, rather than just sitting
+   there or popping out of the list with no transition at all. */
+.sub-item--leaving {
+  opacity: 0;
+  transform: translateY(6px);
 }
 
 .sub-box {
@@ -3427,6 +3529,16 @@ onUnmounted(() => {
 
 .sub-title.done {
   opacity: 0.3;
+}
+
+/* Half-mode's "N done" note (see hiddenCompletedSubsCount) — plain text, no
+   box, so it doesn't read as its own sub row. Left offset matches where a
+   sub's own title starts (.sub-box width + .sub-item gap), and the font is
+   the todo's own random font (passed in via :style), not a fixed one. */
+.sub-hint {
+  padding-left: 23px;
+  font-size: 0.92em;
+  opacity: 0.5;
 }
 
 .sub-edit,

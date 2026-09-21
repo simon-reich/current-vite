@@ -1102,8 +1102,9 @@ watch(() => route.path, () => {
               type="button"
               class="mobile-subs-switch"
               role="switch"
-              :aria-checked="themeStore.expandCurrentSubs"
-              :class="{ on: themeStore.expandCurrentSubs }"
+              :aria-checked="themeStore.expandCurrentSubs === 'full'"
+              :title="`subs: ${themeStore.expandCurrentSubs}`"
+              :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
               @click="themeStore.toggleExpandCurrentSubs()"
             >
               <span class="mobile-subs-switch-knob" />

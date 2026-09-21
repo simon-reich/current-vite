@@ -26,8 +26,11 @@ export const useThemeStore = defineStore('theme', () => {
   // plan discussion) so multi-day planning doesn't reset on every visit.
   const selectedFocusDate = ref(todayStr())
   // Current-only: force every card's sub-list open without having to expand
-  // each one individually — see Current.vue's own toggle switch.
-  const expandCurrentSubs = ref(false)
+  // each one individually — see Current.vue's own toggle switch. Three-state
+  // instead of a plain boolean: 'off' (collapsed, same as before), 'half'
+  // (open, but only unchecked subs — skim what's left to do), 'full' (open,
+  // every sub including already-checked ones).
+  const expandCurrentSubs = ref<'off' | 'half' | 'full'>('off')
   const savedThemes = ref<ColorTheme[]>([])
   const dailyThemeRotationEnabled = ref(false)
   // Last date (YYYY-MM-DD) a rotation actually happened — guards against
@@ -79,7 +82,9 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   function toggleExpandCurrentSubs() {
-    expandCurrentSubs.value = !expandCurrentSubs.value
+    expandCurrentSubs.value =
+      expandCurrentSubs.value === 'off' ? 'half' :
+      expandCurrentSubs.value === 'half' ? 'full' : 'off'
   }
 
   function saveTheme(name: string) {
