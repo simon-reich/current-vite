@@ -1425,8 +1425,16 @@ watch(() => route.path, () => {
       </button>
     </div>
 
-    <!-- ══ MOBILE: Tag panel (full screen, replaces main-head + content) ══ -->
+    <!-- ══ MOBILE: Tag panel — full screen on phone (replaces main-head +
+         content), a Date-List-panel-style side panel on tablet (see
+         .mobile-tags-backdrop/.mobile-tags-panel in layout.css/tablet.css)
+         opening from the left instead of the right. The backdrop is a
+         no-op on phone (display:none there, see layout.css) since that
+         panel already covers the full viewport. ══ -->
     <template v-if="themeStore.tagsEnabled">
+    <Transition name="tags-panel-backdrop">
+    <div v-show="showMobileTags" class="mobile-tags-backdrop" @click="showMobileTags = false" />
+    </Transition>
     <Transition name="tags-panel">
     <div v-show="showMobileTags" ref="tagsPanelRef" class="mobile-tags-panel mobile-only" @scroll="onTagsPanelScroll">
       <div class="mobile-tags-head">
