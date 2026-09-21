@@ -809,7 +809,24 @@ function autoGrowEditSub() {
   el.style.height = `${el.scrollHeight}px`
 }
 
+// Interacting with a sub (typing a new one, or editing an existing one)
+// while Current's check-menu is open promotes the card into its full edit
+// mode, the same swap clicking the title or hitting F/Space already does
+// (see openEditFromCurrent) — but without also jumping focus into the
+// todo's own title, since it should stay right where the user already put
+// it (the sub input). Check-menu mode reads as "confirm Done/Done-for-
+// today", which doesn't fit while actually editing a sub. No-op in
+// Overview (mode 'all' has no check-menu to begin with) and once already
+// in edit mode.
+function promoteFromSubInteraction() {
+  if (props.mode === 'current' && showMenu.value && !showTagMenu.value) {
+    openCheckMenuId.value = null
+    openTagMenuId.value = props.todo.id
+  }
+}
+
 function startEditSub(sub: Sub, caretPos?: number | null) {
+  promoteFromSubInteraction()
   editingSubId.value = sub.id
   editSubTitle.value = sub.title
   nextTick(() => {
@@ -2732,6 +2749,7 @@ onUnmounted(() => {
                 :style="font ? { fontFamily: font } : {}"
                 @input="autoGrowSub"
                 @keydown="onSubInputKeydown"
+                @focus="promoteFromSubInteraction"
                 @click.stop
               />
             </div>
