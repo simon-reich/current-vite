@@ -315,12 +315,21 @@ export const useTodosStore = defineStore('todos', () => {
     reorderSub(todoId, subId, Math.min(rank, uncheckedCount))
   }
 
+  // Lands after the last unchecked sub, not necessarily at the very end of
+  // the array — a plain push would drop a fresh sub below any subs that
+  // already sank to the bottom on completion, landing it among the done
+  // ones instead of joining the still-open group it actually belongs to.
   function addSub(todoId: string, title: string): Sub | undefined {
     const todo = todos.value.find(t => t.id === todoId)
     const trimmed = title.trim()
     if (!todo || !trimmed) return
     const sub: Sub = { id: uuid(), title: trimmed }
-    todo.subs.push(sub)
+    const firstCompletedIndex = todo.subs.findIndex(s => s.completedAt)
+    if (firstCompletedIndex === -1) {
+      todo.subs.push(sub)
+    } else {
+      todo.subs.splice(firstCompletedIndex, 0, sub)
+    }
     return sub
   }
 
