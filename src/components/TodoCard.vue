@@ -574,7 +574,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical, X } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -1095,6 +1095,16 @@ function submitNewSub() {
   const trimmed = newSubTitle.value.trim()
   if (!trimmed) return
   store.addSub(props.todo.id, trimmed)
+  newSubTitle.value = ''
+  nextTick(() => {
+    autoGrowSub()
+    newSubInputRef.value?.focus()
+  })
+}
+
+// Mirrors clearTodoInput in App.vue for this input's own clear button (see
+// .sub-input-clear below).
+function clearNewSubInput() {
   newSubTitle.value = ''
   nextTick(() => {
     autoGrowSub()
@@ -2740,18 +2750,29 @@ onUnmounted(() => {
 
             <div v-if="subsAddVisible" class="sub-item sub-item--add">
               <span class="sub-box sub-box--empty" aria-hidden="true" />
-              <textarea
-                ref="newSubInputRef"
-                v-model="newSubTitle"
-                class="sub-input sub-input--new"
-                rows="1"
-                placeholder="add sub + enter"
-                :style="font ? { fontFamily: font } : {}"
-                @input="autoGrowSub"
-                @keydown="onSubInputKeydown"
-                @focus="promoteFromSubInteraction"
-                @click.stop
-              />
+              <div class="sub-input-wrap">
+                <textarea
+                  ref="newSubInputRef"
+                  v-model="newSubTitle"
+                  class="sub-input sub-input--new"
+                  rows="1"
+                  placeholder="add sub + enter"
+                  :style="font ? { fontFamily: font } : {}"
+                  @input="autoGrowSub"
+                  @keydown="onSubInputKeydown"
+                  @focus="promoteFromSubInteraction"
+                  @click.stop
+                />
+                <button
+                  v-if="newSubTitle.length"
+                  type="button"
+                  class="sub-input-clear"
+                  title="Clear"
+                  @mousedown.prevent="clearNewSubInput"
+                >
+                  <X :size="9" />
+                </button>
+              </div>
             </div>
           </div>
         </Transition>
@@ -3186,6 +3207,11 @@ onUnmounted(() => {
   color: var(--bg);
 }
 
+.priority .sub-input-clear {
+  border-color: var(--bg);
+  color: var(--bg);
+}
+
 .priority .sub-input {
   border-bottom-color: var(--bg);
 }
@@ -3567,6 +3593,42 @@ onUnmounted(() => {
 
 .sub-input--new:focus {
   border-bottom-color: var(--ink);
+}
+
+.sub-input-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.sub-input-wrap .sub-input {
+  width: 100%;
+  padding-right: 20px;
+}
+
+/* Mirrors .add-input-clear (App.vue's todo-input clear button), scaled
+   down to this row's size. */
+.sub-input-clear {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  opacity: 0.35;
+}
+
+@media (hover: hover) {
+  .sub-input-clear:hover {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 700px) {
