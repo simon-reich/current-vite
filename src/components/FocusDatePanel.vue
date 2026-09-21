@@ -116,7 +116,11 @@ watch(() => props.open, (isOpen) => {
   background: var(--bg);
   border-left: 2px solid var(--ink);
   box-shadow: -6px 0 0 var(--ink);
-  padding: 20px 18px;
+  /* Top padding matches #app's own 18px + .main-head's 14px (tablet.css)
+     so the panel's content starts at the same height as the todo-input
+     field beside it — visual congruence with the main view, not an
+     arbitrary number. */
+  padding: 32px 18px 20px;
   overflow-y: auto;
   scrollbar-width: none;
   z-index: 10001;
