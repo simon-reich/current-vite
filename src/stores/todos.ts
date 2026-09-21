@@ -45,6 +45,13 @@ export interface Sub {
   title: string
   /** ISO-Timestamp when checked; undefined = still open. */
   completedAt?: string
+  /** How many still-unchecked subs sat above this one at the moment it
+   *  actually sank to the bottom (see sinkSub/SUB_SINK_DELAY_MS below) —
+   *  only set while sunk, cleared again once restored. Persisted on the sub
+   *  itself (not kept in component state) so unchecking it later still puts
+   *  it back where it came from even after a view switch or reload in the
+   *  meantime — a TodoCard instance doesn't live nearly that long. */
+  sunkRank?: number
 }
 
 export interface Todo {
@@ -247,6 +254,67 @@ export const useTodosStore = defineStore('todos', () => {
     return todo
   }
 
+  // Checking a sub sinks it to the bottom of its own list after a delay
+  // instead of instantly — long enough that an accidental tap can still be
+  // undone with a quick second click before the item jumps away underneath
+  // it. Lives here (not in TodoCard.vue) so the delay, and the sink itself,
+  // survive the component that triggered it being unmounted (any view
+  // switch) — see Sub.sunkRank's own comment. Keyed by sub id so several
+  // subs mid-delay at once don't clobber each other.
+  const SUB_SINK_DELAY_MS = 900
+  const pendingSubSinkTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  function cancelSubSink(subId: string) {
+    const timer = pendingSubSinkTimers.get(subId)
+    if (timer) {
+      clearTimeout(timer)
+      pendingSubSinkTimers.delete(subId)
+    }
+  }
+
+  function scheduleSubSink(todoId: string, subId: string) {
+    cancelSubSink(subId)
+    pendingSubSinkTimers.set(subId, setTimeout(() => {
+      pendingSubSinkTimers.delete(subId)
+      sinkSub(todoId, subId)
+    }, SUB_SINK_DELAY_MS))
+  }
+
+  // The actual move — separated from scheduleSubSink so a reload mid-delay
+  // (which loses the pending timer, same as any other in-memory timer)
+  // doesn't leave a sub forever un-sunk: nothing currently re-arms this on
+  // load, but if that's ever needed, the move itself is already a plain,
+  // reusable function to call again from wherever.
+  function sinkSub(todoId: string, subId: string) {
+    const todo = todos.value.find(t => t.id === todoId)
+    if (!todo) return
+    const fromIndex = todo.subs.findIndex(s => s.id === subId)
+    if (fromIndex === -1) return
+    const sub = todo.subs[fromIndex]
+    if (!sub.completedAt) return
+    if (sub.sunkRank === undefined) {
+      sub.sunkRank = todo.subs.slice(0, fromIndex).filter(s => !s.completedAt).length
+    }
+    reorderSub(todoId, subId, todo.subs.length - 1)
+  }
+
+  // Mirror of sinkSub for unchecking: only restores if this sub had actually
+  // sunk (sunkRank set) — a plain uncheck of a sub that never moved has
+  // nothing to undo. Rank is clamped against how many unchecked subs
+  // (excluding this one, already unchecked again by the time this runs)
+  // currently exist, so it degrades gracefully to "end of the unchecked
+  // group" if others were completed/removed while this one sat sunk at the
+  // bottom.
+  function restoreSunkSub(todoId: string, subId: string) {
+    const todo = todos.value.find(t => t.id === todoId)
+    const sub = todo?.subs.find(s => s.id === subId)
+    if (!todo || !sub || sub.sunkRank === undefined) return
+    const rank = sub.sunkRank
+    sub.sunkRank = undefined
+    const uncheckedCount = todo.subs.filter(s => s.id !== subId && !s.completedAt).length
+    reorderSub(todoId, subId, Math.min(rank, uncheckedCount))
+  }
+
   function addSub(todoId: string, title: string): Sub | undefined {
     const todo = todos.value.find(t => t.id === todoId)
     const trimmed = title.trim()
@@ -256,15 +324,30 @@ export const useTodosStore = defineStore('todos', () => {
     return sub
   }
 
+  // Checking a sub off doesn't reorder it immediately — see scheduleSubSink
+  // below for the delayed sink this schedules, and its own comment for why.
+  // Unchecking it undoes whatever of that has happened so far: a still-
+  // pending sink is simply cancelled (it never moved), an already-sunk one
+  // is put back via restoreSunkSub. Both live in the store rather than in
+  // TodoCard.vue so they survive the component itself being unmounted (any
+  // view switch) — see Sub.sunkRank's own comment.
   function toggleSub(todoId: string, subId: string) {
     const sub = todos.value.find(t => t.id === todoId)?.subs.find(s => s.id === subId)
     if (!sub) return
-    sub.completedAt = sub.completedAt ? undefined : new Date().toISOString()
+    if (sub.completedAt) {
+      sub.completedAt = undefined
+      cancelSubSink(subId)
+      restoreSunkSub(todoId, subId)
+    } else {
+      sub.completedAt = new Date().toISOString()
+      scheduleSubSink(todoId, subId)
+    }
   }
 
   function deleteSub(todoId: string, subId: string) {
     const todo = todos.value.find(t => t.id === todoId)
     if (!todo) return
+    cancelSubSink(subId)
     todo.subs = todo.subs.filter(s => s.id !== subId)
   }
 
@@ -303,6 +386,7 @@ export const useTodosStore = defineStore('todos', () => {
   function deleteTodo(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
+    todo.subs.forEach(s => cancelSubSink(s.id))
     if (todo.completedAt || todo.workLog.length > 0 || todo.subs.some(s => s.completedAt)) {
       todo.deletedAt = new Date().toISOString()
     } else {
@@ -583,7 +667,7 @@ export const useTodosStore = defineStore('todos', () => {
     completedOn, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
     addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, doneForToday, doneForTodayOnDate,
-    addSub, toggleSub, deleteSub, updateSub, reorderSub,
+    addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,
     importData,

@@ -879,7 +879,8 @@ function registerSubRowEl(id: string, el: Element | null) {
 }
 
 // Animates a sub's own jump to a new spot in its list — used for the sink
-// on completion below (scheduleSubSink), and gets any other future sub
+// on completion (store.toggleSub → sinkSub, see stores/todos.ts), and gets
+// any other future sub
 // reorder (deletes/drag settling) the same smooth move for free rather
 // than a hard snap. One `.sub-row` container per card instance, so this
 // needs a direct element getter rather than useListFlip's page-level
@@ -915,7 +916,8 @@ useListFlip(subFlipIds, () => subRowContainerRef.value)
 let dragSubOffsets: number[] = []
 
 // A checked sub can't be manually repositioned at all (its position is
-// owned by the sink/restore mechanics above, see scheduleSubSink), and an
+// owned by the sink/restore mechanics in the store, see sinkSub/
+// restoreSunkSub in stores/todos.ts), and an
 // unchecked one being dragged can only reorder among *other* unchecked
 // subs — it should never land inside or below the checked group. Both
 // rules fall out of restricting the whole drag (offsets, start/current
@@ -1147,74 +1149,22 @@ function onSubInputKeydown(e: KeyboardEvent) {
   }
 }
 
-// Checking a sub sinks it to the bottom of its own list after a delay
-// instead of instantly — long enough that an accidental tap can still be
-// undone with a quick second click before the item jumps away underneath
-// it. Keyed by sub id so several subs mid-delay at once don't clobber each
-// other; unchecking before the delay fires (or deleting the sub, see
-// handleDeleteSub) cancels its own pending sink. Re-sorted by
-// useListFlip's own watcher below.
-const SUB_SINK_DELAY_MS = 900
-const pendingSubSinkTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
-// Once a sub has actually sunk, how many still-unchecked subs sat above it
-// at that moment is kept here (its "rank" among the unfinished ones) —
-// unchecking it later reinserts it at that same rank among whichever subs
-// are unchecked *now*, rather than just leaving it at the bottom or
-// restoring a stale absolute index that may no longer mean the same thing
-// after other subs were added/removed/completed meanwhile. Cleared again
-// once restored. Only set at the moment the sink actually fires (not when
-// merely scheduled), and never overwritten by a later sink while still
-// set, so a check/uncheck/check/uncheck sequence always restores relative
-// to the position from before the *first* sink in that sequence.
-const sunkSubRank = new Map<string, number>()
-
-function cancelSubSink(subId: string) {
-  const timer = pendingSubSinkTimers.get(subId)
-  if (timer) {
-    clearTimeout(timer)
-    pendingSubSinkTimers.delete(subId)
-  }
-}
-
-function scheduleSubSink(subId: string) {
-  cancelSubSink(subId)
-  if (props.todo.subs.length <= 1) return
-  pendingSubSinkTimers.set(subId, setTimeout(() => {
-    pendingSubSinkTimers.delete(subId)
-    const fromIndex = props.todo.subs.findIndex(s => s.id === subId)
-    if (fromIndex === -1) return
-    if (!sunkSubRank.has(subId)) {
-      const rank = props.todo.subs.slice(0, fromIndex).filter(s => !s.completedAt).length
-      sunkSubRank.set(subId, rank)
-    }
-    store.reorderSub(props.todo.id, subId, props.todo.subs.length - 1)
-  }, SUB_SINK_DELAY_MS))
-}
-
-// Mirror of scheduleSubSink for unchecking: only restores if this sub had
-// actually sunk (sunkSubRank set) — a plain uncheck of a sub that never
-// moved has nothing to undo. Rank is clamped against how many unchecked
-// subs (excluding this one, already unchecked again by the time this
-// runs) currently exist, so it degrades gracefully to "end of the
-// unchecked group" if others were completed/removed while this one sat
-// sunk at the bottom.
-function restoreSunkSub(subId: string) {
-  const rank = sunkSubRank.get(subId)
-  if (rank === undefined) return
-  sunkSubRank.delete(subId)
-  const uncheckedCount = props.todo.subs.filter(s => s.id !== subId && !s.completedAt).length
-  store.reorderSub(props.todo.id, subId, Math.min(rank, uncheckedCount))
-}
+// The actual sink (checking a sub → it moves to the bottom after a delay)
+// and its rank-based restore on unchecking both live in the store now, not
+// here — see Sub.sunkRank's own comment in stores/todos.ts for why: a
+// TodoCard instance doesn't outlive a view switch, but the data (and the
+// pending timer driving it) needs to.
 
 // Half-mode only (see visibleSubs/halfHiddenPendingIds above): a checked sub
 // isn't yanked out of the list instantly, it goes through the same three
 // beats as the rest of this section reads out loud — wait (matching
-// SUB_SINK_DELAY_MS, the same pause scheduleSubSink already gives you to
-// undo an accidental tap), sink (scheduleSubSink's own reorder-to-bottom,
-// already running in parallel, slides it down past the still-open subs),
-// then fade — only once it's actually settled at the bottom, not
-// overlapping the slide.
+// store.SUB_SINK_DELAY_MS, the same pause the store's own sink gives you to
+// undo an accidental tap), sink (the store's reorder-to-bottom, already
+// running in parallel, slides it down past the still-open subs), then fade
+// — only once it's actually settled at the bottom, not overlapping the
+// slide. Purely visual/local to this mounted card, unlike the sink itself —
+// if the card unmounts mid-sequence there's nothing to resume, the sub is
+// just plainly hidden (or shown) next time based on its real completedAt.
 const HALF_HIDE_SETTLE_MS = 350
 const HALF_HIDE_LEAVE_MS = 260
 const pendingHalfHideTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -1241,7 +1191,7 @@ function scheduleHalfHide(subId: string) {
         halfHiddenPendingIds.delete(subId)
       }, HALF_HIDE_LEAVE_MS))
     }, HALF_HIDE_SETTLE_MS))
-  }, SUB_SINK_DELAY_MS))
+  }, store.SUB_SINK_DELAY_MS))
 }
 
 // Toggling the last open sub complete auto-opens the Done/Done-for-today
@@ -1256,14 +1206,9 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
     burstCheckbox(event.currentTarget as HTMLElement)
   }
   if (wasChecked) {
-    cancelSubSink(sub.id)
-    restoreSunkSub(sub.id)
     cancelHalfHide(sub.id)
-  } else {
-    scheduleSubSink(sub.id)
-    if (!cardActuallyOpen.value && props.forceExpandSubs === 'half') {
-      scheduleHalfHide(sub.id)
-    }
+  } else if (!cardActuallyOpen.value && props.forceExpandSubs === 'half') {
+    scheduleHalfHide(sub.id)
   }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
   if (!wasAllDone && nowAllDone && props.mode === 'current' && !showMenu.value) {
@@ -1272,8 +1217,6 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
 }
 
 function handleDeleteSub(subId: string) {
-  cancelSubSink(subId)
-  sunkSubRank.delete(subId)
   cancelHalfHide(subId)
   store.deleteSub(props.todo.id, subId)
 }
@@ -2454,9 +2397,6 @@ watch(pendingDelete, (open) => {
 })
 
 onUnmounted(() => {
-  pendingSubSinkTimers.forEach(timer => clearTimeout(timer))
-  pendingSubSinkTimers.clear()
-  sunkSubRank.clear()
   pendingHalfHideTimers.forEach(timer => clearTimeout(timer))
   pendingHalfHideTimers.clear()
   cardResizeObserver?.disconnect()
