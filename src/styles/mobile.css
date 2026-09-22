@@ -108,8 +108,14 @@
     order: 1;
   }
 
+  /* row-reverse (not just a plain row) — Overview/Current want the icons
+     mirrored here specifically: tag on the left (closest to the content
+     it filters), sort in the middle, subs on the right. DOM order itself
+     stays the shared desktop/tablet one (subs, grid, sort, tag), so
+     desktop's own `order:-1` positioning keeps working unmodified. */
   .sort-nav {
     order: 2;
+    flex-direction: row-reverse;
     margin-left: auto;
   }
 
@@ -128,9 +134,13 @@
   }
 
   /* A bit bigger than the app's usual 22px icon buttons (the shared
-     template default, see App.vue) — asked for explicitly on this row. */
+     template default, see App.vue) — asked for explicitly on this row.
+     .desktop-subs-toggle included so every icon in the row gets the same
+     padding — it otherwise keeps the base .sort-btn 4px (layout.css),
+     which read as a smaller gap next to it than between the other two. */
   .sort-order-btn,
-  .mobile-tags-btn {
+  .mobile-tags-btn,
+  .desktop-subs-toggle {
     padding: 6px;
   }
 
