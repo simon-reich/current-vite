@@ -196,21 +196,6 @@ function editFromAllChecks(check: CheckItem) {
       <span class="viewing-date-label">{{ viewingDateLabel }}</span>
     </div>
 
-    <div v-if="themeStore.subsEnabled && displayedTodos.length" class="expand-subs-row">
-      <span class="expand-subs-label">subs</span>
-      <button
-        type="button"
-        class="switch"
-        role="switch"
-        :aria-checked="themeStore.expandCurrentSubs === 'full'"
-        :title="`subs: ${themeStore.expandCurrentSubs}`"
-        :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
-        @click="themeStore.toggleExpandCurrentSubs()"
-      >
-        <span class="switch-knob" />
-      </button>
-    </div>
-
     <div v-if="displayedTodos.length" class="todo-wrap">
       <TodoCard
         v-for="(todo, index) in displayedTodos"
@@ -361,92 +346,6 @@ function editFromAllChecks(check: CheckItem) {
   font-weight: 700;
   color: var(--ink-dark);
   font-family: var(--font-mono, monospace);
-}
-
-/* Desktop (unqualified — see base.css's breakpoint convention): pinned
-   directly under the Settings button instead of living inline atop the
-   todo list. Same offsets .settings-head itself resolves to — #app's own
-   36px padding + its 16px head padding = 52px from the viewport's right
-   edge — and content-inner's own top offset (36px app padding + 88px
-   header row + 36px content-inner padding = 160px) for the vertical spot
-   this sat at before it left the document flow. Tablet/mobile revert to
-   the original inline row below — Settings doesn't have its own column
-   there to sit under. */
-.expand-subs-row {
-  position: fixed;
-  top: 160px;
-  right: 52px;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Tablet/mobile get their own version instead, replacing the inert tag
-   icon in App.vue's main-head (see App.vue's mobile-subs-toggle) — this
-   inline row would otherwise show up a second time alongside it. */
-@media (max-width: 1024px) {
-  .expand-subs-row {
-    display: none;
-  }
-}
-
-.expand-subs-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  font-family: var(--font-mono, monospace);
-  opacity: 0.7;
-}
-
-/* Same switch look as Settings.vue's daily-shuffle toggle — duplicated
-   here (scoped styles, no shared component) rather than extracted, same
-   footprint as the rest of this app's small styling duplications. */
-.switch {
-  position: relative;
-  flex-shrink: 0;
-  width: 36px;
-  height: 21px;
-  padding: 0;
-  border: 2px solid var(--ink);
-  border-radius: var(--radius);
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.switch:hover {
-  border-color: var(--ink-dark);
-}
-
-.switch.on {
-  background: var(--ink);
-}
-
-.switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: max(0px, calc(var(--radius) - 2px));
-  background: var(--ink);
-  opacity: 0.35;
-  transition: transform 0.15s, background 0.15s, opacity 0.15s;
-}
-
-/* Middle position of the three-state cycle (off → half → full) — track
-   stays unfilled like off, knob just moves halfway and darkens a notch to
-   read as "in between" rather than fully on or off. */
-.switch.half .switch-knob {
-  opacity: 0.7;
-  transform: translateX(7.5px);
-}
-
-.switch.on .switch-knob {
-  background: var(--bg);
-  opacity: 1;
-  transform: translateX(15px);
 }
 
 .empty {

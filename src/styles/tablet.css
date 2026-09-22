@@ -177,6 +177,14 @@
     pointer-events: auto;
   }
 
+  /* Desktop's inline subs-toggle (App.vue's desktop-subs-toggle, left of
+     .sort-nav) — tablet keeps its own separate version instead, grouped
+     into .tablet-left-cluster above (mobile-subs-toggle), so this would
+     otherwise show up a second time alongside it. */
+  .desktop-subs-toggle {
+    display: none;
+  }
+
   /* The real Settings button (desktop's own .settings-head) is hidden here
      in favor of .tablet-settings-btn — a second instance living inside
      .tablet-header-right's own flex row (see above), the same "duplicate

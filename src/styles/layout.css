@@ -123,6 +123,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Only meaningful now that .main-head can hold a second child
+     (.desktop-subs-toggle) beside .main-head-inner — same gap that
+     container uses internally between its own items, so the two read as
+     one continuous row. */
+  gap: 25px;
   padding: 12px 20px 17px;
   animation: shell-fade-in-top 0.4s ease-out both;
   /* The entrance animation above leaves a lingering transform on the final
@@ -178,13 +183,11 @@
   color: var(--ink-dark);
 }
 
-/* Current's subs expand-toggle, replacing the (otherwise inert) tag-icon
-   slot on tablet/mobile — see App.vue's mobile-subs-toggle. Visual look
-   only here; display/flex-direction differ per breakpoint (tablet.css:
-   switch-then-label side by side; mobile.css: label-then-switch stacked)
-   — .mobile-only's own default (display:none) keeps this hidden on
-   desktop, which pins its own separate version under Settings instead
-   (see Current.vue's expand-subs-row). */
+/* Current's subs expand-toggle. Base look shared by all three breakpoint
+   instances (tablet.css: switch-then-label side by side; mobile.css:
+   label-then-switch stacked; App.vue's own desktop-subs-toggle: label
+   above switch, sized down further below to match the other 22px header
+   icons). */
 .mobile-subs-label {
   font-size: 13px;
   font-weight: 600;
@@ -211,13 +214,20 @@
 
 .mobile-subs-switch-knob {
   position: absolute;
-  top: 2px;
+  /* Vertically centered via top:50%/translateY(-50%) rather than a fixed
+     top offset — that only happened to center correctly at this one track
+     height (21px); a fixed px offset doesn't scale to the desktop
+     instance's shorter track below, which is what threw its knob off
+     center. translateX (per state below) rides along on the same
+     transform. */
+  top: 50%;
   left: 2px;
   width: 13px;
   height: 13px;
   border-radius: max(0px, calc(var(--radius) - 2px));
   background: var(--ink);
   opacity: 0.35;
+  transform: translateY(-50%);
   transition: transform 0.15s, background 0.15s, opacity 0.15s;
 }
 
@@ -226,13 +236,40 @@
    app's usual small-styling-duplication convention. */
 .mobile-subs-switch.half .mobile-subs-switch-knob {
   opacity: 0.7;
-  transform: translateX(7.5px);
+  transform: translateY(-50%) translateX(7.5px);
 }
 
 .mobile-subs-switch.on .mobile-subs-switch-knob {
   background: var(--bg);
   opacity: 1;
-  transform: translateX(15px);
+  transform: translateY(-50%) translateX(15px);
+}
+
+/* Desktop only: scaled down from the base size above so the switch reads
+   closer to the other 22px header icons (.sort-btn etc.) than the larger
+   tablet/phone touch-target size — not as small as a first attempt at this
+   (which read as too tiny), same proportions throughout (track/knob/travel
+   distance) at this new size. */
+.desktop-subs-toggle .mobile-subs-label {
+  font-size: 12px;
+}
+
+.desktop-subs-toggle .mobile-subs-switch {
+  width: 30px;
+  height: 17px;
+}
+
+.desktop-subs-toggle .mobile-subs-switch-knob {
+  width: 10px;
+  height: 10px;
+}
+
+.desktop-subs-toggle .mobile-subs-switch.half .mobile-subs-switch-knob {
+  transform: translateY(-50%) translateX(6px);
+}
+
+.desktop-subs-toggle .mobile-subs-switch.on .mobile-subs-switch-knob {
+  transform: translateY(-50%) translateX(12px);
 }
 
 /* .mobile-tags-btn is deliberately not included here — its display:flex
@@ -457,6 +494,21 @@
      This restores its original "first, before the add-input" position
      without needing a duplicate element. */
   order: -1;
+}
+
+/* A sibling of .main-head-inner, not one of its flex items (see App.vue's
+   own comment on why) — DOM order alone puts it left of that whole block,
+   no order/flex trick needed here. `subs` stacked above the switch (not
+   side by side, unlike the tablet/phone version reusing the same classes)
+   keeps its own footprint as small as possible, present on both Overview
+   and Current (unlike .sort-nav, which is Overview-only). */
+.desktop-subs-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .top-nav {
