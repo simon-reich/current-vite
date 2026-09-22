@@ -331,4 +331,37 @@
   .tablet-focus-date-widget-slot {
     display: flex;
   }
+
+  /* ── Current: inline Date-List sidebar, same as desktop ──
+     Overview keeps the overlay panels above (FocusDatePanel/ListsPanel) —
+     only Current switches to a two-column layout here. The list itself is
+     already capped at 640px (Current.vue's .current-view), so a slim nav
+     column beside it still leaves the cards plenty of room even at this
+     breakpoint's narrow end. Selectors are all scoped to #app.is-current,
+     so Overview's own single-column tablet layout above is untouched. */
+  #app.is-current {
+    grid-template-columns: 180px 1fr;
+    column-gap: 16px;
+  }
+
+  #app.is-current .main-head {
+    grid-column: 1 / -1;
+  }
+
+  #app.is-current .sidebar {
+    display: flex;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  #app.is-current .main-content {
+    grid-column: 2;
+  }
+
+  /* The header's "lists" button (ListChecks icon) opened the overlay panel
+     this inline sidebar now replaces — redundant once the nav sits beside
+     the list, same as desktop never showing that button either. */
+  #app.is-current .tablet-focus-date-widget-slot {
+    display: none;
+  }
 }
