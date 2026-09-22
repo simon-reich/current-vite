@@ -1035,6 +1035,7 @@ watch(() => route.path, () => {
       'is-settings': route.path === '/settings',
       'is-calendar': route.path === '/calendar',
       'is-current': route.path === '/current',
+      'date-lists-enabled': themeStore.dateListsEnabled,
       'mobile-tags-open': showMobileTags,
     }"
   >

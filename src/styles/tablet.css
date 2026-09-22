@@ -337,24 +337,26 @@
      only Current switches to a two-column layout here. The list itself is
      already capped at 640px (Current.vue's .current-view), so a slim nav
      column beside it still leaves the cards plenty of room even at this
-     breakpoint's narrow end. Selectors are all scoped to #app.is-current,
-     so Overview's own single-column tablet layout above is untouched. */
-  #app.is-current {
+     breakpoint's narrow end. Selectors are all scoped to
+     #app.is-current.date-lists-enabled — with the feature off, the aside
+     doesn't render at all (App.vue's own v-if), so the grid stays the
+     plain single column above and the list sits flush left same as always. */
+  #app.is-current.date-lists-enabled {
     grid-template-columns: 180px 1fr;
     column-gap: 16px;
   }
 
-  #app.is-current .main-head {
+  #app.is-current.date-lists-enabled .main-head {
     grid-column: 1 / -1;
   }
 
-  #app.is-current .sidebar {
+  #app.is-current.date-lists-enabled .sidebar {
     display: flex;
     grid-column: 1;
     grid-row: 2;
   }
 
-  #app.is-current .main-content {
+  #app.is-current.date-lists-enabled .main-content {
     grid-column: 2;
   }
 
