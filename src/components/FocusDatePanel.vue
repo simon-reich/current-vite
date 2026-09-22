@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { todayStr } from '../composables/useToday'
 import { activeModal } from '../composables/useModalGuard'
 import FocusDateNav from './FocusDateNav.vue'
+import ScrollDivider from './ScrollDivider.vue'
 
 // Tablet-only alternative to DatePickerModal's plain centered calendar,
 // opened by FocusDateWidget instead of that modal when its `panel` prop is
@@ -43,6 +44,17 @@ const dateAttributes = computed(() => [{
 
 const minDate = new Date(todayStr() + 'T00:00:00')
 
+// Mirrors .mobile-tags-panel's own tags-scroll-divider (App.vue) — the
+// calendar is sticky (see .fdp-sticky-head below), so the divider right
+// under it is this panel's equivalent of that sticky header's bottom
+// line, fading in once the Date-List nav has actually scrolled some of
+// itself out from under the calendar.
+const fdpPanelRef = ref<HTMLElement | null>(null)
+const fdpScrolled = ref(false)
+function onFdpScroll() {
+  fdpScrolled.value = (fdpPanelRef.value?.scrollTop ?? 0) > 0
+}
+
 // Same app-wide modal guard every other overlay uses (Escape closes this),
 // registered/cleared as `open` itself changes rather than on mount/unmount
 // — this component stays mounted the whole time the pill exists, only
@@ -59,16 +71,25 @@ watch(() => props.open, (isOpen) => {
       <div v-show="open" class="fdp-backdrop" @click="close" />
     </Transition>
     <Transition name="fdp-slide">
-      <div v-show="open" class="fdp-panel" role="dialog" @click.stop>
-        <VCalendar
-          :attributes="dateAttributes"
-          :min-date="minDate"
-          expanded
-          locale="en"
-          :first-day-of-week="2"
-          class="fdp-calendar"
-          @dayclick="pickDate"
-        />
+      <div v-show="open" ref="fdpPanelRef" class="fdp-panel" role="dialog" @click.stop @scroll="onFdpScroll">
+        <div class="fdp-sticky-head">
+          <!-- trim-weeks drops leading/trailing days from adjacent months
+               as a whole extra row instead of just hiding their numbers
+               (v-calendar's default) — that row was still taking up full
+               height, which is what read as too much space above
+               .fdp-scroll-divider below. -->
+          <VCalendar
+            :attributes="dateAttributes"
+            :min-date="minDate"
+            expanded
+            trim-weeks
+            locale="en"
+            :first-day-of-week="2"
+            class="fdp-calendar"
+            @dayclick="pickDate"
+          />
+          <ScrollDivider class="fdp-scroll-divider" :visible="fdpScrolled" />
+        </div>
         <FocusDateNav />
       </div>
     </Transition>
@@ -109,21 +130,15 @@ watch(() => props.open, (isOpen) => {
   background: var(--bg);
   border-left: 2px solid var(--ink);
   box-shadow: -6px 0 0 var(--ink);
-  /* Top padding matches #app's own 18px + .main-head's 14px (tablet.css)
-     so the panel's content starts at the same height as the todo-input
-     field beside it — visual congruence with the main view, not an
-     arbitrary number. */
-  padding: 32px 18px 20px;
+  /* No top padding here anymore — it moved onto .fdp-sticky-head itself
+     (see that rule) so the sticky calendar's own opaque box covers that
+     whole band instead of leaving it as bare .fdp-panel padding above a
+     sticky child, which is what let content scrolling up behind the
+     calendar peek through above it before settling into place. */
+  padding: 0 18px 20px;
   overflow-y: auto;
   scrollbar-width: none;
   z-index: 10001;
-  /* Same fade-on-scroll mask as .sidebar-scroll (layout.css, incl. the
-     "why 32px" comment there) — no divider inside this panel to protect,
-     so it applies directly here. The bottom fade slightly overlaps this
-     panel's own 20px bottom padding at rest for a short list, same
-     accepted trade-off as .sidebar-scroll. */
-  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
 }
 
 .fdp-panel::-webkit-scrollbar {
@@ -142,7 +157,28 @@ watch(() => props.open, (isOpen) => {
   transform: translateX(100%);
 }
 
+/* Sticks the calendar (+ its own divider right below) to the top of
+   .fdp-panel's scroll while the Date-List nav (FocusDateNav) scrolls
+   underneath it — mirrors .mobile-tags-head's own sticky-header role in
+   the tag panel. Grouping calendar + divider in one sticky wrapper means
+   the divider always sits flush right under the calendar regardless of
+   the calendar's own (expanded-month-dependent) height, no manual offset
+   needed. z-index matches .mobile-tags-head's own. */
+.fdp-sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  /* Matches #app's own 18px + .main-head's 14px (tablet.css) — moved here
+     from .fdp-panel's own padding (see that rule's comment). */
+  padding-top: 32px;
+}
+
 .fdp-calendar {
   width: 100%;
+}
+
+.fdp-scroll-divider {
+  margin-top: 0;
 }
 </style>

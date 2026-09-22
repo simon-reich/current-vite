@@ -542,9 +542,11 @@
      band that stayed strictly under the 36px/16px top/bottom gaps below
      was technically correct but too subtle to actually notice) — the
      trade-off is the bottom fade now slightly overlaps a short list's
-     last item even at rest, which reads fine in practice. */
-  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+     last item even at rest, which reads fine in practice. Bottom stays
+     fully transparent for a 45px margin before the actual edge (not just
+     exactly at it), same as .sidebar-right's own bottom. */
+  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
 }
 
 .sidebar-scroll::-webkit-scrollbar {
@@ -756,12 +758,17 @@
 .sidebar-right {
   grid-column: 3;
   /* Same fade-on-scroll as .sidebar-scroll (see that rule's comment for
-     why 32px, including the "slightly overlaps a short list's last item
-     at rest" trade-off) — applied directly to .sidebar-right itself
-     since it has no divider to protect and scrolls on itself (inherited
-     overflow-y from .sidebar above). */
-  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+     why 32px at the top, including the "slightly overlaps a short list's
+     last item at rest" trade-off) — applied directly to .sidebar-right
+     itself since it has no divider to protect and scrolls on itself
+     (inherited overflow-y from .sidebar above). The bottom fade stays
+     fully transparent for a 45px margin before the actual edge (not just
+     exactly at it), same as .sidebar-scroll's own bottom —
+     .shortcuts-corner-hint's "Press Y..." sits fixed over this column's
+     bottom-right corner, and a chip needs to be fully gone by the time
+     it's back there, not just partway faded. */
+  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
 }
 
 /* Right column: same .tag-list as the left sidebar, but every row
@@ -1144,13 +1151,6 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  /* Same fade-on-scroll as .sidebar-scroll (layout.css, same section) —
-     bottom edge only. The top edge already has the sticky
-     .mobile-tags-head sitting solidly over it (its own opaque --bg
-     background, well taller than this fade distance), so masking the
-     whole panel here never touches it or its own .tags-scroll-divider. */
-  mask-image: linear-gradient(to top, transparent, black 32px);
-  -webkit-mask-image: linear-gradient(to top, transparent, black 32px);
 }
 
 .mobile-tags-panel::-webkit-scrollbar {

@@ -294,8 +294,11 @@
 
   .tags-scroll-divider {
     position: absolute;
-    left: 0;
-    right: 0;
+    /* Inset to match .fdp-scroll-divider's own look (FocusDatePanel.vue) —
+       a short line with breathing room either side, not full-bleed, so
+       both tablet side panels read the same way. */
+    left: 18px;
+    right: 18px;
     bottom: 0;
   }
 
