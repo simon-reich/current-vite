@@ -77,7 +77,11 @@
     display: flex;
     grid-area: left;
     align-items: center;
-    gap: 14px;
+    /* Same 6px .sort-nav already uses for its own icons (layout.css) —
+       reused here, not a separately eyeballed value, so the tag button
+       and the grid/sort icons right next to it read as one evenly
+       spaced row instead of two clusters with different gaps. */
+    gap: 6px;
     justify-content: flex-start;
   }
 
@@ -214,6 +218,44 @@
     padding: 4px;
     align-items: center;
     flex-shrink: 0;
+  }
+
+  /* The tag button now lives inside .phone-overview-icon-group (added for
+     phone's own header row, see mobile.css), which stays display:none at
+     this breakpoint by default (.mobile-only, layout.css) — re-enabled
+     here so the tag button reappears in .tablet-left-cluster, where it
+     sat before that group existed. Its two siblings (sort, subs) are left
+     hidden: .sort-nav right above already renders both for this route/
+     breakpoint (desktop-subs-toggle, grid/sort icons) — showing them here
+     too would just duplicate that same row. */
+  .phone-overview-icon-group {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Sized up to 26px for phone's own row (mobile.css comment: "asked for
+     explicitly here, this row only") — reused as-is here since it's the
+     same shared button, but that stands out next to .sort-nav's 22px
+     grid/sort icons right beside it at this breakpoint, so it's scaled
+     back down to match them. */
+  .phone-overview-tags-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .phone-overview-icon-group .phone-overview-sort-btn,
+  .phone-overview-icon-group .mobile-subs-toggle {
+    display: none;
+  }
+
+  /* Current's own icon-group instance only ever holds the (now hidden)
+     subs-toggle — the tag/priority/sort template right above it is
+     `/all`-only. Left as display:flex it would still be an empty flex
+     item consuming a `gap` from .tablet-left-cluster, nudging Current's
+     desktop-subs-toggle away from the left edge; removed from the flex
+     flow entirely instead. */
+  #app.is-current .phone-overview-icon-group {
+    display: none;
   }
 
   #app.is-settings .mobile-tags-btn,
