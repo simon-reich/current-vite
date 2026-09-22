@@ -183,11 +183,11 @@
   color: var(--ink-dark);
 }
 
-/* Current's subs expand-toggle. Base look shared by all three breakpoint
-   instances (tablet.css: switch-then-label side by side; mobile.css:
-   label-then-switch stacked; App.vue's own desktop-subs-toggle: label
-   above switch, sized down further below to match the other 22px header
-   icons). */
+/* Current's subs expand-toggle — the one shared .desktop-subs-toggle
+   element (App.vue), stacked switch-above-label on desktop/phone (see
+   .desktop-subs-toggle below), reused as-is on tablet where it instead
+   goes side by side (switch-then-label row-reverse, see tablet.css). Sized
+   down further below to match the other 22px header icons. */
 .mobile-subs-label {
   font-size: 13px;
   font-weight: 600;
@@ -281,6 +281,18 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+/* ArrowUpDown (lucide) is a narrow, vertically-oriented glyph that leaves
+   a lot of inherent whitespace left/right inside its own icon box —
+   next to the grid icon (fills its box edge to edge) and the subs switch
+   (a flush-edged track), the same numeric .sort-nav gap on both sides of
+   it reads as visually bigger. Trimmed horizontal padding only, so the
+   glyph itself sits closer to its neighbors without changing the
+   vertical rhythm shared with every other .sort-btn. */
+.sort-order-btn {
+  padding-left: 2px;
+  padding-right: 2px;
 }
 
 .add-wrapper {
@@ -514,11 +526,11 @@
 /* First item inside .sort-nav (see App.vue) — also carries .sort-btn
    itself, so padding/hover/cursor/color are that one shared definition,
    not a second copy of it. Only overrides what actually needs to differ
-   from a plain single-icon .sort-btn: stacked layout (`subs` above the
-   switch, not side by side like the tablet/phone version reusing the same
+   from a plain single-icon .sort-btn: stacked layout (switch above
+   `subs`, not side by side like the tablet version reusing the same
    label/switch classes) and a tighter internal gap between the two. */
 .desktop-subs-toggle {
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 1px;
 }
 
