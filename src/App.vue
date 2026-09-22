@@ -910,6 +910,20 @@ function toggleSort() {
 const listView = ref(false)
 provide('listView', listView)
 
+// ── Desktop subs-toggle (App.vue's own header icon, see .sort-nav) ──
+// Overview and Current each expand their own subs independently
+// (themeStore.expandOverviewSubs/expandCurrentSubs) — same header slot,
+// but reading/toggling whichever state belongs to the route currently
+// showing, so hiding subs in Overview has no effect on Current staying
+// expanded and vice versa.
+const desktopSubsState = computed(() =>
+  route.path === '/current' ? themeStore.expandCurrentSubs : themeStore.expandOverviewSubs
+)
+function toggleDesktopSubs() {
+  if (route.path === '/current') themeStore.toggleExpandCurrentSubs()
+  else themeStore.toggleExpandOverviewSubs()
+}
+
 // ── Settings toggle ──
 // Returns to whichever of the three main views was actually open before —
 // not hardcoded to Overview — so the X shortcut (and the Settings button
@@ -1070,9 +1084,9 @@ watch(() => route.path, () => {
              here in the template has no visual effect on desktop besides
              that. -->
         <div class="tablet-left-cluster">
-          <!-- Desktop: one shared flex container (.sort-nav, same `gap`
-               used for every icon cluster in this app — see .top-nav) for
-               the subs-toggle + grid/list + sort-order icons, so the gap
+          <!-- One shared flex container (.sort-nav, same `gap` used for
+               every icon cluster in this app — see .top-nav) for the
+               subs-toggle + grid/list + sort-order icons, so the gap
                between the toggle and the grid icon is driven by the exact
                same property as the gap between the grid and sort icons
                right next to it, not two separately eyeballed numbers that
@@ -1087,7 +1101,11 @@ watch(() => route.path, () => {
                entirely, was working around). Present whenever Overview's
                grid/sort icons are (route === '/all') or the toggle alone
                is (subsEnabled, Current included) — empty/zero-width
-               otherwise. -->
+               otherwise. Desktop places the toggle before the grid/sort
+               icons; tablet reorders it to sit after them instead (see
+               .desktop-subs-toggle's `order` in tablet.css) — still this
+               exact same container/markup either way, no separate tablet
+               copy of it. -->
           <div
             v-if="route.path === '/all' || (route.path === '/current' && themeStore.subsEnabled)"
             class="sort-nav desktop-only"
@@ -1095,16 +1113,16 @@ watch(() => route.path, () => {
             <div
               v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
               class="sort-btn desktop-subs-toggle"
-              :title="`subs: ${themeStore.expandCurrentSubs}`"
-              @click="themeStore.toggleExpandCurrentSubs()"
+              :title="`subs: ${desktopSubsState}`"
+              @click="toggleDesktopSubs"
             >
               <span class="mobile-subs-label">subs</span>
               <button
                 type="button"
                 class="mobile-subs-switch"
                 role="switch"
-                :aria-checked="themeStore.expandCurrentSubs === 'full'"
-                :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
+                :aria-checked="desktopSubsState === 'full'"
+                :class="{ half: desktopSubsState === 'half', on: desktopSubsState === 'full' }"
               >
                 <span class="mobile-subs-switch-knob" />
               </button>
@@ -1129,7 +1147,9 @@ watch(() => route.path, () => {
             </template>
           </div>
 
-          <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
+          <!-- Phone only now (mobile-only — tablet shows the icon-style
+               desktop-subs-toggle inside .sort-nav above instead, see
+               tablet.css): tag panel toggle, or direct All/Priority toggle
                when tags are off — but in Current, tags are always inert (see
                #app.is-current's own dimming rules), so this slot shows the
                subs expand-toggle instead whenever Subs are enabled, taking

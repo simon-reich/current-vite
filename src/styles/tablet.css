@@ -177,14 +177,23 @@
     pointer-events: auto;
   }
 
-  /* Desktop's inline subs-toggle (App.vue's desktop-subs-toggle, now the
-     first item inside .sort-nav itself) — tablet keeps its own separate
-     version instead, grouped into .tablet-left-cluster above
-     (mobile-subs-toggle), so this would otherwise show up a second time
-     alongside it. .sort-nav's other two icons (grid/sort) are unaffected,
-     same as before. */
+  /* Same icon-style subs-toggle as desktop now (App.vue's
+     desktop-subs-toggle, the first item inside .sort-nav) — shown here too
+     instead of hidden, replacing tablet's own former separate switch-style
+     version (.mobile-subs-toggle, now unused at this breakpoint — see
+     below). Desktop places it before the grid/sort icons; tablet wants it
+     after the sort icon instead, so it gets pushed to the end of the same
+     shared .sort-nav flex row via `order` alone — still the one shared
+     container/gap. Layout reverts to side by side here — row-reverse (not
+     plain row) because the label comes first in the DOM but has to end up
+     on the right, switch on the left, matching the old .mobile-subs-toggle
+     layout. Sizing itself is left untouched, i.e. the same already-tuned
+     smaller-than-original desktop size (layout.css) — reused as is rather
+     than a third size tuned separately for this breakpoint too. */
   .desktop-subs-toggle {
-    display: none;
+    order: 1;
+    flex-direction: row-reverse;
+    gap: 6px;
   }
 
   /* The real Settings button (desktop's own .settings-head) is hidden here
@@ -227,17 +236,6 @@
   #app.is-current .mobile-tags-btn {
     pointer-events: none;
     opacity: 0.35;
-  }
-
-  /* Same spot the tag icon sits in (both live inside .tablet-left-cluster
-     now, see above) — row-reverse so the switch (visually first, per its
-     own DOM order it's second) sits where the icon used to, with the
-     "subs" label to its right. */
-  .mobile-subs-toggle {
-    display: flex;
-    align-items: center;
-    flex-direction: row-reverse;
-    gap: 6px;
   }
 
   /* ── Tag panel: mirrors Overview's Date-List side panel

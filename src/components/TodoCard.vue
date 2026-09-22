@@ -765,6 +765,18 @@ const visibleSubs = computed(() =>
     : props.todo.subs
 )
 
+// A force-expanded-but-still-closed card (the toggle showing its subs to
+// skim, not an actual open/edit) widens to the row's full width the same
+// way .tag-editing already does for an actually-open card (see
+// .todo-card-wrap.subs-expanded below, same technique) — otherwise a card
+// with several subs sits at its narrow title-only width while its sub-list
+// wraps inside that, leaving a large empty gap beside it in the row. An
+// actually-open card already gets that same width via .tag-editing, so
+// this only needs to cover the closed case.
+const subsExpandedWide = computed(() =>
+  !cardActuallyOpen.value && subsVisible.value && visibleSubs.value.length > 0
+)
+
 // Half-mode hides completed subs entirely (see visibleSubs above) — this
 // surfaces that there's more to see without opening the card, but only
 // while there's actually something hidden to report. A sub still mid-vanish
@@ -2459,7 +2471,7 @@ onUnmounted(() => {
   <div
     ref="wrapRef"
     class="todo-card-wrap"
-    :class="{ 'tag-editing': showTagMenu, dragging: isLifted }"
+    :class="{ 'tag-editing': showTagMenu, 'subs-expanded': subsExpandedWide, dragging: isLifted }"
     :style="isGripped && fixedOrigin ? {
       position: 'fixed',
       top: fixedOrigin.top + 'px',
@@ -3085,22 +3097,32 @@ onUnmounted(() => {
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-/* While editing a todo's tags, the card grows to fill the row's available
-   width instead of staying shrink-to-fit around the title — same idea as
-   .add-tag-row's dropdown, just by widening the card itself rather than
-   floating a separate overlay. Long tag labels get room to breathe and
-   still truncate via .tag-row-opt's ellipsis if they exceed even that. */
+/* While editing a todo's tags, or while a force-expanded-but-still-closed
+   card is showing its subs to skim (subsExpandedWide in the script), the
+   card grows to fill the row's available width instead of staying
+   shrink-to-fit around the title — same idea as .add-tag-row's dropdown,
+   just by widening the card itself rather than floating a separate
+   overlay. Long tag labels/sub-lists get room to breathe and still
+   truncate/wrap via their own rules if they exceed even that. One shared
+   rule for both triggers (rather than two separately stated but identical
+   ones) — same effect, same reason, so a future change to it only needs
+   one place. */
 .todo-card-wrap.tag-editing,
 .todo-card-wrap.tag-editing .swipe-container,
-.todo-card-wrap.tag-editing .todo-card {
+.todo-card-wrap.tag-editing .todo-card,
+.todo-card-wrap.subs-expanded,
+.todo-card-wrap.subs-expanded .swipe-container,
+.todo-card-wrap.subs-expanded .todo-card {
   width: 100%;
 }
 
 /* .todo-card's own max-width:600px (below) exists to stop short-title
    cards from stretching absurdly wide on desktop — but it also caps the
    width:100% above, so on wide desktop rows the widened card stalls at
-   600px instead of actually filling the row. Only lift it while editing. */
-.todo-card-wrap.tag-editing .todo-card {
+   600px instead of actually filling the row. Only lift it while editing
+   or force-expanded (see above). */
+.todo-card-wrap.tag-editing .todo-card,
+.todo-card-wrap.subs-expanded .todo-card {
   max-width: none;
 }
 

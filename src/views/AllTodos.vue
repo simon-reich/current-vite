@@ -135,6 +135,7 @@ function sendToFocusDate(id: string) {
         :sibling-ids="siblingIds"
         :index="index"
         :grid-mode="true"
+        :force-expand-subs="themeStore.expandOverviewSubs"
         mode="all"
         @send-to-current="sendToCurrent"
         @send-to-focus-date="sendToFocusDate"

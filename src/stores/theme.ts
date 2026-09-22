@@ -25,12 +25,17 @@ export const useThemeStore = defineStore('theme', () => {
   // where new "plan ahead" assignments go. Persists across reloads (see
   // plan discussion) so multi-day planning doesn't reset on every visit.
   const selectedFocusDate = ref(todayStr())
-  // Current-only: force every card's sub-list open without having to expand
-  // each one individually — see Current.vue's own toggle switch. Three-state
+  // Force every card's sub-list open without having to expand each one
+  // individually — see App.vue's desktop-subs-toggle (and Current.vue's/
+  // AllTodos.vue's own force-expand-subs prop on TodoCard). Three-state
   // instead of a plain boolean: 'off' (collapsed, same as before), 'half'
   // (open, but only unchecked subs — skim what's left to do), 'full' (open,
-  // every sub including already-checked ones).
+  // every sub including already-checked ones). Current and Overview each
+  // get their own independent state — expanding subs in one view has no
+  // bearing on the other, same as the two used to be two entirely separate
+  // features before Overview got its own toggle.
   const expandCurrentSubs = ref<'off' | 'half' | 'full'>('off')
+  const expandOverviewSubs = ref<'off' | 'half' | 'full'>('off')
   const savedThemes = ref<ColorTheme[]>([])
   const dailyThemeRotationEnabled = ref(false)
   // Last date (YYYY-MM-DD) a rotation actually happened — guards against
@@ -87,6 +92,12 @@ export const useThemeStore = defineStore('theme', () => {
       expandCurrentSubs.value === 'half' ? 'full' : 'off'
   }
 
+  function toggleExpandOverviewSubs() {
+    expandOverviewSubs.value =
+      expandOverviewSubs.value === 'off' ? 'half' :
+      expandOverviewSubs.value === 'half' ? 'full' : 'off'
+  }
+
   function saveTheme(name: string) {
     savedThemes.value.push({
       id: uuid(),
@@ -130,9 +141,9 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   return {
-    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandCurrentSubs, savedThemes,
+    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandCurrentSubs, expandOverviewSubs, savedThemes,
     dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate,
-    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandCurrentSubs, saveTheme, deleteTheme, loadTheme,
+    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
     toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
   }
 }, { persist: true })
