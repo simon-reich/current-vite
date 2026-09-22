@@ -63,6 +63,23 @@ export function spawnRemovedFromCurrentToast(todoId: string) {
 // just labeled with the target date instead of "Current".
 // Same "today"/"tomorrow" special-casing as FocusDateWidget/TodoCard's
 // swipe-zone label — this fires for the exact same plan-ahead action.
+// Confirms the todo was actually created — the add-todo input (desktop's
+// inline dropdown, or the phone panel, see App.vue's addTodo) never
+// closes on its own after saving, staying open so the next todo can be
+// typed straight away, so this is the only feedback that anything
+// happened. Anchored to whichever title input is actually on screen
+// right now (App.vue passes it in) rather than a fixed spot, since that
+// differs a lot between the desktop dropdown and the full-screen phone
+// panel.
+export function spawnTodoAddedToast(anchorEl: HTMLElement | null) {
+  const rect = anchorEl?.getBoundingClientRect()
+  spawnToast(
+    'todo added',
+    rect ? `${rect.left + rect.width / 2}px` : '50%',
+    rect ? `${rect.bottom + 10}px` : '20vh',
+  )
+}
+
 export function spawnPlannedForDateToast(todoId: string, dateStr: string) {
   let label: string
   if (dateStr === todayStr()) label = 'today'

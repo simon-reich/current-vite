@@ -12,7 +12,7 @@ import { useScrollTracking } from './composables/useScrollTracking'
 import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickExpand'
 import { activeModal } from './composables/useModalGuard'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
-import { toasts, spawnToast, spawnSentToCurrentToast } from './composables/useToast'
+import { toasts, spawnToast, spawnSentToCurrentToast, spawnTodoAddedToast } from './composables/useToast'
 import { todayStr, tomorrowStr } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
@@ -703,12 +703,26 @@ const effectiveFilterTagIds = computed(() =>
 // ── Add todo ──
 const todoInput = ref('')
 const todoInputRef = ref<HTMLInputElement | null>(null)
+const mobileTodoInputRef = ref<HTMLInputElement | null>(null)
 const showTagModal = ref(false)
 const newTodoTagIds = ref<string[]>([])
 const newTodoLoopInterval = ref<LoopInterval | undefined>(undefined)
 const newTodoSubs = ref<string[]>([])
 const newSubDraft = ref('')
 const newSubInputRef = ref<HTMLInputElement | null>(null)
+const mobileSubInputRef = ref<HTMLInputElement | null>(null)
+
+// The clear (X) button next to the title wipes the *whole* draft (see
+// clearTodoInput), so it should show whenever there's anything at all to
+// clear — a selected tag, a staged sub, an in-progress sub draft, a loop
+// interval — not just when the title itself has text.
+const hasTodoDraft = computed(() =>
+  !!todoInput.value.length ||
+  !!newTodoTagIds.value.length ||
+  !!newTodoSubs.value.length ||
+  !!newSubDraft.value.length ||
+  !!newTodoLoopInterval.value
+)
 
 // Tags off: the add-todo checkbox row still offers the priority tag (it's
 // not a real tag from the user's point of view, just the marker the
@@ -726,19 +740,6 @@ watch(newTodoTagIds, (ids) => {
   }
 })
 
-// Deleting the title back down to nothing discards the rest of the draft
-// (tags, loop interval) immediately, same as the X button — typing it
-// back doesn't un-delete a todo, so there's nothing to preserve once the
-// title itself is gone.
-watch(todoInput, (val) => {
-  if (!val) {
-    newTodoTagIds.value = []
-    newTodoLoopInterval.value = undefined
-    newTodoSubs.value = []
-    newSubDraft.value = ''
-  }
-})
-
 // Enter commits the draft into newTodoSubs and clears+refocuses the same
 // input, same "next line opens" illusion as TodoCard.vue's own sub input.
 function commitNewSub() {
@@ -746,6 +747,13 @@ function commitNewSub() {
   if (!trimmed) return
   newTodoSubs.value.push(trimmed)
   newSubDraft.value = ''
+}
+
+// Same idea as focusTodoInput — whichever sub input is actually visible
+// right now gets focus.
+function focusSubInput() {
+  if (isPhoneWidth.value && isAddSheetRoute.value) mobileSubInputRef.value?.focus()
+  else newSubInputRef.value?.focus()
 }
 
 // Tab out of the title input jumps straight into the sub draft input
@@ -759,6 +767,15 @@ function onTodoTitleTabKeydown(e: KeyboardEvent) {
   nextTick(() => newSubInputRef.value?.focus())
 }
 
+// Enter in the title jumps to the sub draft instead of submitting
+// straight away, same destination as Tab (see onTodoTitleTabKeydown) —
+// only when subs are actually a thing to jump to; otherwise Enter still
+// just submits like before.
+function onTodoTitleEnter() {
+  if (themeStore.subsEnabled) nextTick(focusSubInput)
+  else addTodo()
+}
+
 // Mirrors onTodoTitleTabKeydown the other way — only one sub field exists
 // here (already-added subs are plain chips, not fields), so both
 // directions of the cycle collapse to the same single hop back to the
@@ -768,18 +785,25 @@ function onTodoTitleTabKeydown(e: KeyboardEvent) {
 function onSubDraftKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault()
-    commitNewSub()
+    // An empty draft means there's nothing left to add as a sub — Enter
+    // here reads as "I'm done", same as pressing it in the title itself
+    // normally would, so it submits the whole todo instead of no-op'ing.
+    if (!newSubDraft.value.trim()) addTodo()
+    else commitNewSub()
     return
   }
   if (e.key === 'Tab') {
     e.preventDefault()
-    todoInputRef.value?.focus()
+    focusTodoInput()
     return
   }
   if (e.key === 'Escape') {
     e.preventDefault()
     showTagModal.value = false
-    newSubInputRef.value?.blur()
+    // Blurs whichever field the event actually fired on (desktop's own
+    // sub input, or the phone panel's — that one has no dedicated ref,
+    // see mobileTodoInputRef's comment) rather than a single hardcoded one.
+    ;(e.target as HTMLElement)?.blur()
   }
 }
 
@@ -803,10 +827,11 @@ function onTodoBlur() {
     // A title's actually been typed — clicking away almost certainly means
     // glancing at something else, not abandoning the todo, so the draft
     // (title, tags, loop interval) stays staged for whenever the input is
-    // focused again. Still fully discarded by the X button, deleting the
-    // title back down to nothing (see the todoInput watch below), or
-    // switching views (see the route watch above) — Escape included, since
-    // that also just blurs the input and lands here.
+    // focused again. An *empty* title on blur, though, does mean
+    // abandoning it, so the whole draft (any staged tags/subs included)
+    // is discarded here — same as the X button (see clearTodoInput) or
+    // switching views (see the route watch above). Escape is included
+    // too, since that also just blurs the input and lands here.
     if (!todoInput.value.trim()) resetTodoDraft()
   }, 200)
 }
@@ -823,7 +848,8 @@ function onTodoBlur() {
 function onTodoInputEscape() {
   if (activeModal.value) return
   showTagModal.value = false
-  todoInputRef.value?.blur()
+  if (addSheetOpen.value) closeAddSheet()
+  else todoInputRef.value?.blur()
 }
 
 function keepTodoModalOpen() {
@@ -836,9 +862,11 @@ function keepTodoModalOpen() {
 
 // Fully discards whatever's staged (title, tags, loop interval) — called
 // from the cases that actually mean "start over": blurring an empty
-// input, deleting the title back to nothing, the X button, and switching
-// views. A blur with a title still typed does *not* call this — see
-// onTodoBlur.
+// input, the X button (see clearTodoInput), and switching views. Deleting
+// the title back to nothing on its own does *not* call this anymore —
+// tags/subs stay staged, only the title itself is gone, so re-typing a
+// title picks the draft back up instead of starting over. A blur with a
+// title still typed does *not* call this either — see onTodoBlur.
 function resetTodoDraft() {
   todoInput.value = ''
   newTodoTagIds.value = []
@@ -847,18 +875,34 @@ function resetTodoDraft() {
   newSubDraft.value = ''
 }
 
+// Whichever input is actually visible right now — the desktop/tablet
+// inline one, or the phone panel's own (see mobileTodoInputRef) — gets
+// focus, not always the same fixed ref.
+function currentTodoInputEl() {
+  return isPhoneWidth.value && isAddSheetRoute.value ? mobileTodoInputRef.value : todoInputRef.value
+}
+
+function focusTodoInput() {
+  currentTodoInputEl()?.focus()
+}
+
+// The X button — unlike backspacing the title down to nothing (see
+// resetTodoDraft's comment), this is an explicit "start over" action, so
+// it discards the whole draft, not just the title.
 function clearTodoInput() {
-  todoInput.value = ''
-  todoInputRef.value?.focus()
+  resetTodoDraft()
+  focusTodoInput()
 }
 
 function addTodo() {
   if (!todoInput.value.trim()) return
+  const inputEl = currentTodoInputEl()
   const todo = store.addTodo(todoInput.value, {
     tags: [...newTodoTagIds.value],
     loopInterval: newTodoTagIds.value.includes(LOOP_TAG_ID) ? newTodoLoopInterval.value : undefined,
     subs: [...newTodoSubs.value],
   })
+  spawnTodoAddedToast(inputEl)
   // A Date todo (once or loop) not actually due yet shouldn't land on
   // Current just because it was typed there — same rule as any other Date
   // todo, which only ever auto-joins Current once it's due (see
@@ -888,7 +932,11 @@ function addTodo() {
     }, 600)
   }
   resetTodoDraft()
-  todoInputRef.value?.blur()
+  // Stays open and refocused (not blurred) — the add-todo input never
+  // closes on its own after saving (desktop dropdown or phone panel
+  // alike), so the next todo can be typed immediately; the toast above
+  // is what confirms the previous one actually saved.
+  nextTick(focusTodoInput)
 }
 
 // Same rule runLoopSchedule follows for an already-existing due Date Todo:
@@ -996,6 +1044,42 @@ watch(() => route.path, (path, prevPath) => {
   }
 })
 
+// ── Phone breakpoint, tracked reactively (mirrors mobile.css's own
+// max-width: 700px) — needed so focusTodoInput below knows which of the
+// two add-todo inputs (desktop's inline one, or the phone panel's own,
+// see mobileTodoInputRef) is actually the visible one.
+const PHONE_BREAKPOINT = 700
+const isPhoneWidth = ref(window.innerWidth <= PHONE_BREAKPOINT)
+function updateIsPhoneWidth() { isPhoneWidth.value = window.innerWidth <= PHONE_BREAKPOINT }
+onMounted(() => window.addEventListener('resize', updateIsPhoneWidth))
+onUnmounted(() => window.removeEventListener('resize', updateIsPhoneWidth))
+
+// ── Actual visible viewport height, tracked via the VisualViewport API
+// (falls back to innerHeight where that API doesn't exist) — the
+// add-todo panel (see .add-sheet in mobile.css) sizes itself to this in
+// px instead of a CSS viewport unit (100svh etc.), so it ends exactly at
+// the on-screen keyboard instead of extending underneath it — typed
+// content/tags no longer disappear behind the keyboard, and the
+// close-swipe handle at the panel's own bottom edge naturally lands
+// right above the keyboard too, no separate offset needed. This is
+// traded directly against index.html's own interactive-widget setting
+// (see its comment there): with the keyboard properly shrinking the
+// visible viewport like this, Firefox for Android's address-bar chrome
+// can go back to collapsing on scroll — accepted on purpose, the panel
+// working correctly matters more.
+const visibleViewportHeight = ref(window.visualViewport?.height ?? window.innerHeight)
+function updateVisibleViewportHeight() {
+  visibleViewportHeight.value = window.visualViewport?.height ?? window.innerHeight
+}
+onMounted(() => {
+  window.visualViewport?.addEventListener('resize', updateVisibleViewportHeight)
+  window.addEventListener('resize', updateVisibleViewportHeight)
+})
+onUnmounted(() => {
+  window.visualViewport?.removeEventListener('resize', updateVisibleViewportHeight)
+  window.removeEventListener('resize', updateVisibleViewportHeight)
+})
+
 // ── Scroll dividers ──
 const mainContentRef = useTemplateRef<HTMLElement>('mainContent')
 const contentInnerRef = useTemplateRef<HTMLElement>('contentInner')
@@ -1038,8 +1122,81 @@ watch(() => route.path, () => {
   const el = mainContentRef.value
   if (el) el.scrollTop = 0
   if (sidebarRef.value) sidebarRef.value.scrollTop = 0
+  addSheetOpen.value = false
   nextTick(checkScrollState)
 })
+
+// ── Phone Overview + Current: add-todo panel (see .add-sheet in
+// mobile.css) — the header's Plus button slides it down as a fixed-
+// position overlay, Teleported to <body> (see the Teleport's own comment
+// in the template for why). An in-flow rebuild (taking .main-content's
+// place in #app instead of overlaying it) was tried and reverted: it
+// didn't fix Firefox's address-bar-collapse-on-scroll bug either, and it
+// had its own worse trade-off (a blank screen behind the panel once
+// swiped away, since .main-content was hidden rather than just covered).
+// What actually fixed the address-bar bug is index.html's
+// interactive-widget=overlays-content — see its own comment there,
+// including the noted-but-unverified tablet side effect. Closed by the
+// panel's own close button, Escape (see onTodoInputEscape), or a
+// decisive swipe-up on its own handle (see onSheetHandlePointerDown
+// below).
+const addSheetOpen = ref(false)
+const isAddSheetRoute = computed(() => route.path === '/all' || route.path === '/current')
+
+// Experiment: focus first (the mobile input is already in the DOM,
+// just translated off-screen — see .add-sheet's v-if vs. its `open`
+// class), waiting for the keyboard to actually finish sliding up before
+// the panel itself starts its own slide-down — testing whether the
+// panel/keyboard mis-sizing is a race between the two animations rather
+// than visualViewport just never reporting the keyboard at all.
+function openAddSheet() {
+  addSheetOpen.value = true
+  nextTick(focusTodoInput)
+}
+function closeAddSheet() {
+  addSheetOpen.value = false
+  mobileTodoInputRef.value?.blur()
+}
+
+// ── Swipe a dedicated handle (bottom of the panel) up to close it —
+// separate from the content area entirely, so it never has to guess
+// "was that a scroll or a close swipe" the way dragging from inside the
+// scrollable content itself would. Mirrors the panel's own entrance
+// (slides down from the top) by sliding it back up under the finger,
+// snapping either fully closed or back open on release depending on how
+// far it got dragged.
+const addSheetRef = useTemplateRef<HTMLElement>('addSheet')
+let sheetHandleDragging = false
+let sheetHandleStartY = 0
+
+function onSheetHandlePointerDown(e: PointerEvent) {
+  sheetHandleDragging = true
+  sheetHandleStartY = e.clientY
+  const el = addSheetRef.value
+  if (el) el.style.transition = 'none'
+  window.addEventListener('pointermove', onSheetHandlePointerMove)
+  window.addEventListener('pointerup', onSheetHandlePointerUp)
+}
+function onSheetHandlePointerMove(e: PointerEvent) {
+  if (!sheetHandleDragging) return
+  const el = addSheetRef.value
+  if (!el) return
+  const dragUp = Math.max(0, sheetHandleStartY - e.clientY)
+  el.style.transform = `translateY(${-dragUp}px)`
+}
+function onSheetHandlePointerUp(e: PointerEvent) {
+  window.removeEventListener('pointermove', onSheetHandlePointerMove)
+  window.removeEventListener('pointerup', onSheetHandlePointerUp)
+  if (!sheetHandleDragging) return
+  sheetHandleDragging = false
+  const dragUp = Math.max(0, sheetHandleStartY - e.clientY)
+  const el = addSheetRef.value
+  if (el) {
+    el.style.transition = ''
+    el.style.transform = ''
+  }
+  if (dragUp > 80) closeAddSheet()
+}
 </script>
 
 <template>
@@ -1049,6 +1206,7 @@ watch(() => route.path, () => {
       'is-settings': route.path === '/settings',
       'is-calendar': route.path === '/calendar',
       'is-current': route.path === '/current',
+      'is-all': route.path === '/all',
       'date-lists-enabled': themeStore.dateListsEnabled,
       'mobile-tags-open': showMobileTags,
     }"
@@ -1147,53 +1305,82 @@ watch(() => route.path, () => {
             </template>
           </div>
 
-          <!-- Phone only now (mobile-only — tablet shows the icon-style
-               desktop-subs-toggle inside .sort-nav above instead, see
-               tablet.css): tag panel toggle, or direct All/Priority toggle
-               when tags are off — but in Current, tags are always inert (see
-               #app.is-current's own dimming rules), so this slot shows the
-               subs expand-toggle instead whenever Subs are enabled, taking
-               priority over both other variants. -->
-          <div
-            v-if="route.path === '/current' && themeStore.subsEnabled"
-            class="mobile-subs-toggle mobile-only"
-          >
-            <span class="mobile-subs-label">subs</span>
+          <!-- Phone Overview + Current — a rectangular Plus (opens the
+               add-todo sheet, see .add-sheet below) on the left, the date
+               pill right after it (see .tablet-input-focus-date-widget-
+               slot's own `order` in mobile.css), then Tags/Sort/Subs
+               grouped on the right, pushed there via the group wrapper's
+               margin-left:auto. Sort and Tags/Priority are Overview-only
+               (Current's tags are always inert — same
+               #app.is-current dimming rules as elsewhere — and it has no
+               sort order of its own); Subs is the one piece both routes
+               share, reusing the same route-aware desktopSubsState/
+               toggleDesktopSubs this exact slot already uses on
+               desktop/tablet (see .sort-nav above) rather than a third
+               copy of the toggle logic. -->
+          <template v-if="route.path === '/all' || route.path === '/current'">
             <button
-              type="button"
-              class="mobile-subs-switch"
-              role="switch"
-              :aria-checked="themeStore.expandCurrentSubs === 'full'"
-              :title="`subs: ${themeStore.expandCurrentSubs}`"
-              :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
-              @click="themeStore.toggleExpandCurrentSubs()"
+              class="phone-overview-add-btn mobile-only"
+              title="Add todo"
+              @click="openAddSheet"
             >
-              <span class="mobile-subs-switch-knob" />
+              <Plus :size="20" />
             </button>
-          </div>
-          <button
-            v-else-if="themeStore.tagsEnabled"
-            class="mobile-tags-btn mobile-only"
-            title="Tags"
-            @click="showMobileTags = true"
-          >
-            <Tag :size="22" />
-          </button>
-          <button
-            v-else
-            class="mobile-tags-btn priority-toggle-btn mobile-only"
-            :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-            :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
-            @click="toggleTag(PRIORITY_TAG_ID)"
-          >
-            <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
-          </button>
+            <div class="phone-overview-icon-group mobile-only">
+              <template v-if="route.path === '/all'">
+                <button
+                  v-if="themeStore.tagsEnabled"
+                  class="mobile-tags-btn phone-overview-tags-btn"
+                  title="Tags"
+                  @click="showMobileTags = true"
+                >
+                  <Tag :size="26" />
+                </button>
+                <button
+                  v-else
+                  class="mobile-tags-btn phone-overview-tags-btn priority-toggle-btn"
+                  :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
+                  :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+                  @click="toggleTag(PRIORITY_TAG_ID)"
+                >
+                  <Flag :size="26" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
+                </button>
+                <button
+                  class="sort-btn phone-overview-sort-btn"
+                  :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+                  @click="toggleSort"
+                >
+                  <ArrowUpDown :size="26" />
+                </button>
+              </template>
+              <div
+                v-if="themeStore.subsEnabled"
+                class="mobile-subs-toggle"
+              >
+                <span class="mobile-subs-label">subs</span>
+                <button
+                  type="button"
+                  class="mobile-subs-switch"
+                  role="switch"
+                  :aria-checked="desktopSubsState === 'full'"
+                  :title="`subs: ${desktopSubsState}`"
+                  :class="{ half: desktopSubsState === 'half', on: desktopSubsState === 'full' }"
+                  @click="toggleDesktopSubs"
+                >
+                  <span class="mobile-subs-switch-knob" />
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- Add todo input row — tablet only, Overview's date-picker pill
              sits directly right of the input itself (see .tablet-input-row
              in tablet.css, `display:contents` outside that breakpoint so
-             this wrapper has no effect on desktop/phone). -->
+             this wrapper has no effect on desktop/phone). Phone gets its
+             own dedicated panel instead (see below) — not shown here at
+             all at that width (see .tablet-input-row's phone override in
+             mobile.css). -->
         <div class="tablet-input-row">
           <div class="add-wrapper" :class="{ 'add-wrapper--open': showTagModal && addTagModalTags.length }">
             <input
@@ -1204,12 +1391,12 @@ watch(() => route.path, () => {
               @focus="onTodoFocus"
               @input="onTodoInput"
               @blur="onTodoBlur"
-              @keydown.enter.prevent="addTodo"
+              @keydown.enter.prevent="onTodoTitleEnter"
               @keydown.escape="onTodoInputEscape"
               @keydown="onTodoTitleTabKeydown"
             />
             <button
-              v-if="todoInput.length"
+              v-if="hasTodoDraft"
               type="button"
               class="add-input-clear"
               title="Clear"
@@ -1233,14 +1420,25 @@ watch(() => route.path, () => {
                     </button>
                   </span>
                 </div>
-                <input
-                  ref="newSubInputRef"
-                  v-model="newSubDraft"
-                  class="add-sub-input"
-                  placeholder="sub + enter"
-                  @focus="keepTodoModalOpen"
-                  @keydown="onSubDraftKeydown"
-                />
+                <div class="add-sub-input-wrap">
+                  <input
+                    ref="newSubInputRef"
+                    v-model="newSubDraft"
+                    class="add-sub-input"
+                    placeholder="sub + enter"
+                    @focus="keepTodoModalOpen"
+                    @keydown="onSubDraftKeydown"
+                  />
+                  <button
+                    v-if="newSubDraft.length"
+                    type="button"
+                    class="add-sub-chip-x add-sub-input-clear"
+                    title="Clear"
+                    @mousedown.prevent="newSubDraft = ''"
+                  >
+                    <X :size="9" />
+                  </button>
+                </div>
               </div>
 
               <label
@@ -1255,10 +1453,153 @@ watch(() => route.path, () => {
               </label>
             </div>
           </div>
-          <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="tablet-input-focus-date-widget-slot">
+          <!-- Overview always; Current only at phone width (tablet keeps
+               its existing Lists button instead, see .tablet-header-right
+               below — #app.is-current hides this slot again at the
+               tablet breakpoint, see tablet.css). -->
+          <div v-if="themeStore.dateListsEnabled && (route.path === '/all' || route.path === '/current')" class="tablet-input-focus-date-widget-slot">
             <FocusDateWidget panel />
           </div>
         </div>
+
+        <!-- Phone Overview + Current only — a dedicated add-todo panel,
+             not the desktop .add-wrapper repositioned. Same building-
+             block CSS classes as the desktop dropdown (.add-loop-row,
+             .add-subs-row/.add-sub-chip/.add-sub-input, .tag-row-opt) so
+             it looks like the same app, just laid out top-to-bottom
+             (title, subs, tags) instead of squeezed into a narrow
+             dropdown — sections are always visible here, not gated
+             behind showTagModal, since the whole panel already *is* the
+             todo-creation UI once open. Fixed-position overlay (see
+             .add-sheet in mobile.css) Teleported to <body> so
+             .main-head's own lingering transform (see its entrance-
+             animation comment in layout.css) can't hijack the panel's
+             position:fixed into being relative to .main-head instead of
+             the viewport — disabled (rendered right here inline and
+             inert) everywhere it isn't relevant. See index.html's
+             interactive-widget=overlays-content for what actually keeps
+             Firefox's own address-bar chrome from collapsing while
+             scrolling inside this with the keyboard open — that's the
+             fix that mattered, not the fixed-vs-in-flow structure itself
+             (an in-flow rebuild was tried and didn't help, and had the
+             worse trade-off of leaving a blank screen behind it when
+             swiped away). -->
+        <Teleport to="body" :disabled="!(isPhoneWidth && isAddSheetRoute)">
+          <div
+            v-if="isAddSheetRoute"
+            v-show="addSheetOpen"
+            class="add-sheet-backdrop mobile-only"
+            @click="closeAddSheet"
+          />
+          <div
+            v-if="isAddSheetRoute"
+            ref="addSheet"
+            class="add-sheet mobile-only"
+            :class="{ open: addSheetOpen }"
+            :style="{ height: visibleViewportHeight + 'px' }"
+          >
+            <!-- Fixed — never part of any scrollable area, the title
+                 stays in view no matter how much subs/tags content there
+                 is below it. -->
+            <div class="add-sheet-header">
+              <div class="add-sheet-header-actions">
+                <button class="modal-btn modal-btn--cancel add-sheet-close" @click="closeAddSheet">close</button>
+                <button v-if="todoInput.length" class="modal-btn modal-btn--save" @click="addTodo">save</button>
+              </div>
+              <div class="add-sheet-title-row">
+                <input
+                  ref="mobileTodoInputRef"
+                  v-model="todoInput"
+                  class="add-input"
+                  placeholder="todo + enter"
+                  @blur="onTodoBlur"
+                  @keydown.enter.prevent="onTodoTitleEnter"
+                  @keydown.escape="onTodoInputEscape"
+                />
+                <button
+                  v-if="hasTodoDraft"
+                  type="button"
+                  class="add-input-clear"
+                  title="Clear"
+                  @mousedown.prevent="clearTodoInput"
+                >
+                  <X :size="14" />
+                </button>
+              </div>
+            </div>
+
+            <!-- The only scrollable part of the panel — everything above
+                 (header) and below (the handle) is fixed. -->
+            <div class="add-sheet-content">
+              <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
+                <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
+                  <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
+                </div>
+              </Transition>
+
+              <div v-if="themeStore.subsEnabled" class="add-sheet-section">
+                <div class="add-subs-row">
+                  <div v-if="newTodoSubs.length" class="add-subs-list">
+                    <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
+                      {{ sub }}
+                      <button type="button" class="add-sub-chip-x" title="Remove" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                        <X :size="9" />
+                      </button>
+                    </span>
+                  </div>
+                  <div class="add-sub-input-wrap">
+                    <input
+                      ref="mobileSubInputRef"
+                      v-model="newSubDraft"
+                      class="add-sub-input"
+                      placeholder="sub + enter"
+                      @focus="keepTodoModalOpen"
+                      @keydown="onSubDraftKeydown"
+                    />
+                    <button
+                      v-if="newSubDraft.length"
+                      type="button"
+                      class="add-sub-chip-x add-sub-input-clear"
+                      title="Clear"
+                      @mousedown.prevent="newSubDraft = ''"
+                    >
+                      <X :size="9" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="addTagModalTags.length" class="add-sheet-section">
+                <div class="add-sheet-tag-list">
+                  <label
+                    v-for="tag in addTagModalTags"
+                    :key="tag.id"
+                    class="tag-row-opt"
+                    :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
+                    @mousedown.prevent
+                  >
+                    <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
+                    <span>{{ tag.label }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fixed — drag up to close (see onSheetHandlePointerDown).
+                 A dedicated handle instead of triggering off the content
+                 scroll itself, so it never has to guess whether a given
+                 drag was meant to scroll or to close. Sits right above
+                 the keyboard on its own — the panel's own height already
+                 ends there (see visibleViewportHeight), so this needs no
+                 separate offset of its own. -->
+            <div
+              class="add-sheet-handle"
+              @pointerdown="onSheetHandlePointerDown"
+            >
+              <span class="add-sheet-handle-bar" />
+            </div>
+          </div>
+        </Teleport>
 
         <!-- Desktop nav icons — also the tablet grid's true center column
              (grid-area: center, see tablet.css). Flanked by
@@ -1308,18 +1649,6 @@ watch(() => route.path, () => {
             <Settings :size="26" />
           </button>
         </div>
-      </div>
-
-      <!-- Phone only — sits right at .main-head's own bottom edge (same
-           "position:absolute; top:100%" trick already used for the
-           add-todo tag dropdown, see .add-tag-row in layout.css), which
-           lands it directly below the scroll-divider line since that's
-           exactly where .main-content (and its sticky divider) begins
-           too. .main-head is itself `position:sticky` (mobile.css), so
-           this rides along with it while the list scrolls underneath —
-           no fixed pixel offset computed or guessed anywhere. -->
-      <div v-if="themeStore.dateListsEnabled && route.path === '/all'" class="phone-focus-date-widget mobile-only">
-        <FocusDateWidget />
       </div>
     </div>
 
@@ -1584,27 +1913,26 @@ watch(() => route.path, () => {
 
     <!-- ══ MOBILE: Bottom nav ══ -->
     <nav class="mobile-bottom-nav mobile-only">
-      <button
-        v-if="route.path === '/all'"
-        class="sort-btn"
-        :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-        @click="toggleSort"
-      >
-        <ArrowUpDown :size="22" />
-      </button>
       <!-- Phone-width only (see .sort-btn/.lists-btn CSS in mobile.css) —
-           same bottom-left slot the sort button uses on /all, reused here
-           for Current's own "browse other Date Lists" entry point since it's
-           otherwise unused on /focus. -->
+           this bottom-left slot used to also hold Overview's sort button,
+           now living in the main head instead (see .phone-overview-sort-btn
+           above) — Current's own "browse other Date Lists" entry point is
+           the only thing left using this slot. -->
       <button
-        v-else-if="route.path === '/current' && themeStore.dateListsEnabled"
+        v-if="route.path === '/current' && themeStore.dateListsEnabled"
         class="sort-btn lists-btn"
         title="lists"
         @click="listsPanelOpen = true"
       >
         <ListChecks :size="22" />
       </button>
-      <div v-else class="sort-btn" style="visibility: hidden" />
+      <!-- Empty slot on routes without a bottom-left action (e.g. Calendar) —
+           must render the same icon (invisible) rather than an empty div, or
+           this slot ends up narrower than the real buttons and shifts the
+           nav-views/settings icons via .mobile-bottom-nav's space-between. -->
+      <div v-else class="sort-btn" style="visibility: hidden">
+        <ArrowUpDown :size="22" />
+      </div>
 
       <div class="mobile-nav-views">
         <RouterLink to="/all" class="nav-icon" title="All todos" @click="showMobileTags = false">

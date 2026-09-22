@@ -26,20 +26,6 @@
     z-index: 20;
   }
 
-  /* Sits right at .main-head's own bottom edge (position:absolute here
-     works because `position: sticky` on .main-head above already
-     establishes a containing block for it, same as `position: relative`
-     would) — rides along with .main-head while the list scrolls
-     underneath, no fixed pixel offset computed anywhere. z-index between
-     .scroll-divider's (5) and .main-head's own (20) so it stays above the
-     scrolling list without competing with the header itself. */
-  .phone-focus-date-widget {
-    position: absolute;
-    top: 100%;
-    right: 14px;
-    z-index: 19;
-  }
-
   #app.is-settings .main-head,
   #app.is-calendar .main-head,
   #app.mobile-tags-open .main-head {
@@ -88,31 +74,282 @@
     padding: 9px 14px;
   }
 
-  /* ── Tags toggle button (color/hover shared in layout.css) ── */
+  /* ── Tags toggle button (color/hover shared in layout.css) — only used
+     inside .phone-overview-icon-group now (see below), which controls its
+     own child order itself. ── */
   .mobile-tags-btn {
     padding: 4px;
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    /* Lives inside .tablet-left-cluster in the template now, alongside
-       .sort-nav, so tablet's grid can treat both as one left-hand block
-       (see tablet.css) — that wrapper is `display:contents` on phone, so
-       this becomes a direct flex child of .main-head-inner again, just
-       earlier in DOM order than before (ahead of .add-wrapper instead of
-       after it). `order` restores its original spot to the right of the
-       input without needing a duplicate element, same idea as .sort-nav's
-       own `order: -1` in layout.css. */
-    order: 1;
   }
 
-  /* Same slot the tag icon sits in — label on top, switch below. */
+  /* Same slot the tag icon sits in — label on top, switch below. Also
+     only used inside .phone-overview-icon-group now. */
   .mobile-subs-toggle {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
+  }
+
+  /* ══ Phone Overview + Current: single header row — a rectangular Plus
+     (opens the add-todo sheet) and the date pill on the left,
+     Tags/Sort/Subs grouped and pushed to the row's right edge (exact same
+     plain icon buttons/toggle used everywhere else in the app:
+     .mobile-tags-btn, .sort-btn, .mobile-subs-toggle, just placed here
+     too — not reinvented; Tags/Sort are Overview-only, Subs is shared).
+     Scoped to #app.is-all/#app.is-current only — Settings/Calendar are
+     untouched. ══ */
+  #app.is-all,
+  #app.is-current {
+    --po-icon-size: 38px;
+  }
+
+  /* Explicit order across the row's three DOM-order pieces (Plus lives in
+     .tablet-left-cluster, the pill in .tablet-input-row, both
+     `display:contents` wrappers — see App.vue) so the pill visually lands
+     right after Plus instead of after the icon group that actually
+     precedes it in the markup. */
+  #app.is-all .tablet-input-focus-date-widget-slot,
+  #app.is-current .tablet-input-focus-date-widget-slot {
+    display: flex;
+    flex-shrink: 0;
     order: 1;
+  }
+
+  /* The desktop/tablet inline input itself — replaced at phone width by
+     the dedicated .add-sheet panel below (Plus button opens it), not
+     shown inline here at all. */
+  #app.is-all .add-wrapper,
+  #app.is-current .add-wrapper {
+    display: none;
+  }
+
+  .phone-overview-icon-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    order: 2;
+  }
+
+  /* A bit bigger than the app's usual 22px icon buttons (see the :size
+     props in App.vue) — asked for explicitly here, this row only. */
+  .phone-overview-sort-btn,
+  .phone-overview-tags-btn {
+    padding: 6px;
+  }
+
+  /* Rectangular, not the circular .tag-add-btn shape — corner radius
+     follows the same rounded/square Settings toggle as everything else
+     (var(--radius), see base.css), not a fixed value. */
+  .phone-overview-add-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--po-icon-size);
+    height: var(--po-icon-size);
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--ink);
+    padding: 0;
+    box-shadow: 0 5px 0 var(--ink);
+  }
+
+  .phone-overview-add-btn:active {
+    box-shadow: 0 2px 0 var(--ink);
+    transform: translateY(3px);
+  }
+
+  /* Same height as the Plus circle (see --po-icon-size) so the pill
+     doesn't read taller than it — a compact variant of the same pill
+     tablet.css already shrinks internally (.fdw-* rules, see
+     layout.css), just also shorter overall here. */
+  #app.is-all .tablet-input-focus-date-widget-slot .focus-date-widget,
+  #app.is-current .tablet-input-focus-date-widget-slot .focus-date-widget {
+    height: var(--po-icon-size);
+    border-radius: 12px;
+  }
+
+  /* ── Add-todo panel (Plus button above opens it) — a dedicated
+     phone-only add-todo UI, not the desktop .add-wrapper repositioned.
+     Reuses the same building-block classes the desktop dropdown uses for
+     its content (.add-loop-row, .add-subs-row/.add-sub-chip/
+     .add-sub-input, .tag-row-opt — all unstyled here, their existing
+     look carries over unchanged) so it stays visually the same app, just
+     laid out top-to-bottom instead of squeezed into a narrow dropdown.
+     Fixed-position overlay, Teleported to <body> (see App.vue) — an
+     in-flow rebuild (taking .main-content's place in #app instead) was
+     tried and reverted: it didn't fix Firefox's own address-bar-
+     collapse-on-scroll bug either, and swiping the panel away left a
+     blank screen behind it (since .main-content was hidden, not just
+     covered) instead of the actual app. What fixes the address-bar bug
+     is index.html's interactive-widget=overlays-content, not this
+     structural choice — see that file's own comment, including the
+     noted tablet side effect that still needs checking on a real
+     device. Covers the full viewport so its own close button/handle
+     (below) are the reachable way to dismiss it, same as tapping the
+     backdrop during the slide itself. ── */
+  .add-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--ink);
+    opacity: 0.35;
+    z-index: 30;
+  }
+
+  .add-sheet {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* Height comes from App.vue's inline style (visibleViewportHeight),
+       not a CSS viewport unit or `bottom: 0` — this is a fallback only,
+       for the instant before that JS runs. Deliberately NOT `inset: 0`:
+       that would also set `bottom: 0`, which — combined with an explicit
+       height also being set — over-constrains the box. */
+    height: 100vh;
+    z-index: 31;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overscroll-behavior: none;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .add-sheet.open {
+    transform: translateY(0);
+  }
+
+  /* Fixed (flex-shrink: 0, never scrolls) — close button + title, always
+     in view. */
+  .add-sheet-header {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 14px 0;
+  }
+
+  /* Same .modal-btn/.modal-btn--cancel look every other modal's close/
+     cancel button uses (see layout.css) — just its own flex placement
+     (top-right of the header) instead of centered .modal-actions. Save
+     (same .modal-btn--save look every other modal's primary action uses)
+     only shows once there's a title to save, sitting right next to
+     Close rather than replacing it — closing without saving is still
+     always available. */
+  .add-sheet-header-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  /* Title row — deliberately not the boxed .add-input look the desktop
+     dropdown uses: just a thick underline (same 5px the app's drop-
+     shadows already use everywhere, e.g. .add-input's own box-shadow) in
+     plain --ink, own positioned wrapper instead of reusing .add-wrapper
+     (that class carries a lot of dropdown-specific CSS, like
+     .add-tag-row's absolute positioning, that has no place in this
+     vertically-stacked panel). */
+  .add-sheet-title-row {
+    position: relative;
+  }
+
+  .add-sheet-title-row .add-input {
+    font-size: 18px;
+    padding: 14px 40px 10px 4px;
+    border: none;
+    border-bottom: 5px solid var(--ink);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Stays plain --ink on focus — the app's usual .add-input:focus
+     darkening to --ink-dark (layout.css) would fight the "just a line"
+     look by making it look like a whole different, heavier element. */
+  .add-sheet-title-row .add-input:focus {
+    border-color: var(--ink);
+    box-shadow: none;
+  }
+
+  .add-sheet-title-row .add-input-clear {
+    right: 4px;
+  }
+
+  /* The one scrollable region — everything else in the panel (header,
+     handle) stays fixed in place. */
+  .add-sheet-content {
+    flex: 1;
+    overflow-y: auto;
+    /* Keeps this area's own bounce/rubber-band scrolling from chaining
+       into the page behind once it runs out of content to scroll. */
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    /* Top padding lives here, not on the fixed .add-sheet-header — this
+       is inside the scrollable area itself, so it scrolls away with the
+       rest of the content instead of sitting as a permanent dead zone
+       below the title's own thick underline (see .add-sheet-title-row
+       .add-input), which is the actual divider things scroll under. */
+    padding: 18px 18px 24px;
+    scrollbar-width: none;
+  }
+
+  .add-sheet-content::-webkit-scrollbar {
+    display: none;
+  }
+
+  .add-sheet .add-loop-row {
+    margin-bottom: 0;
+  }
+
+  .add-sheet .add-subs-row {
+    margin-bottom: 0;
+    gap: 10px;
+  }
+
+  .add-sheet .add-sub-chip,
+  .add-sheet .add-sub-input {
+    font-size: 16px;
+  }
+
+  /* Same checkbox-pill look as the desktop dropdown's .tag-row-opt, just
+     bigger touch targets and wrapped instead of a cramped single line. */
+  .add-sheet-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    /* Same gap as the desktop/tablet add-todo tag picker (.add-tag-row,
+       layout.css) — not a separately eyeballed number. */
+    gap: 4px;
+  }
+
+  .add-sheet-tag-list .tag-row-opt {
+    font-size: 15px;
+  }
+
+  /* Fixed (flex-shrink: 0, never scrolls) — drag this bar up to close
+     the panel (see onSheetHandlePointerDown in App.vue). */
+  .add-sheet-handle {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .add-sheet-handle-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ink);
   }
 
   /* ── Tag panel (full screen overlay; shared bits in layout.css) ──
@@ -215,7 +452,7 @@
   .mobile-nav-views {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
   }
 
   #app.is-settings .add-wrapper {

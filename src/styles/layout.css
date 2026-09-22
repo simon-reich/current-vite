@@ -417,6 +417,11 @@
   opacity: 1;
 }
 
+.add-sub-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
 .add-sub-input {
   width: 100%;
   font-size: 13px;
@@ -425,13 +430,23 @@
   border: none;
   border-bottom: 1px solid var(--ink);
   outline: none;
-  padding: 4px 2px;
+  padding: 4px 20px 4px 2px;
   font-family: var(--font-mono, monospace);
 }
 
 .add-sub-input::placeholder {
   color: var(--ink);
   opacity: 0.55;
+}
+
+/* Same small circle-X look as .add-sub-chip-x (an already-committed
+   sub's own remove button) — this is that same "clear it" concept, just
+   for the draft still being typed instead of a finished chip. */
+.add-sub-input-clear {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .tag-row-opt {
@@ -936,6 +951,34 @@
 .tablet-input-focus-date-widget-slot,
 .tablet-settings-btn {
   display: none;
+}
+
+/* Compact inner sizing for the pill wherever it's shown inline next to
+   the add-input/icon row instead of in its own dedicated corner — tablet
+   (see tablet.css) and phone Overview (see mobile.css) both enable
+   .tablet-input-focus-date-widget-slot's display and share this exact
+   same sizing rather than each re-guessing their own numbers. Invisible
+   on desktop (the slot itself stays display:none above), harmless. */
+.tablet-input-focus-date-widget-slot .fdw-left {
+  min-width: 36px;
+  padding: 3px 6px;
+}
+
+.tablet-input-focus-date-widget-slot .fdw-num {
+  min-width: 26px;
+  padding: 3px 7px;
+  font-size: 19px;
+}
+
+.tablet-input-focus-date-widget-slot .fdw-weekday,
+.tablet-input-focus-date-widget-slot .fdw-year {
+  font-size: 8px;
+}
+
+.tablet-input-focus-date-widget-slot .fdw-special {
+  min-width: 72px;
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 /* Purely structural on desktop/phone — `display: contents` unwraps these

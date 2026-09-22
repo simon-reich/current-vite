@@ -93,37 +93,22 @@
   }
 
   /* Kept smaller here than desktop's own dedicated corner (.focus-date-
-     head) — this row is noticeably tighter. tablet.css is a plain global
-     stylesheet, not a scoped SFC block, so a bare descendant selector
-     already reaches into FocusDateWidget.vue's own scoped markup fine —
-     no :deep() needed (that's only meaningful inside a component's own
-     <style scoped>). */
+     head) — this row is noticeably tighter. The compact inner sizing
+     itself (.fdw-* rules) lives in layout.css, breakpoint-agnostic, so
+     phone's own use of this same slot (see mobile.css) shares it instead
+     of duplicating the numbers. Overview only here — Current keeps its
+     existing Lists button (.tablet-header-right below) at this
+     breakpoint; phone is the only place Current also gets this pill (see
+     mobile.css), the slot's own v-if in App.vue renders it for both
+     routes so that phone use works. */
   .tablet-input-focus-date-widget-slot {
     display: flex;
     flex-shrink: 0;
     align-items: center;
   }
 
-  .tablet-input-focus-date-widget-slot .fdw-left {
-    min-width: 36px;
-    padding: 3px 6px;
-  }
-
-  .tablet-input-focus-date-widget-slot .fdw-num {
-    min-width: 26px;
-    padding: 3px 7px;
-    font-size: 19px;
-  }
-
-  .tablet-input-focus-date-widget-slot .fdw-weekday,
-  .tablet-input-focus-date-widget-slot .fdw-year {
-    font-size: 8px;
-  }
-
-  .tablet-input-focus-date-widget-slot .fdw-special {
-    min-width: 72px;
-    padding: 5px 10px;
-    font-size: 12px;
+  #app.is-current .tablet-input-focus-date-widget-slot {
+    display: none;
   }
 
   .top-nav {

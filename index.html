@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- interactive-widget=overlays-content was tried here (2026-09-22)
+         to stop Firefox for Android's address-bar chrome from collapsing
+         while scrolling inside the phone add-todo panel with the
+         keyboard open. Reverted the same day: it also stops
+         window.visualViewport from ever reporting the keyboard's height
+         at all, which the add-todo panel needs to size itself to the
+         actually-visible viewport (see visibleViewportHeight in App.vue)
+         — without that, typed content/tags disappear behind the
+         keyboard, which is the worse problem. Traded the address-bar bug
+         back in on purpose; don't re-add this without also solving the
+         keyboard-height side, e.g. via the VirtualKeyboard API
+         (Chromium-only as of this writing, so not a real fix for
+         Firefox). -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>current</title>
   </head>
