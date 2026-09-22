@@ -485,24 +485,79 @@
   overflow-x: hidden;
   scrollbar-width: none;
   animation: shell-fade-in-side 0.4s 0.04s ease-out both;
+  /* Containing block for .sidebar-scroll-divider below, now a plain
+     absolute overlay instead of a sticky flex child (see that rule's own
+     comment). Doesn't otherwise change anything here — .sidebar-right
+     shares this rule and still scrolls on itself directly (no divider,
+     no inner wrapper, see its own rule further down). */
+  position: relative;
 }
 
 .sidebar::-webkit-scrollbar {
   display: none;
 }
 
+/* Plain overlay flush with .sidebar's own outer edge (not sticky/nested
+   in the scrolling flow anymore) — the actual scrolling now happens one
+   level down, in .sidebar-scroll, so this divider sits outside that
+   masked subtree and always renders at full, unfaded opacity regardless
+   of scroll position. .sidebar is the containing block via position:
+   relative above, whose box (for a plain absolute offset) is the padding
+   box — the negative insets pull it back out through that 16px padding
+   so it still spans the full outer edge, same visual spot it always had.
+   Only used by the left sidebar (Current/Overview Date-List nav);
+   .sidebar-right has no divider. */
 .sidebar-scroll-divider {
-  position: sticky;
+  position: absolute;
   top: -16px;
-  margin: -16px -16px 8px -16px;
-  z-index: 1;
+  left: -16px;
+  right: -16px;
+  z-index: 2;
+}
+
+/* Inner scrollport for the left sidebar's Date-List nav — split out from
+   the outer .sidebar specifically so the fade mask below can apply to
+   the element that's actually scrolling (mask-image stops are relative
+   to ITS OWN box, which only stays pinned to the visible top/bottom edge
+   if applied to the element whose content moves under it) without also
+   masking .sidebar-scroll-divider above, which needs to stay outside
+   this subtree to render at full opacity always. min-height: 0 is the
+   usual flex-child fix that lets this actually shrink and scroll instead
+   of growing to fit its content. The outer .sidebar's own overflow-y
+   becomes a no-op here since this fills it exactly via flex: 1 — it's
+   still needed as-is for .sidebar-right, which has no inner wrapper and
+   keeps scrolling on itself directly. */
+.sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  /* .sidebar-scroll-divider no longer eats into .sidebar's own 16px
+     padding the way it used to (see .tag-list's own comment) — pulling
+     this up by that same 6px difference keeps .tag-list's unchanged 26px
+     margin landing content at the same 36px total as before. */
+  margin-top: -6px;
+  /* 32px reads clearly as a transition rather than a hard cut (a shorter
+     band that stayed strictly under the 36px/16px top/bottom gaps below
+     was technically correct but too subtle to actually notice) — the
+     trade-off is the bottom fade now slightly overlaps a short list's
+     last item even at rest, which reads fine in practice. */
+  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .tag-list {
   /* Lines "all" up with where the todo cards start in .content-inner
-     (36px padding-top there). The scroll-divider above already eats into
-     .sidebar's own 16px padding (-16px margin) and adds 8px back, so this
-     covers the remaining 26px to reach 36px total. */
+     (36px padding-top there): .sidebar's own 16px padding plus this. On
+     the left sidebar that padding belongs to .sidebar-scroll's parent, so
+     the same 26px still lands content at 36px total from .sidebar's own
+     outer edge — .sidebar-scroll-divider no longer participates in this
+     math at all now that it's a plain overlay (see its own comment). */
   margin-top: 26px;
   flex: 1;
   display: flex;
@@ -700,6 +755,13 @@
    animation, .tag-list spacing) — only the grid column differs. ── */
 .sidebar-right {
   grid-column: 3;
+  /* Same fade-on-scroll as .sidebar-scroll (see that rule's comment for
+     why 32px, including the "slightly overlaps a short list's last item
+     at rest" trade-off) — applied directly to .sidebar-right itself
+     since it has no divider to protect and scrolls on itself (inherited
+     overflow-y from .sidebar above). */
+  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
 }
 
 /* Right column: same .tag-list as the left sidebar, but every row
@@ -1082,6 +1144,13 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
+  /* Same fade-on-scroll as .sidebar-scroll (layout.css, same section) —
+     bottom edge only. The top edge already has the sticky
+     .mobile-tags-head sitting solidly over it (its own opaque --bg
+     background, well taller than this fade distance), so masking the
+     whole panel here never touches it or its own .tags-scroll-divider. */
+  mask-image: linear-gradient(to top, transparent, black 32px);
+  -webkit-mask-image: linear-gradient(to top, transparent, black 32px);
 }
 
 .mobile-tags-panel::-webkit-scrollbar {

@@ -117,6 +117,13 @@ watch(() => props.open, (isOpen) => {
   overflow-y: auto;
   scrollbar-width: none;
   z-index: 10001;
+  /* Same fade-on-scroll mask as .sidebar-scroll (layout.css, incl. the
+     "why 32px" comment there) — no divider inside this panel to protect,
+     so it applies directly here. The bottom fade slightly overlaps this
+     panel's own 20px bottom padding at rest for a short list, same
+     accepted trade-off as .sidebar-scroll. */
+  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 32px), transparent);
 }
 
 .fdp-panel::-webkit-scrollbar {

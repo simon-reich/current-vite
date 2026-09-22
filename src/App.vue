@@ -1267,72 +1267,78 @@ watch(() => route.path, () => {
          see .sidebar-right below) ══ -->
     <aside
       v-if="(route.path === '/current' || route.path === '/all') && themeStore.dateListsEnabled"
-      ref="sidebarRef"
       class="sidebar desktop-only"
-      @scroll="onSidebarScroll"
     >
+      <!-- Plain absolute overlay now (not sticky-inside-the-scroll-area) —
+           the actual scrolling + fade-mask below lives one level down in
+           .sidebar-scroll, specifically so this divider sits outside that
+           masked subtree and never gets faded along with the content
+           passing underneath it (see .sidebar-scroll's own comment in
+           layout.css). -->
       <ScrollDivider class="sidebar-scroll-divider" :visible="sidebarScrolled" />
 
-      <!-- Current view: Date-List navigation switches which date's list is
-           being viewed (viewingDate). today/tomorrow plus the rest of the
-           7-day preset window (presetWeekDates) are always selectable, even
-           empty — dimmed (not disabled) just signals nothing's on them yet,
-           same as Overview's own preset row below. Anything beyond that
-           window still only shows up once something's actually planned on
-           it (upcomingFocusDates). -->
-      <div v-if="route.path === '/current'" class="tag-list">
-        <button
-          class="all-btn date-nav-btn"
-          :class="{ active: viewingDate === null }"
-          @click="viewingDate = null"
-        >
-          current
-        </button>
-        <button
-          class="all-btn date-nav-btn"
-          :class="{ active: viewingDate === todayStr(), dimmed: !hasTodayList }"
-          @click="viewingDate = todayStr()"
-        >
-          today
-        </button>
-        <button
-          class="all-btn date-nav-btn loop-btn"
-          :class="{ active: viewingDate === tomorrowStr(), dimmed: !hasTomorrowList }"
-          @click="viewingDate = tomorrowStr()"
-        >
-          tomorrow
-        </button>
+      <div ref="sidebarRef" class="sidebar-scroll" @scroll="onSidebarScroll">
+        <!-- Current view: Date-List navigation switches which date's list is
+             being viewed (viewingDate). today/tomorrow plus the rest of the
+             7-day preset window (presetWeekDates) are always selectable, even
+             empty — dimmed (not disabled) just signals nothing's on them yet,
+             same as Overview's own preset row below. Anything beyond that
+             window still only shows up once something's actually planned on
+             it (upcomingFocusDates). -->
+        <div v-if="route.path === '/current'" class="tag-list">
+          <button
+            class="all-btn date-nav-btn"
+            :class="{ active: viewingDate === null }"
+            @click="viewingDate = null"
+          >
+            current
+          </button>
+          <button
+            class="all-btn date-nav-btn"
+            :class="{ active: viewingDate === todayStr(), dimmed: !hasTodayList }"
+            @click="viewingDate = todayStr()"
+          >
+            today
+          </button>
+          <button
+            class="all-btn date-nav-btn loop-btn"
+            :class="{ active: viewingDate === tomorrowStr(), dimmed: !hasTomorrowList }"
+            @click="viewingDate = tomorrowStr()"
+          >
+            tomorrow
+          </button>
 
-        <div class="date-nav-section-label">week</div>
-        <div
-          v-for="dateStr in presetWeekDates.slice(2)"
-          :key="dateStr"
-          class="tag-chip date-nav-upcoming-chip"
-          :class="{ active: viewingDate === dateStr, dimmed: !store.hasFocusDateList(dateStr) }"
-        >
-          <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
-        </div>
-
-        <template v-for="group in upcomingFocusDateGroups" :key="group.label">
-          <div class="date-nav-section-label">{{ group.label }}</div>
+          <div class="date-nav-section-label">week</div>
           <div
-            v-for="dateStr in group.dates"
+            v-for="dateStr in presetWeekDates.slice(2)"
             :key="dateStr"
             class="tag-chip date-nav-upcoming-chip"
-            :class="{ active: viewingDate === dateStr }"
+            :class="{ active: viewingDate === dateStr, dimmed: !store.hasFocusDateList(dateStr) }"
           >
-            <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
+            <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
           </div>
-        </template>
-      </div>
 
-      <!-- Overview: same Date-List nav, but picking a date sets the
-           Focus-Date-Pille's target (themeStore.selectedFocusDate) instead
-           of switching which list is being viewed — Overview always shows
-           the full pool, there's nothing here to "view" per date. See
-           FocusDateNav.vue — also reused by the tablet slide-in panel
-           (FocusDatePanel.vue) below. -->
-      <FocusDateNav v-else-if="route.path === '/all'" />
+          <template v-for="group in upcomingFocusDateGroups" :key="group.label">
+            <div class="date-nav-section-label">{{ group.label }}</div>
+            <div
+              v-for="dateStr in group.dates"
+              :key="dateStr"
+              class="tag-chip date-nav-upcoming-chip"
+              :class="{ active: viewingDate === dateStr }"
+            >
+              <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Overview: same Date-List nav, but picking a date sets the
+             Focus-Date-Pille's target (themeStore.selectedFocusDate) instead
+             of switching which list is being viewed — Overview always shows
+             the full pool, there's nothing here to "view" per date. See
+             FocusDateNav.vue — also reused by the tablet slide-in panel
+             (FocusDatePanel.vue) below. -->
+        <FocusDateNav v-else-if="route.path === '/all'" />
+      </div>
     </aside>
 
     <!-- ══ DESKTOP: Sidebar body, right column — Overview's tag filters,
