@@ -177,10 +177,12 @@
     pointer-events: auto;
   }
 
-  /* Desktop's inline subs-toggle (App.vue's desktop-subs-toggle, left of
-     .sort-nav) — tablet keeps its own separate version instead, grouped
-     into .tablet-left-cluster above (mobile-subs-toggle), so this would
-     otherwise show up a second time alongside it. */
+  /* Desktop's inline subs-toggle (App.vue's desktop-subs-toggle, now the
+     first item inside .sort-nav itself) — tablet keeps its own separate
+     version instead, grouped into .tablet-left-cluster above
+     (mobile-subs-toggle), so this would otherwise show up a second time
+     alongside it. .sort-nav's other two icons (grid/sort) are unaffected,
+     same as before. */
   .desktop-subs-toggle {
     display: none;
   }

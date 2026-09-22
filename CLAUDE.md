@@ -6,6 +6,8 @@ Dieselbe Logik/dasselbe Markup darf nicht an mehreren Stellen im Code parallel e
 
 Das ist unabhängig davon, ob Code aktuell benutzt oder nur auskommentiert/inaktiv ist – auskommentierter Code für "brauchen wir vielleicht später wieder" ist völlig in Ordnung (siehe z.B. die Frame-Celebrations, aktuell auskommentiert zugunsten der Partikel-Celebrations, oben im Celebration-Abschnitt). Das Problem ist ausschließlich echte Duplikation derselben Sache an mehreren Stellen im aktiven Code.
 
+**Gilt explizit auch fürs Styling, nicht nur für Markup/Logik.** Ein wiederkehrendes Design-Muster (z.B. ein Abstand zwischen mehreren nebeneinander sitzenden Icons) wird an **einer** Stelle definiert und von jeder Stelle, die dieses Muster zeigt, wiederverwendet/geteilt – nicht an jeder Stelle einzeln nach Augenmaß neu eingeschätzt oder als derselbe Zahlenwert separat hingeschrieben, auch wenn der Wert zufällig übereinstimmt. Zwei Gründe: (1) exakt wiederkehrende Muster lassen sich so ohne eigene Berechnung/Schätzung einsetzen, (2) alle Stellen, die dasselbe Muster zeigen, lassen sich über eine einzige Stellschraube gemeinsam ändern, statt mehrere Stellen von Hand synchron halten zu müssen. Wo ein Wert bewusst unabhängig bleiben soll (z.B. weil zwei Stellen zufällig ähnlich aussehen, aber unterschiedliche Konzepte sind und sich später unterschiedlich entwickeln könnten), muss das eine bewusste Entscheidung sein, keine Bequemlichkeit – im Zweifel wiederverwenden/teilen, nicht duplizieren.
+
 ## Projektübersicht
 
 Minimalistische Single-Page Todo-App. Kein Backend, kein Server, kein Login. Alles läuft im Browser via localStorage. Exportierbar als JSON.

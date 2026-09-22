@@ -123,11 +123,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Only meaningful now that .main-head can hold a second child
-     (.desktop-subs-toggle) beside .main-head-inner — same gap that
-     container uses internally between its own items, so the two read as
-     one continuous row. */
-  gap: 25px;
   padding: 12px 20px 17px;
   animation: shell-fade-in-top 0.4s ease-out both;
   /* The entrance animation above leaves a lingering transform on the final
@@ -146,7 +141,12 @@
   align-items: center;
   gap: 25px;
   width: 100%;
-  max-width: 750px;
+  /* +46px over the original 750px cap — exactly .desktop-subs-toggle's own
+     added footprint (~38px incl. .sort-btn's padding) plus .sort-nav's 6px
+     gap to the icon after it — so growing this box to fit the new icon
+     doesn't eat into .add-wrapper's flex:1 share of it; the box just grows
+     by exactly what the new icon needs instead. */
+  max-width: 796px;
 }
 
 /* Shared "icon button" look — plain icon, ink color, darkens on hover —
@@ -496,19 +496,15 @@
   order: -1;
 }
 
-/* A sibling of .main-head-inner, not one of its flex items (see App.vue's
-   own comment on why) — DOM order alone puts it left of that whole block,
-   no order/flex trick needed here. `subs` stacked above the switch (not
-   side by side, unlike the tablet/phone version reusing the same classes)
-   keeps its own footprint as small as possible, present on both Overview
-   and Current (unlike .sort-nav, which is Overview-only). */
+/* First item inside .sort-nav (see App.vue) — also carries .sort-btn
+   itself, so padding/hover/cursor/color are that one shared definition,
+   not a second copy of it. Only overrides what actually needs to differ
+   from a plain single-icon .sort-btn: stacked layout (`subs` above the
+   switch, not side by side like the tablet/phone version reusing the same
+   label/switch classes) and a tighter internal gap between the two. */
 .desktop-subs-toggle {
-  display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 1px;
-  flex-shrink: 0;
-  cursor: pointer;
 }
 
 .top-nav {

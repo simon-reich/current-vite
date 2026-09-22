@@ -1056,44 +1056,6 @@ watch(() => route.path, () => {
 
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
     <div class="main-head">
-      <!-- Desktop: subs expand-toggle, sitting directly left of the
-           grid/list icon (.sort-nav, first item inside .main-head-inner
-           below) — and, in Current (no grid icon there), directly left of
-           the add-input itself instead. A sibling of .main-head-inner
-           rather than living inside it: .main-head-inner's own width:100%/
-           max-width:750px box is what the add-input/sort-nav/etc. size
-           themselves against, so nesting this inside it (an earlier
-           attempt) ate into that same fixed-width budget and shrank the
-           input to make room. Sitting outside it instead only claims
-           previously-unused slack in .main-head's own row (that box is
-           reliably narrower than .main-head's available width — see
-           .main-head-inner's max-width), leaving every element inside
-           .main-head-inner exactly as wide as before. `subs`
-           stacked above the switch (not side by side) keeps its own
-           footprint small. Reuses the tablet/phone switch's visual classes
-           (mobile-subs-label/-switch/-switch-knob, see layout.css) — same
-           look, just a different wrapper/position for this breakpoint,
-           rather than a third duplicate of the switch CSS. Replaces the
-           old fixed-position version that used to sit pinned under
-           Settings in Current.vue. -->
-      <div
-        v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
-        class="desktop-subs-toggle desktop-only"
-        :title="`subs: ${themeStore.expandCurrentSubs}`"
-        @click="themeStore.toggleExpandCurrentSubs()"
-      >
-        <span class="mobile-subs-label">subs</span>
-        <button
-          type="button"
-          class="mobile-subs-switch"
-          role="switch"
-          :aria-checked="themeStore.expandCurrentSubs === 'full'"
-          :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
-        >
-          <span class="mobile-subs-switch-knob" />
-        </button>
-      </div>
-
       <div class="main-head-inner">
         <!-- Sort buttons + the mobile/tablet tag-panel toggle, grouped
              together (see .tablet-left-cluster in tablet.css) so tablet's
@@ -1108,23 +1070,63 @@ watch(() => route.path, () => {
              here in the template has no visual effect on desktop besides
              that. -->
         <div class="tablet-left-cluster">
-          <div v-if="route.path === '/all'" class="sort-nav desktop-only">
-            <button
-              ref="sortListBtnRef"
-              :title="listView ? 'Switch to grid view' : 'Switch to list view'"
-              class="sort-btn"
-              @click="listView = !listView"
+          <!-- Desktop: one shared flex container (.sort-nav, same `gap`
+               used for every icon cluster in this app — see .top-nav) for
+               the subs-toggle + grid/list + sort-order icons, so the gap
+               between the toggle and the grid icon is driven by the exact
+               same property as the gap between the grid and sort icons
+               right next to it, not two separately eyeballed numbers that
+               happen to match. Also carries .sort-btn itself (padding,
+               hover color) so its hit-area/edge-spacing lines up with the
+               other two icons the same way theirs line up with each
+               other. `.main-head-inner`'s own max-width is widened by
+               exactly this button's added footprint (see layout.css) so
+               the add-input still ends up exactly as wide as before,
+               instead of shrinking to make room inside the same box (what
+               an earlier attempt at this, living outside .main-head-inner
+               entirely, was working around). Present whenever Overview's
+               grid/sort icons are (route === '/all') or the toggle alone
+               is (subsEnabled, Current included) — empty/zero-width
+               otherwise. -->
+          <div
+            v-if="route.path === '/all' || (route.path === '/current' && themeStore.subsEnabled)"
+            class="sort-nav desktop-only"
+          >
+            <div
+              v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
+              class="sort-btn desktop-subs-toggle"
+              :title="`subs: ${themeStore.expandCurrentSubs}`"
+              @click="themeStore.toggleExpandCurrentSubs()"
             >
-              <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
-            </button>
-            <button
-              ref="sortOrderBtnRef"
-              :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-              class="sort-btn"
-              @click="toggleSort"
-            >
-              <ArrowUpDown :size="22" />
-            </button>
+              <span class="mobile-subs-label">subs</span>
+              <button
+                type="button"
+                class="mobile-subs-switch"
+                role="switch"
+                :aria-checked="themeStore.expandCurrentSubs === 'full'"
+                :class="{ half: themeStore.expandCurrentSubs === 'half', on: themeStore.expandCurrentSubs === 'full' }"
+              >
+                <span class="mobile-subs-switch-knob" />
+              </button>
+            </div>
+            <template v-if="route.path === '/all'">
+              <button
+                ref="sortListBtnRef"
+                :title="listView ? 'Switch to grid view' : 'Switch to list view'"
+                class="sort-btn"
+                @click="listView = !listView"
+              >
+                <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
+              </button>
+              <button
+                ref="sortOrderBtnRef"
+                :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+                class="sort-btn"
+                @click="toggleSort"
+              >
+                <ArrowUpDown :size="22" />
+              </button>
+            </template>
           </div>
 
           <!-- Mobile/Tablet: tag panel toggle, or direct All/Priority toggle
