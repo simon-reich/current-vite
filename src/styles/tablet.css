@@ -77,23 +77,7 @@
     display: flex;
     grid-area: left;
     align-items: center;
-    /* Same 6px .sort-nav already uses for its own icons (layout.css) —
-       reused here, not a separately eyeballed value, so the tag button
-       and the grid/sort icons right next to it read as one evenly
-       spaced row instead of two clusters with different gaps. */
-    gap: 6px;
     justify-content: flex-start;
-  }
-
-  /* .sort-nav's `order: -1` (layout.css) is what keeps it visually first
-     on desktop despite living later in the DOM here — but taken at face
-     value inside .tablet-left-cluster's own flex row, it would also pull
-     sort-nav ahead of the tag-panel toggle, reversing this row's intended
-     left-to-right reading (tags, then sort). Two-class selector so it
-     reliably outranks that single-class rule regardless of stylesheet
-     order. */
-  .tablet-left-cluster .sort-nav {
-    order: 1;
   }
 
   /* Kept smaller here than desktop's own dedicated corner (.focus-date-
@@ -166,17 +150,15 @@
     pointer-events: auto;
   }
 
-  /* Same icon-style subs-toggle as desktop now (App.vue's
-     desktop-subs-toggle, the first item inside .sort-nav) — shown here too
-     instead of hidden, replacing tablet's own former separate switch-style
-     version (.mobile-subs-toggle, now unused at this breakpoint — see
-     below). Desktop places it before the grid/sort icons; tablet wants it
-     after the sort icon instead, so it gets pushed to the end of the same
-     shared .sort-nav flex row via `order` alone — still the one shared
-     container/gap. Layout reverts to side by side here — row-reverse (not
-     plain row) because the label comes first in the DOM but has to end up
-     on the right, switch on the left, matching the old .mobile-subs-toggle
-     layout. Sizing itself is left untouched, i.e. the same already-tuned
+  /* Same icon-style subs-toggle as desktop (App.vue's desktop-subs-toggle,
+     the first item inside .sort-nav — the one and only subs-toggle
+     element at every breakpoint now). Desktop places it before the grid/
+     sort icons; tablet wants it after the sort/tag icons instead, so it
+     gets pushed to the end of the same shared .sort-nav flex row via
+     `order` alone — still the one shared container/gap. Layout reverts to
+     side by side here — row-reverse (not plain row) because the label
+     comes first in the DOM but has to end up on the right, switch on the
+     left. Sizing itself is left untouched, i.e. the same already-tuned
      smaller-than-original desktop size (layout.css) — reused as is rather
      than a third size tuned separately for this breakpoint too. */
   .desktop-subs-toggle {
@@ -218,51 +200,6 @@
     padding: 4px;
     align-items: center;
     flex-shrink: 0;
-  }
-
-  /* The tag button now lives inside .phone-overview-icon-group (added for
-     phone's own header row, see mobile.css), which stays display:none at
-     this breakpoint by default (.mobile-only, layout.css) — re-enabled
-     here so the tag button reappears in .tablet-left-cluster, where it
-     sat before that group existed. Its two siblings (sort, subs) are left
-     hidden: .sort-nav right above already renders both for this route/
-     breakpoint (desktop-subs-toggle, grid/sort icons) — showing them here
-     too would just duplicate that same row. */
-  .phone-overview-icon-group {
-    display: flex;
-    align-items: center;
-  }
-
-  /* Sized up to 26px for phone's own row (mobile.css comment: "asked for
-     explicitly here, this row only") — reused as-is here since it's the
-     same shared button, but that stands out next to .sort-nav's 22px
-     grid/sort icons right beside it at this breakpoint, so it's scaled
-     back down to match them. */
-  .phone-overview-tags-btn svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .phone-overview-icon-group .phone-overview-sort-btn,
-  .phone-overview-icon-group .mobile-subs-toggle {
-    display: none;
-  }
-
-  /* Current's own icon-group instance only ever holds the (now hidden)
-     subs-toggle — the tag/priority/sort template right above it is
-     `/all`-only. Left as display:flex it would still be an empty flex
-     item consuming a `gap` from .tablet-left-cluster, nudging Current's
-     desktop-subs-toggle away from the left edge; removed from the flex
-     flow entirely instead. */
-  #app.is-current .phone-overview-icon-group {
-    display: none;
-  }
-
-  #app.is-settings .mobile-tags-btn,
-  #app.is-calendar .mobile-tags-btn,
-  #app.is-current .mobile-tags-btn {
-    pointer-events: none;
-    opacity: 0.35;
   }
 
   /* ── Tag panel: mirrors Overview's Date-List side panel

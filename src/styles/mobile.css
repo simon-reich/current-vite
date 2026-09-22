@@ -74,9 +74,7 @@
     padding: 9px 14px;
   }
 
-  /* ── Tags toggle button (color/hover shared in layout.css) — only used
-     inside .phone-overview-icon-group now (see below), which controls its
-     own child order itself. ── */
+  /* ── Tags toggle button (color/hover shared in layout.css) ── */
   .mobile-tags-btn {
     padding: 4px;
     display: flex;
@@ -84,39 +82,35 @@
     flex-shrink: 0;
   }
 
-  /* Same slot the tag icon sits in — label on top, switch below. Also
-     only used inside .phone-overview-icon-group now. */
-  .mobile-subs-toggle {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
-  }
-
   /* ══ Phone Overview + Current: single header row — a rectangular Plus
-     (opens the add-todo sheet) and the date pill on the left,
-     Tags/Sort/Subs grouped and pushed to the row's right edge (exact same
-     plain icon buttons/toggle used everywhere else in the app:
-     .mobile-tags-btn, .sort-btn, .mobile-subs-toggle, just placed here
-     too — not reinvented; Tags/Sort are Overview-only, Subs is shared).
-     Scoped to #app.is-all/#app.is-current only — Settings/Calendar are
-     untouched. ══ */
+     (opens the add-todo sheet) and the date pill on the left, .sort-nav
+     (subs-toggle/grid/sort/tag icons — the exact same single element
+     desktop/tablet use, see App.vue and tablet.css, not a second phone-
+     only copy) pushed to the row's right edge via its own margin-left:
+     auto below. Scoped to #app.is-all/#app.is-current only — Settings/
+     Calendar are untouched. ══ */
   #app.is-all,
   #app.is-current {
     --po-icon-size: 38px;
   }
 
-  /* Explicit order across the row's three DOM-order pieces (Plus lives in
-     .tablet-left-cluster, the pill in .tablet-input-row, both
-     `display:contents` wrappers — see App.vue) so the pill visually lands
-     right after Plus instead of after the icon group that actually
-     precedes it in the markup. */
+  /* Explicit order across the row's three DOM-order pieces (.sort-nav and
+     the Plus button both live in .tablet-left-cluster, the pill in
+     .tablet-input-row — all three `display:contents` wrappers, see
+     App.vue) so the pill visually lands between Plus and .sort-nav
+     regardless of their actual DOM order. .sort-nav's own order:-1 (base
+     rule, layout.css, for its desktop position before the add-input) is
+     overridden back to last here. */
   #app.is-all .tablet-input-focus-date-widget-slot,
   #app.is-current .tablet-input-focus-date-widget-slot {
     display: flex;
     flex-shrink: 0;
     order: 1;
+  }
+
+  .sort-nav {
+    order: 2;
+    margin-left: auto;
   }
 
   /* The desktop/tablet inline input itself — replaced at phone width by
@@ -127,19 +121,23 @@
     display: none;
   }
 
-  .phone-overview-icon-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: auto;
-    order: 2;
+  /* No grid view at phone width (no room in a single-row header, and
+     never offered here) — every other breakpoint keeps this icon. */
+  .overview-grid-toggle-btn {
+    display: none;
   }
 
-  /* A bit bigger than the app's usual 22px icon buttons (see the :size
-     props in App.vue) — asked for explicitly here, this row only. */
-  .phone-overview-sort-btn,
-  .phone-overview-tags-btn {
+  /* A bit bigger than the app's usual 22px icon buttons (the shared
+     template default, see App.vue) — asked for explicitly on this row. */
+  .sort-order-btn,
+  .mobile-tags-btn {
     padding: 6px;
+  }
+
+  .sort-order-btn svg,
+  .mobile-tags-btn svg {
+    width: 26px;
+    height: 26px;
   }
 
   /* Rectangular, not the circular .tag-add-btn shape — corner radius

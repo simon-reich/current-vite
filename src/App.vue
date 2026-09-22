@@ -1229,7 +1229,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
     <div class="main-head">
       <div class="main-head-inner">
-        <!-- Sort buttons + the mobile/tablet tag-panel toggle, grouped
+        <!-- Sort buttons + the mobile/tablet/phone tag-panel toggle, grouped
              together (see .tablet-left-cluster in tablet.css) so tablet's
              grid can treat them as one left-hand block — needed for
              .top-nav's view icons to actually center across the *whole*
@@ -1244,29 +1244,31 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         <div class="tablet-left-cluster">
           <!-- One shared flex container (.sort-nav, same `gap` used for
                every icon cluster in this app — see .top-nav) for the
-               subs-toggle + grid/list + sort-order icons, so the gap
-               between the toggle and the grid icon is driven by the exact
-               same property as the gap between the grid and sort icons
-               right next to it, not two separately eyeballed numbers that
+               subs-toggle + grid/list + sort-order + tag/priority icons —
+               one row, one element, at every breakpoint, not a second
+               phone-only copy of the same buttons (that used to live in
+               its own .phone-overview-icon-group, now gone). The gap
+               between every icon here is driven by the exact same
+               property, not several separately eyeballed numbers that
                happen to match. Also carries .sort-btn itself (padding,
                hover color) so its hit-area/edge-spacing lines up with the
-               other two icons the same way theirs line up with each
-               other. `.main-head-inner`'s own max-width is widened by
-               exactly this button's added footprint (see layout.css) so
-               the add-input still ends up exactly as wide as before,
-               instead of shrinking to make room inside the same box (what
-               an earlier attempt at this, living outside .main-head-inner
+               other icons the same way theirs line up with each other.
+               `.main-head-inner`'s own max-width is widened by exactly
+               this button's added footprint (see layout.css) so the
+               add-input still ends up exactly as wide as before, instead
+               of shrinking to make room inside the same box (what an
+               earlier attempt at this, living outside .main-head-inner
                entirely, was working around). Present whenever Overview's
-               grid/sort icons are (route === '/all') or the toggle alone
-               is (subsEnabled, Current included) — empty/zero-width
+               grid/sort/tag icons are (route === '/all') or the toggle
+               alone is (subsEnabled, Current included) — empty/zero-width
                otherwise. Desktop places the toggle before the grid/sort
-               icons; tablet reorders it to sit after them instead (see
-               .desktop-subs-toggle's `order` in tablet.css) — still this
-               exact same container/markup either way, no separate tablet
-               copy of it. -->
+               icons; tablet/phone reorder it to sit after them instead
+               (see .desktop-subs-toggle's `order` in tablet.css) — still
+               this exact same container/markup either way, no per-
+               breakpoint copy of it. -->
           <div
             v-if="route.path === '/all' || (route.path === '/current' && themeStore.subsEnabled)"
-            class="sort-nav desktop-only"
+            class="sort-nav"
           >
             <div
               v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
@@ -1286,10 +1288,14 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               </button>
             </div>
             <template v-if="route.path === '/all'">
+              <!-- Grid/list view toggle — phone hides this one (see
+                   .overview-grid-toggle-btn in mobile.css), there's no
+                   room in a single-row phone header and grid view was
+                   never offered there; every other breakpoint keeps it. -->
               <button
                 ref="sortListBtnRef"
                 :title="listView ? 'Switch to grid view' : 'Switch to list view'"
-                class="sort-btn"
+                class="sort-btn overview-grid-toggle-btn"
                 @click="listView = !listView"
               >
                 <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
@@ -1297,81 +1303,51 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               <button
                 ref="sortOrderBtnRef"
                 :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-                class="sort-btn"
+                class="sort-btn sort-order-btn"
                 @click="toggleSort"
               >
                 <ArrowUpDown :size="22" />
+              </button>
+              <!-- Desktop shows the real tag sidebar instead, so this stays
+                   hidden there via .mobile-only (default display:none,
+                   re-enabled in tablet.css/mobile.css). Nested in the
+                   `/all`-only template above, so it never renders on
+                   Current at all — Current isn't filterable, there's
+                   nothing here for it to toggle. -->
+              <button
+                v-if="themeStore.tagsEnabled"
+                class="mobile-tags-btn mobile-only"
+                title="Tags"
+                @click="showMobileTags = true"
+              >
+                <Tag :size="22" />
+              </button>
+              <button
+                v-else
+                class="mobile-tags-btn priority-toggle-btn mobile-only"
+                :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
+                :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+                @click="toggleTag(PRIORITY_TAG_ID)"
+              >
+                <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
               </button>
             </template>
           </div>
 
           <!-- Phone Overview + Current — a rectangular Plus (opens the
-               add-todo sheet, see .add-sheet below) on the left, the date
-               pill right after it (see .tablet-input-focus-date-widget-
-               slot's own `order` in mobile.css), then Tags/Sort/Subs
-               grouped on the right, pushed there via the group wrapper's
-               margin-left:auto. Sort and Tags/Priority are Overview-only
-               (Current's tags are always inert — same
-               #app.is-current dimming rules as elsewhere — and it has no
-               sort order of its own); Subs is the one piece both routes
-               share, reusing the same route-aware desktopSubsState/
-               toggleDesktopSubs this exact slot already uses on
-               desktop/tablet (see .sort-nav above) rather than a third
-               copy of the toggle logic. -->
-          <template v-if="route.path === '/all' || route.path === '/current'">
-            <button
-              class="phone-overview-add-btn mobile-only"
-              title="Add todo"
-              @click="openAddSheet"
-            >
-              <Plus :size="20" />
-            </button>
-            <div class="phone-overview-icon-group mobile-only">
-              <template v-if="route.path === '/all'">
-                <button
-                  v-if="themeStore.tagsEnabled"
-                  class="mobile-tags-btn phone-overview-tags-btn"
-                  title="Tags"
-                  @click="showMobileTags = true"
-                >
-                  <Tag :size="26" />
-                </button>
-                <button
-                  v-else
-                  class="mobile-tags-btn phone-overview-tags-btn priority-toggle-btn"
-                  :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-                  :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
-                  @click="toggleTag(PRIORITY_TAG_ID)"
-                >
-                  <Flag :size="26" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
-                </button>
-                <button
-                  class="sort-btn phone-overview-sort-btn"
-                  :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
-                  @click="toggleSort"
-                >
-                  <ArrowUpDown :size="26" />
-                </button>
-              </template>
-              <div
-                v-if="themeStore.subsEnabled"
-                class="mobile-subs-toggle"
-              >
-                <span class="mobile-subs-label">subs</span>
-                <button
-                  type="button"
-                  class="mobile-subs-switch"
-                  role="switch"
-                  :aria-checked="desktopSubsState === 'full'"
-                  :title="`subs: ${desktopSubsState}`"
-                  :class="{ half: desktopSubsState === 'half', on: desktopSubsState === 'full' }"
-                  @click="toggleDesktopSubs"
-                >
-                  <span class="mobile-subs-switch-knob" />
-                </button>
-              </div>
-            </div>
-          </template>
+               add-todo sheet, see .add-sheet below), sitting before the
+               date pill (see .tablet-input-focus-date-widget-slot's own
+               `order` in mobile.css) and .sort-nav above (pushed to the
+               row's right edge via its own margin-left:auto in
+               mobile.css). -->
+          <button
+            v-if="route.path === '/all' || route.path === '/current'"
+            class="phone-overview-add-btn mobile-only"
+            title="Add todo"
+            @click="openAddSheet"
+          >
+            <Plus :size="20" />
+          </button>
         </div>
 
         <!-- Add todo input row — tablet only, Overview's date-picker pill
@@ -1915,7 +1891,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <nav class="mobile-bottom-nav mobile-only">
       <!-- Phone-width only (see .sort-btn/.lists-btn CSS in mobile.css) —
            this bottom-left slot used to also hold Overview's sort button,
-           now living in the main head instead (see .phone-overview-sort-btn
+           now living in the main head instead (see .sort-order-btn
            above) — Current's own "browse other Date Lists" entry point is
            the only thing left using this slot. -->
       <button

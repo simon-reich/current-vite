@@ -1001,10 +1001,8 @@
 #app.is-settings .all-btn,
 #app.is-settings .sort-btn,
 #app.is-settings .add-wrapper,
-#app.is-settings .mobile-tags-btn,
 #app.is-calendar .all-btn,
-#app.is-calendar .add-wrapper,
-#app.is-calendar .mobile-tags-btn {
+#app.is-calendar .add-wrapper {
   pointer-events: none;
   opacity: 0.35;
   user-select: none;
@@ -1025,22 +1023,6 @@
 #app.is-settings .sidebar,
 #app.is-calendar .sidebar {
   overflow-y: hidden;
-}
-
-/* ── Current active: same dim + lock, but NOT .add-wrapper — Current still
-   lets you add a todo (auto-sent straight to today), so its tag-picking
-   checkbox row has to stay usable. .sidebar-head renders nothing on
-   Current at all now (see App.vue), so only the mobile tags-panel opener
-   needs locking here — Current isn't filterable, and the desktop sidebar's
-   OWN .tag-list is excluded since in Current it no longer holds tag
-   filters but the Current/Today/Tomorrow Date-List nav (see
-   .date-nav-list below), which stays fully usable. */
-#app.is-current .mobile-tags-btn {
-  pointer-events: none;
-  opacity: 0.35;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
 }
 
 /* ── Main content ── */
