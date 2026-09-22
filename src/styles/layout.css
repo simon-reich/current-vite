@@ -634,6 +634,10 @@
   /* "tomorrow" doesn't fit .all-btn's 56px (sized for "prio") — widen just
      these three, same fixed-width-for-the-trio approach as .all-btn itself. */
   width: 84px;
+  border: none;
+  font-size: calc(var(--chip-font-size) + 2px);
+  font-weight: 800;
+  text-align: left;
 }
 
 .date-nav-upcoming-btn {
@@ -648,6 +652,28 @@
 .date-nav-upcoming-chip.active {
   background: var(--ink);
   color: var(--bg);
+}
+
+.date-nav-upcoming-chip {
+  border: none;
+}
+
+.date-nav-upcoming-chip .tag-label {
+  font-weight: 800;
+  font-size: calc(var(--chip-font-size) + 2px);
+}
+
+/* Interlude headings ("week"/"month"/month name) breaking up the Date-List
+   nav's rows into skimmable chunks, both visually and via extra top space
+   — plain small mono text, no border/fill, so it reads as a separator
+   rather than another clickable chip. First one sits right under the
+   today/tomorrow trio, same gap logic as .loop-btn above. */
+.date-nav-section-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--ink);
+  opacity: 0.5;
+  margin-top: 10px;
 }
 
 /* ── Settings head ── */

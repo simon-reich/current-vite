@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { X } from '@lucide/vue'
 import { useThemeStore } from '../stores/theme'
 import { todayStr } from '../composables/useToday'
 import { activeModal } from '../composables/useModalGuard'
@@ -61,12 +60,6 @@ watch(() => props.open, (isOpen) => {
     </Transition>
     <Transition name="fdp-slide">
       <div v-show="open" class="fdp-panel" role="dialog" @click.stop>
-        <div class="fdp-head">
-          <h2 class="fdp-title">plan ahead</h2>
-          <button type="button" class="fdp-close" title="Close" @click="close">
-            <X :size="18" />
-          </button>
-        </div>
         <VCalendar
           :attributes="dateAttributes"
           :min-date="minDate"
@@ -140,35 +133,6 @@ watch(() => props.open, (isOpen) => {
 .fdp-panel.fdp-slide-enter-from,
 .fdp-panel.fdp-slide-leave-to {
   transform: translateX(100%);
-}
-
-.fdp-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.fdp-title {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--ink-dark);
-  font-family: var(--font-mono, monospace);
-}
-
-.fdp-close {
-  background: none;
-  border: none;
-  color: var(--ink);
-  opacity: 0.6;
-  cursor: pointer;
-  padding: 4px;
-  transition: opacity 0.1s;
-}
-
-@media (hover: hover) {
-  .fdp-close:hover {
-    opacity: 1;
-  }
 }
 
 .fdp-calendar {

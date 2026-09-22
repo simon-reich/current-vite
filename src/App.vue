@@ -956,7 +956,7 @@ provide('viewingDate', viewingDate)
 // Date math shared by every Date-List nav rendering (this file's own
 // Current variant below, FocusDateNav.vue's Overview variant, and the
 // tablet slide-in panel) — see useFocusDateNav's own comment.
-const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
+const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
 
 // Overview and Current share one "currently focused Date List" concept —
 // tapping back and forth between them (Tab, nav icons, ...) carries
@@ -1303,6 +1303,7 @@ watch(() => route.path, () => {
           tomorrow
         </button>
 
+        <div class="date-nav-section-label">week</div>
         <div
           v-for="dateStr in presetWeekDates.slice(2)"
           :key="dateStr"
@@ -1312,14 +1313,17 @@ watch(() => route.path, () => {
           <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
         </div>
 
-        <div
-          v-for="dateStr in upcomingFocusDates"
-          :key="dateStr"
-          class="tag-chip date-nav-upcoming-chip"
-          :class="{ active: viewingDate === dateStr }"
-        >
-          <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
-        </div>
+        <template v-for="group in upcomingFocusDateGroups" :key="group.label">
+          <div class="date-nav-section-label">{{ group.label }}</div>
+          <div
+            v-for="dateStr in group.dates"
+            :key="dateStr"
+            class="tag-chip date-nav-upcoming-chip"
+            :class="{ active: viewingDate === dateStr }"
+          >
+            <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
+          </div>
+        </template>
       </div>
 
       <!-- Overview: same Date-List nav, but picking a date sets the

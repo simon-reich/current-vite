@@ -13,7 +13,7 @@ import { useFocusDateNav } from '../composables/useFocusDateNav'
 // different click targets, not a fit for this component.
 const themeStore = useThemeStore()
 const store = useTodosStore()
-const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
+const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
 </script>
 
 <template>
@@ -33,6 +33,7 @@ const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, form
       tomorrow
     </button>
 
+    <div class="date-nav-section-label">week</div>
     <div
       v-for="dateStr in presetWeekDates.slice(2)"
       :key="dateStr"
@@ -42,13 +43,16 @@ const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, form
       <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatPresetDate(dateStr) }}</span>
     </div>
 
-    <div
-      v-for="dateStr in upcomingFocusDates"
-      :key="dateStr"
-      class="tag-chip date-nav-upcoming-chip"
-      :class="{ active: themeStore.selectedFocusDate === dateStr }"
-    >
-      <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatUpcomingDate(dateStr) }}</span>
-    </div>
+    <template v-for="group in upcomingFocusDateGroups" :key="group.label">
+      <div class="date-nav-section-label">{{ group.label }}</div>
+      <div
+        v-for="dateStr in group.dates"
+        :key="dateStr"
+        class="tag-chip date-nav-upcoming-chip"
+        :class="{ active: themeStore.selectedFocusDate === dateStr }"
+      >
+        <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatUpcomingDate(dateStr) }}</span>
+      </div>
+    </template>
   </div>
 </template>

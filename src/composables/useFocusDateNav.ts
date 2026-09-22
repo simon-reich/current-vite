@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { useTodosStore } from '../stores/todos'
-import { todayStr, tomorrowStr, localDateStr, WEEKDAY_LABELS } from './useToday'
+import { todayStr, tomorrowStr, localDateStr, WEEKDAY_FULL_LABELS, MONTH_LABELS } from './useToday'
 
 // Shared by every Date-List nav rendering (Overview's aside on desktop,
 // Current's aside on desktop, and the tablet slide-in panel) — the actual
@@ -39,14 +39,36 @@ export function useFocusDateNav() {
     return store.futureFocusDates.filter(d => d > windowEnd)
   })
 
-  // "TUE, 07.07" — uppercase weekday first, then day.month (day-before-
-  // month, not the US month-before-day order), no year (Date Lists only
-  // ever cover the near future in practice, see rolloverExpiredFocusDates
-  // clearing out stale ones).
+  // Interlude headings for the upcoming lists below the preset week: the
+  // current calendar month's remainder groups under "month", everything
+  // past that under its own month name — chronological, so a simple
+  // consecutive-run grouping is enough (dates are already sorted). Kept
+  // here rather than per-caller so Overview, Current and the tablet panel
+  // (which all render this nav) stay in sync (see CLAUDE.md's single-
+  // source-of-truth principle).
+  const upcomingFocusDateGroups = computed(() => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    const groups: { label: string; dates: string[] }[] = []
+    for (const dateStr of upcomingFocusDates.value) {
+      const [y, m] = dateStr.split('-').map(Number)
+      const label = (y === currentYear && m === currentMonth) ? 'month' : MONTH_LABELS[m - 1]
+      const last = groups[groups.length - 1]
+      if (last && last.label === label) last.dates.push(dateStr)
+      else groups.push({ label, dates: [dateStr] })
+    }
+    return groups
+  })
+
+  // "07.07, tuesday" — day.month first (day-before-month, not the US
+  // month-before-day order), then the spelled-out lowercase weekday, no
+  // year (Date Lists only ever cover the near future in practice, see
+  // rolloverExpiredFocusDates clearing out stale ones).
   function formatUpcomingDate(dateStr: string): string {
     const [y, m, d] = dateStr.split('-').map(Number)
-    const weekday = WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()]
-    return `${weekday}, ${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}`
+    const weekday = WEEKDAY_FULL_LABELS[new Date(y, m - 1, d).getDay()]
+    return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}, ${weekday}`
   }
 
   // Same as formatUpcomingDate, but special-cases today/tomorrow the same
@@ -58,5 +80,5 @@ export function useFocusDateNav() {
     return formatUpcomingDate(dateStr)
   }
 
-  return { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, formatUpcomingDate, formatPresetDate }
+  return { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, upcomingFocusDateGroups, formatUpcomingDate, formatPresetDate }
 }

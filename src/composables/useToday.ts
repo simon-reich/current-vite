@@ -22,3 +22,14 @@ export function tomorrowStr(): string {
 
 // Sunday-first, matching Date#getDay()/v-calendar's own weekday numbering.
 export const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+// Same order, spelled out and lowercase per the app's UI-chrome casing rule
+// (see CLAUDE.md) — used for the Date-List nav's upcoming-date chips.
+export const WEEKDAY_FULL_LABELS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+// Lowercase per the app's UI-chrome casing rule (see CLAUDE.md) — used for
+// the Date-List nav's interlude month headings.
+export const MONTH_LABELS = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+]
