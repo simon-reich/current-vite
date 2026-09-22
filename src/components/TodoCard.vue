@@ -1721,11 +1721,13 @@ const swipeContainerRef = ref<HTMLElement | null>(null)
 // flat percentage — a tall card (many subs expanded) would otherwise puff
 // up by enough pixels per edge to eat into the fixed gap to the next card,
 // and (width tracked for the same reason) a short-but-full-row-wide card
-// on tablet/phone — where there's no side gap left to grow into — would
-// otherwise puff past the todo list's own edges and get clipped by the
-// surrounding overflow:hidden, since transform: scale() grows width and
-// height by the same factor and a wide card's growth in *pixels* on its
-// long axis is much bigger than on its short one for the same scale.
+// on tablet/phone would otherwise puff sideways by more than a wide card
+// visually should, into the row's own gap to its neighbor — since
+// transform: scale() grows width and height by the same factor, a wide
+// card's growth in *pixels* on its long axis is much bigger than on its
+// short one for the same scale. .main-content's overflow-x is visible
+// (see that rule in layout.css), so this is purely about that sibling-gap
+// look, not about avoiding clipping at the list's own outer edge anymore.
 const cardHeight = ref(0)
 const cardWidth = ref(0)
 let cardResizeObserver: ResizeObserver | null = null

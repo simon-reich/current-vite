@@ -957,7 +957,20 @@
   grid-column: 2;
   grid-row: 2;
   overflow-y: auto;
-  overflow-x: hidden;
+  /* Was overflow-x: hidden (see commit "fix: prevent horizontal scroll
+     caused by full-width divider bleed") — that fix was for a *different*
+     problem: elements bleeding out via negative margins count as real
+     layout overflow, which briefly turned this into an actual
+     horizontally-scrollable region. Nothing here does that today (no
+     negative-margin full-bleed elements in .main-content's subtree
+     anymore — .scroll-divider right below has none). A card's hover puff
+     (TodoCard.vue's transform: scale()) and its drop shadow are pure ink
+     overflow, not layout overflow, so they were never the thing that fix
+     was guarding against — they just got caught by the same blanket
+     hidden, clipping a full-row-wide tablet/phone card's shadow against
+     this list's own edge with zero side slack to grow into. visible lets
+     that ink overflow actually render past the edge instead. */
+  overflow-x: visible;
   scrollbar-width: none;
   /* Stops an overscroll at the top/bottom of this list from chaining up to
      the document — which is exactly what triggers the browser's native
