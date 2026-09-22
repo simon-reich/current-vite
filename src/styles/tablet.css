@@ -191,7 +191,17 @@
 
   /* ── Content: near-edge-to-edge, more cards fit per row ── */
   .content-inner {
-    padding: 26px 6px 0;
+    /* 20px (not the original 6px) — a full-row-wide card's hover puff
+       (TodoCard.vue's transform: scale(), uncapped by width — only
+       cardHeight caps it, see MAX_HOVER_GROWTH_PX there) plus its own 5px
+       drop shadow need somewhere to go now that it has no side neighbor
+       to grow into; .main-content's overflow-x: hidden genuinely clips
+       that (it's not just a scroll-container quirk to work around — see
+       git history on that rule), so the fix is reserving enough real
+       padding instead. At the full uncapped 3.5% puff, a wide short card
+       can need close to 17px on its shadowed edge — 20px covers that
+       with a bit of margin, still reads as "near edge-to-edge". */
+    padding: 26px 20px 0;
   }
 
   /* ── Tags toggle button (color/hover shared in layout.css) ── */

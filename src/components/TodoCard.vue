@@ -1716,42 +1716,29 @@ function handleDoneForToday(id: string) {
 // ever having to fight the browser for scroll ownership.
 const swipeContainerRef = ref<HTMLElement | null>(null)
 
-// Tracks this card's actual rendered size so the hover puff below (see
+// Tracks this card's actual rendered height so the hover puff below (see
 // .swipe-container:hover) can cap its growth in real pixels instead of a
 // flat percentage — a tall card (many subs expanded) would otherwise puff
-// up by enough pixels per edge to eat into the fixed gap to the next card,
-// and (width tracked for the same reason) a short-but-full-row-wide card
-// on tablet/phone would otherwise puff sideways by more than a wide card
-// visually should, into the row's own gap to its neighbor — since
-// transform: scale() grows width and height by the same factor, a wide
-// card's growth in *pixels* on its long axis is much bigger than on its
-// short one for the same scale. .main-content's overflow-x is visible
-// (see that rule in layout.css), so this is purely about that sibling-gap
-// look, not about avoiding clipping at the list's own outer edge anymore.
+// up by enough pixels per edge to eat into the fixed gap to the next card.
 const cardHeight = ref(0)
-const cardWidth = ref(0)
 let cardResizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   if (!swipeContainerRef.value) return
   cardResizeObserver = new ResizeObserver(entries => {
     cardHeight.value = entries[0].contentRect.height
-    cardWidth.value = entries[0].contentRect.width
   })
   cardResizeObserver.observe(swipeContainerRef.value)
 })
 
-// 3.5% is fine for a typical card — the min() below only ever binds once
-// a card is large enough (on whichever axis, height or width, is bigger)
-// that 3.5% would grow it by more than MAX_HOVER_GROWTH_PX per edge on
-// that axis; for anything smaller on both axes it's a no-op and the
-// normal 3.5% puff still applies. Using the larger of the two dimensions
-// (not just height) is what keeps a wide-but-short card in check too.
+// 3.5% is fine for a typical card's height — the min() below only ever
+// binds once a card is tall enough that 3.5% would grow it by more than
+// MAX_HOVER_GROWTH_PX per edge; for anything shorter it's a no-op and the
+// normal 3.5% puff still applies.
 const MAX_HOVER_GROWTH_PX = 6
 const hoverScale = computed(() => {
-  const largestDimension = Math.max(cardHeight.value, cardWidth.value)
-  if (!largestDimension) return 1.035
-  return Math.min(1.035, 1 + (2 * MAX_HOVER_GROWTH_PX) / largestDimension)
+  if (!cardHeight.value) return 1.035
+  return Math.min(1.035, 1 + (2 * MAX_HOVER_GROWTH_PX) / cardHeight.value)
 })
 const x = useMotionValue(0)
 const y = useMotionValue(0)
