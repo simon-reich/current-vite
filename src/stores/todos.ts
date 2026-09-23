@@ -195,6 +195,16 @@ export const useTodosStore = defineStore('todos', () => {
     return [...dates].sort()
   })
 
+  // futureFocusDates plus today, if today itself has a Date List — the
+  // one full "every date with a Date List right now" sequence, today
+  // included, used anywhere that needs to browse/list them all (the Lists
+  // panel, Current's back/next nav) instead of each inlining the same
+  // `hasFocusDateList(today) ? [today, ...futureFocusDates] : ...` check.
+  const datesWithFocusList = computed(() => {
+    const today = todayStr()
+    return hasFocusDateList(today) ? [today, ...futureFocusDates.value] : futureFocusDates.value
+  })
+
   // A Date List preview is a full preview of that day, not just what's
   // explicitly planned there — a Date Todo (loop/once) due on `dateStr`
   // belongs on it too, computed live off its current schedule rather than
@@ -672,7 +682,7 @@ export const useTodosStore = defineStore('todos', () => {
     // state
     todos, tags,
     // getters
-    activeTodos, currentTodos, userTags, futureFocusDates,
+    activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
     completedOn, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
     addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, doneForToday, doneForTodayOnDate,

@@ -16,8 +16,7 @@ const store = useTodosStore()
 
 const allDates = computed(() => {
   const today = todayStr()
-  const dates = store.hasFocusDateList(today) ? [today, ...store.futureFocusDates] : store.futureFocusDates
-  return dates.map(d => ({ date: d, count: store.todosForFocusDate(d).length, isToday: d === today }))
+  return store.datesWithFocusList.map(d => ({ date: d, count: store.todosForFocusDate(d).length, isToday: d === today }))
 })
 
 function select(dateStr: string | null) {
