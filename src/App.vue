@@ -1008,12 +1008,25 @@ provide('sortKey', sortKey)
 const listsPanelOpen = ref(false)
 provide('listsPanelOpen', listsPanelOpen)
 
-// ── Current-view sidebar: Current/Today/Tomorrow + upcoming Date Lists ──
+// ── Current-view sidebar: Today/Tomorrow + upcoming Date Lists ──
 // viewingDate now lives here (not in Current.vue) since the desktop sidebar
 // buttons that drive it sit in App.vue, outside the RouterView — same
-// provide/inject direction as listsPanelOpen above.
-const viewingDate = ref<string | null>(null)
+// provide/inject direction as listsPanelOpen above. null is the old,
+// day-agnostic Current pool — with Date Lists on, Current has no UI left
+// that can ever set it back to null (see CLAUDE.md's Date Lists section),
+// so it starts on today's list instead of null whenever the feature is
+// already on at load.
+const viewingDate = ref<string | null>(themeStore.dateListsEnabled ? todayStr() : null)
 provide('viewingDate', viewingDate)
+
+// Toggling the setting live (Settings view) has to flip viewingDate the
+// same way — turning Date Lists off should drop straight back into the
+// classic Current pool (nothing else can set it to null any more), turning
+// it on should leave the pool for today's list rather than silently
+// keeping null around with no UI path back to it.
+watch(() => themeStore.dateListsEnabled, (enabled) => {
+  viewingDate.value = enabled ? todayStr() : null
+})
 
 // Date math shared by every Date-List nav rendering (this file's own
 // Current variant below, FocusDateNav.vue's Overview variant, and the
@@ -1025,9 +1038,9 @@ const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDateGroups,
 // whichever date was selected across instead of losing your place: leaving
 // Current for Overview with a Date List open hands that date to the
 // Focus-Date-Pille (themeStore.selectedFocusDate), and arriving at Current
-// from Overview opens whatever date the pille was already pointed at. Only
-// Current's own "current" pool (viewingDate === null) has no Overview
-// equivalent to sync, so it's simply left alone. viewingDate itself is
+// from Overview opens whatever date the pille was already pointed at.
+// viewingDate is never null while Date Lists are on (see its own ref decl
+// above), so this always has a real date to sync. viewingDate itself is
 // never reset elsewhere either — a Settings or Calendar detour leaves it
 // exactly as it was, so coming back to Current (directly, or via Overview)
 // still shows whatever list you were last on. Gated on dateListsEnabled —
@@ -1652,13 +1665,6 @@ function onSheetHandlePointerUp(e: PointerEvent) {
              window still only shows up once something's actually planned on
              it (upcomingFocusDates). -->
         <div v-if="route.path === '/current'" class="tag-list">
-          <button
-            class="all-btn date-nav-btn"
-            :class="{ active: viewingDate === null }"
-            @click="viewingDate = null"
-          >
-            current
-          </button>
           <button
             class="all-btn date-nav-btn"
             :class="{ active: viewingDate === todayStr(), dimmed: !hasTodayList }"

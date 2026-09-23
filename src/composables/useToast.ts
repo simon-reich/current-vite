@@ -80,13 +80,20 @@ export function spawnTodoAddedToast(anchorEl: HTMLElement | null) {
   )
 }
 
+// Shared by both Date-List toast variants below — same today/tomorrow
+// special-casing as TodoCard.vue's own formatShortDate (a separate copy
+// there since that one also feeds on-card labels, not just toasts).
+function formatDateLabel(dateStr: string): string {
+  if (dateStr === todayStr()) return 'today'
+  if (dateStr === tomorrowStr()) return 'tomorrow'
+  const [, m, d] = dateStr.split('-')
+  return `${d}/${m}`
+}
+
 export function spawnPlannedForDateToast(todoId: string, dateStr: string) {
-  let label: string
-  if (dateStr === todayStr()) label = 'today'
-  else if (dateStr === tomorrowStr()) label = 'tomorrow'
-  else {
-    const [, m, d] = dateStr.split('-')
-    label = `${d}/${m}`
-  }
-  spawnCardMoveToast(todoId, `planned for ${label}`)
+  spawnCardMoveToast(todoId, `planned for ${formatDateLabel(dateStr)}`)
+}
+
+export function spawnUnplannedForDateToast(todoId: string, dateStr: string) {
+  spawnCardMoveToast(todoId, `removed from ${formatDateLabel(dateStr)}`)
 }

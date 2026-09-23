@@ -84,16 +84,16 @@ const viewingDateLabel = computed(() => {
   return `${weekday}, ${datePart}`
 })
 
-// Everything Current can show, in one fixed sequence: the day-agnostic
-// Current pool (null) first, then the same rolling week the sidebar nav
-// always offers (presetWeekDates — today through +6 days, regardless of
-// whether anything's actually planned on them yet), then whatever Date
-// Lists exist further out (upcomingFocusDates, membership-only beyond
-// that window — see useFocusDateNav). Back/next below just step an index
-// through this one array and wrap at either end — Current itself is one
-// stop in the cycle like any other, not a separate "jump home" escape
-// hatch anymore (that's what the old default-jump button used to be).
-const dateListCycle = computed<(string | null)[]>(() => [null, ...presetWeekDates.value, ...upcomingFocusDates.value])
+// Everything Current can show, in one fixed sequence: the same rolling
+// week the sidebar nav always offers (presetWeekDates — today through +6
+// days, regardless of whether anything's actually planned on them yet),
+// then whatever Date Lists exist further out (upcomingFocusDates,
+// membership-only beyond that window — see useFocusDateNav). Back/next
+// below just step an index through this one array and wrap at either end.
+// No null/day-agnostic pool stop any more — Date Lists on means Current
+// has no UI left that can ever set viewingDate to null (see App.vue's own
+// ref decl), so this cycle never needs to include it.
+const dateListCycle = computed<(string | null)[]>(() => [...presetWeekDates.value, ...upcomingFocusDates.value])
 
 function stepDateList(delta: 1 | -1) {
   const cycle = dateListCycle.value

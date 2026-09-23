@@ -25,7 +25,9 @@ function select(dateStr: string | null) {
 
 function deleteList(dateStr: string) {
   store.deleteFocusDateList(dateStr)
-  if (props.viewingDate === dateStr) select(null)
+  // No day-agnostic pool to fall back to any more (see Current.vue's
+  // dateListCycle) — land on today's list instead of null.
+  if (props.viewingDate === dateStr) select(todayStr())
 }
 
 function close() {
@@ -43,14 +45,6 @@ registerModalGuard({ onCancel: close })
   <div class="modal-box lists-panel-box" role="dialog" @click.stop>
     <h2 class="lists-panel-title">lists</h2>
     <div class="lists-panel-list">
-      <button
-        type="button"
-        class="lists-panel-row-main"
-        :class="{ active: !viewingDate }"
-        @click="select(null)"
-      >
-        <span class="lists-panel-row-date">Default</span>
-      </button>
       <div v-for="entry in allDates" :key="entry.date" class="lists-panel-row">
         <button
           type="button"

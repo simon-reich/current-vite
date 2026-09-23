@@ -6,7 +6,7 @@ import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { spawnSentToCurrentToast, spawnPlannedForDateToast } from '../composables/useToast'
+import { spawnSentToCurrentToast, spawnPlannedForDateToast, spawnUnplannedForDateToast } from '../composables/useToast'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
 
 const store = useTodosStore()
@@ -121,6 +121,15 @@ function sendToFocusDate(id: string) {
   store.assignFocusDate(id, themeStore.selectedFocusDate)
   spawnPlannedForDateToast(id, themeStore.selectedFocusDate)
 }
+
+// Counterpart for the per-card icon/swipe-zone's Remove state once Date
+// Lists are on (see TodoCard.vue's isOnSelectedFocusDate) — same "doesn't
+// touch inCurrent, card stays right here" guarantee as sendToFocusDate
+// above.
+function unassignFocusDate(id: string, obvious?: boolean) {
+  if (!obvious) spawnUnplannedForDateToast(id, themeStore.selectedFocusDate)
+  store.unassignFocusDate(id, themeStore.selectedFocusDate)
+}
 </script>
 
 <template>
@@ -139,6 +148,7 @@ function sendToFocusDate(id: string) {
         mode="all"
         @send-to-current="sendToCurrent"
         @send-to-focus-date="sendToFocusDate"
+        @unassign-focus-date="unassignFocusDate"
         @remove-from-current="store.removeFromCurrent($event)"
         @delete="store.deleteTodo($event)"
       />

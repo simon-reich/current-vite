@@ -574,7 +574,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, CalendarPlus, GripVertical, X } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -716,6 +716,7 @@ const emit = defineEmits<{
   'send-to-current': [id: string, obvious?: boolean]
   'remove-from-current': [id: string, obvious?: boolean]
   'send-to-focus-date': [id: string]
+  'unassign-focus-date': [id: string, obvious?: boolean]
   'complete': [id: string]
   'done-for-today': [id: string]
   'delete': [id: string]
@@ -1431,14 +1432,16 @@ function onCardKeydown(e: KeyboardEvent) {
     else if (showMenu.value) emit('remove-from-current', props.todo.id)
     return
   }
-  // F — sends to Current (Overview only), same move as its own "+" button.
-  // Split off from Enter: Enter is what people intuitively reach for
-  // after just picking tags to "save and close", not to also send the
-  // todo off to Current as a side effect.
+  // F — Overview only, same move as its own "+" button: plans onto the
+  // selected Date List with Date Lists on, sends to Current otherwise (see
+  // that button's own comment above). Split off from Enter: Enter is what
+  // people intuitively reach for after just picking tags to "save and
+  // close", not to also move the todo as a side effect.
   if (e.key.toLowerCase() === 'f' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     commitDraftTags()
-    emit('send-to-current', props.todo.id)
+    if (themeStore.dateListsEnabled) emit('send-to-focus-date', props.todo.id)
+    else emit('send-to-current', props.todo.id)
     return
   }
   if (e.key !== 'Escape' && e.key !== 'Enter') return
@@ -1880,14 +1883,12 @@ const swipeAction = computed(() => {
 })
 const swipeArmed = computed(() => armedDir.value !== 0)
 
-// Overview's swipe-right splits into two drop zones (see onDrag's Y-based
-// armedZone tracking below) whenever Date Lists are on — including an
-// already-in-Current card (with Date Lists on, Current no longer pulls a
-// todo out of Overview, see filteredTodos in AllTodos.vue, so this case is
-// now routine, not an edge case): its swipe-right still splits into
-// "Remove [from Current]" vs. planning onto a Date List, exactly like the
-// per-card CalendarPlus button already allows unconditionally. Swipe-left/
-// Delete never splits either way.
+// Threshold model only (SWIPE_MODE === 'zones' is what's actually active —
+// see its own comment below); left in its pre-Date-Lists-repurpose shape
+// since it never renders while zones mode is on. Overview's swipe-right
+// used to split into two drop zones whenever Date Lists were on, "Remove
+// [from Current]" vs. planning onto a Date List. Swipe-left/Delete never
+// split either way.
 const showSwipeZoneSplit = computed(() =>
   props.mode === 'all' && themeStore.dateListsEnabled
 )
@@ -1918,6 +1919,15 @@ function formatShortDate(dateStr: string): string {
   const [, m, d] = dateStr.split('-')
   return `${d}/${m}`
 }
+
+// With Date Lists on, Overview's "add to current" icon/zone (mode 'all')
+// is repurposed to plan onto the Focus Date widget's currently selected
+// date instead — Current itself has no UI of its own once Date Lists are
+// on (see CLAUDE.md's Date Lists section), so this is now the one action
+// that slot performs. Whether it reads as add or remove follows this
+// todo's membership on that specific date, mirroring the old
+// todo.inCurrent toggle it replaced.
+const isOnSelectedFocusDate = computed(() => props.todo.focusDates?.includes(themeStore.selectedFocusDate) ?? false)
 
 // ── Swipe interaction mode ──────────────────────────────────────────
 // 'zones': Overview's drop-in-a-circle model below (date/delete/focus,
@@ -1987,14 +1997,17 @@ const zones = computed<SwipeZone[]>(() => {
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    if (themeStore.dateListsEnabled) {
-      const [dx, dy, radius] = zoneOffset('date')
-      list.push({ key: 'date', label: `List ${formatShortDate(themeStore.selectedFocusDate)}`, cx: centerX + dx, cy: centerY + dy, radius })
-    }
     const [ddx, ddy, dradius] = zoneOffset('delete')
     list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
     const [fdx, fdy, fradius] = zoneOffset('focus')
-    list.push({ key: 'focus', label: props.todo.inCurrent ? 'Remove' : 'Current', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+    // Date Lists on: this slot plans/unplans onto the selected date instead
+    // of Current (see isOnSelectedFocusDate above) — Current has no UI of
+    // its own to reuse a second zone for once Date Lists are on, so the
+    // 'date' zone this used to sit next to is gone entirely.
+    const label = themeStore.dateListsEnabled
+      ? (isOnSelectedFocusDate.value ? 'Remove' : `List ${formatShortDate(themeStore.selectedFocusDate)}`)
+      : (props.todo.inCurrent ? 'Remove' : 'Current')
+    list.push({ key: 'focus', label, cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
   } else {
     if (!props.previewLocked) {
       const [fdx, fdy, fradius] = zoneOffset('focus')
@@ -2298,23 +2311,20 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       x.set(0)
       y.set(0)
       pendingDelete.value = true
-    } else if (hit === 'date') {
-      springBackToCenter()
-      triggerPlannedPulse()
-      emit('send-to-focus-date', props.todo.id)
     } else if (hit === 'focus') {
-      // With Date Lists on, this todo never actually leaves Overview (see
-      // stores/todos.ts's sendToCurrent/removeFromCurrent and AllTodos.vue's
-      // filteredTodos) — vanishInPlace + regrowAtOrigin reads as "gone,
-      // then here again", instead of flyOutRight's "thrown out" (which
-      // then has nowhere to go — the todo never left, see their own
-      // comments). Date Lists off is the old single-Current-pool app: the
-      // todo genuinely leaves this list, so it really does fly out.
+      // Date Lists on: this slot plans/unplans onto the selected date
+      // instead of Current (see isOnSelectedFocusDate/zones above) — the
+      // todo never leaves Overview either way (filteredTodos shows
+      // everything regardless of focusDates), so it's the same
+      // stays-in-place pulse the CalendarPlus button/date zone always used,
+      // not the Current-toggle's vanish/regrow. Date Lists off is the old
+      // single-Current-pool app: the todo genuinely leaves this list, so it
+      // really does fly out.
       if (themeStore.dateListsEnabled) {
-        await vanishInPlace()
-        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
-        else emit('remove-from-current', props.todo.id)
-        regrowAtOrigin()
+        springBackToCenter()
+        triggerPlannedPulse()
+        if (!isOnSelectedFocusDate.value) emit('send-to-focus-date', props.todo.id)
+        else emit('unassign-focus-date', props.todo.id)
       } else {
         await flyOutRight()
         if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
@@ -2630,34 +2640,48 @@ onUnmounted(() => {
           <!-- When card is closed (all mode): show original action icons
                (delete moved into the open state, see above) -->
           <template v-else-if="mode === 'all'">
-            <button
-              v-if="!todo.inCurrent"
-              class="card-btn"
-              title="Add to current"
-              @click.stop="emit('send-to-current', todo.id, true)"
-            >
-              <CirclePlus :size="18" />
-            </button>
-            <button
-              v-else
-              class="card-btn"
-              title="Remove from current"
-              @click.stop="emit('remove-from-current', todo.id, true)"
-            >
-              <CircleMinus :size="18" />
-            </button>
-            <!-- Desktop/tablet only (CSS-hidden on phone, which uses the
-                 swipe-split's top zone instead) — plans this todo onto the
-                 Focus Date widget's currently selected date, independent of
-                 (and without touching) the send-to-current button above. -->
-            <button
-              v-if="themeStore.dateListsEnabled"
-              class="card-btn calendar-plus-btn"
-              :title="`Plan for ${formatShortDate(themeStore.selectedFocusDate)}`"
-              @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
-            >
-              <CalendarPlus :size="18" />
-            </button>
+            <!-- Date Lists on: this single icon plans/unplans onto the
+                 Focus Date widget's currently selected date — Current has
+                 no UI of its own once Date Lists are on (see CLAUDE.md's
+                 Date Lists section), so there's no separate CalendarPlus
+                 button next to it any more either. Date Lists off: the
+                 original Current add/remove toggle, unchanged. -->
+            <template v-if="themeStore.dateListsEnabled">
+              <button
+                v-if="!isOnSelectedFocusDate"
+                class="card-btn"
+                :title="`Add to ${formatShortDate(themeStore.selectedFocusDate)} list`"
+                @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
+              >
+                <CirclePlus :size="18" />
+              </button>
+              <button
+                v-else
+                class="card-btn"
+                :title="`Remove from ${formatShortDate(themeStore.selectedFocusDate)} list`"
+                @click.stop="emit('unassign-focus-date', todo.id, true)"
+              >
+                <CircleMinus :size="18" />
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-if="!todo.inCurrent"
+                class="card-btn"
+                title="Add to current"
+                @click.stop="emit('send-to-current', todo.id, true)"
+              >
+                <CirclePlus :size="18" />
+              </button>
+              <button
+                v-else
+                class="card-btn"
+                title="Remove from current"
+                @click.stop="emit('remove-from-current', todo.id, true)"
+              >
+                <CircleMinus :size="18" />
+              </button>
+            </template>
           </template>
 
           <!-- Today mode: quick priority toggle + remove from today. No
@@ -3350,15 +3374,6 @@ onUnmounted(() => {
 }
 
 .card-btn.active { color: var(--ink-dark); }
-
-/* Desktop/tablet only — phone plans ahead via the swipe-split's top zone
-   instead (see onDragEnd/armedZone below), same "no room for a third icon
-   row" reasoning as elsewhere in this file. */
-@media (max-width: 700px) {
-  .calendar-plus-btn {
-    display: none;
-  }
-}
 
 /* Hover swaps the icon to the card's own background color, same idea as
    priority's bg<->ink swap below — the icon blends into the card itself
