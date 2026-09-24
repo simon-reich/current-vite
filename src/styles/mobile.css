@@ -144,6 +144,15 @@
     padding: 6px;
   }
 
+  /* Phone keeps the original stacked switch-above-label layout — only
+     desktop switched to side by side (layout.css's own base rule for
+     .desktop-subs-toggle), phone still has no room in its single-row
+     header for a horizontal label+switch pair. */
+  .desktop-subs-toggle {
+    flex-direction: column-reverse;
+    gap: 1px;
+  }
+
   .sort-order-btn svg,
   .mobile-tags-btn svg {
     width: 26px;

@@ -184,10 +184,12 @@
 }
 
 /* Current's subs expand-toggle — the one shared .desktop-subs-toggle
-   element (App.vue), stacked switch-above-label on desktop/phone (see
-   .desktop-subs-toggle below), reused as-is on tablet where it instead
-   goes side by side (switch-then-label row-reverse, see tablet.css). Sized
-   down further below to match the other 22px header icons. */
+   element (App.vue). Side by side on desktop, label-then-switch (see
+   .desktop-subs-toggle below); tablet reuses the same row layout but
+   reversed, switch-then-label (row-reverse, see tablet.css); phone alone
+   still stacks switch above label (see mobile.css), no room for a
+   horizontal pair in its single-row header. Sized down further below to
+   match the other 22px header icons. */
 .mobile-subs-label {
   font-size: 13px;
   font-weight: 600;
@@ -526,12 +528,14 @@
 /* First item inside .sort-nav (see App.vue) — also carries .sort-btn
    itself, so padding/hover/cursor/color are that one shared definition,
    not a second copy of it. Only overrides what actually needs to differ
-   from a plain single-icon .sort-btn: stacked layout (switch above
-   `subs`, not side by side like the tablet version reusing the same
-   label/switch classes) and a tighter internal gap between the two. */
+   from a plain single-icon .sort-btn: side by side like the tablet
+   version below (reusing the same label/switch classes), but plain row
+   rather than tablet's row-reverse — the label already comes first in the
+   DOM, so a plain row lands it on the left with the switch on the right,
+   the opposite order from tablet's switch-then-label. */
 .desktop-subs-toggle {
-  flex-direction: column-reverse;
-  gap: 1px;
+  flex-direction: row;
+  gap: 6px;
 }
 
 .top-nav {
