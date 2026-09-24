@@ -628,6 +628,16 @@
   display: none;
 }
 
+/* The Date-List nav can grow long (many month groups) — without this, its
+   very last row sits inside the bottom mask's fade band even when scrolled
+   all the way down, since the mask is relative to the viewport, not the
+   scrolled content's end. Extra bottom padding pushes the real last row
+   past the fade band once scrolled to the end, so it can actually reach
+   full opacity. */
+.sidebar-scroll .tag-list {
+  padding-bottom: 80px;
+}
+
 .tag-list {
   /* Lines "all" up with where the todo cards start in .content-inner
      (36px padding-top there): .sidebar's own 16px padding plus this. On
@@ -689,9 +699,17 @@
 
 /* All + Prio + Loop read as one grouped trio (just the list's own 7px gap
    between them), then a clear gap sets them apart from the actual tags —
-   matching the gap above the list, between the tag input and "All". */
+   matching the gap above the list, between the tag input and "All". Only
+   applies to Overview's own tag-filter trio; the Date-List nav's
+   today/tomorrow trio gets a smaller step to "week" right below it (see
+   .date-nav-btn.loop-btn) — still the same near-term window, not a real
+   section break, but distinct enough to read as its own row. */
 .loop-btn {
   margin-bottom: 34px;
+}
+
+.date-nav-btn.loop-btn {
+  margin-bottom: 12px;
 }
 
 .all-btn.dimmed {
@@ -805,7 +823,14 @@
   font-size: 11px;
   color: var(--ink);
   opacity: 0.5;
-  margin-top: 10px;
+}
+
+/* The only real section break in the whole nav: week (always-present,
+   still near-term) vs. everything further out. Every other transition —
+   today/tomorrow into week, and month group into month group — uses just
+   the list's own 7px gap, no extra margin. */
+.date-nav-section-label--month-first {
+  margin-top: 34px;
 }
 
 /* ── Settings head ── */

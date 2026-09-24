@@ -43,8 +43,8 @@ const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDateGroups,
       <span class="tag-label date-nav-upcoming-btn" @click="themeStore.setSelectedFocusDate(dateStr)">{{ formatPresetDate(dateStr) }}</span>
     </div>
 
-    <template v-for="group in upcomingFocusDateGroups" :key="group.label">
-      <div class="date-nav-section-label">{{ group.label }}</div>
+    <template v-for="(group, groupIndex) in upcomingFocusDateGroups" :key="group.label">
+      <div class="date-nav-section-label" :class="{ 'date-nav-section-label--month-first': groupIndex === 0 }">{{ group.label }}</div>
       <div
         v-for="dateStr in group.dates"
         :key="dateStr"
