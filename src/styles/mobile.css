@@ -386,6 +386,24 @@
     bottom: 60px;
     background: transparent;
     z-index: 10001;
+    /* Now that this has no opaque fill of its own, it's still a real,
+       full-rectangle hit box sitting on top of .mobile-tags-backdrop
+       (higher z-index) — without this, clicking any of its visually empty
+       space (next to the close button, below the last row of chips, ...)
+       would hit this element instead of reaching the backdrop underneath,
+       silently swallowing the "tap outside to close" gesture. Re-enabled
+       below on the actual visible controls themselves, not their wrapping
+       rows (those are still much bigger than their content and would
+       reintroduce the same dead-click problem at a smaller scale). Same
+       fix as FocusDatePanel.vue's own .fdp-panel. */
+    pointer-events: none;
+  }
+
+  .mobile-tags-panel .mobile-tags-close,
+  .mobile-tags-panel .tag-new-input,
+  .mobile-tags-panel .all-btn,
+  .mobile-tags-panel .tag-chip {
+    pointer-events: auto;
   }
 
   /* Was a no-op here (display:none, see layout.css's own default) back
