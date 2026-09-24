@@ -1478,9 +1478,20 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <!-- Overview always; Current only at phone width (tablet keeps
                its existing Lists button instead, see .tablet-header-right
                below — #app.is-current hides this slot again at the
-               tablet breakpoint, see tablet.css). -->
+               tablet breakpoint, see tablet.css). In Current, this same
+               pill switches purpose — showCalendar false and modelValue
+               bound to viewingDate turns it into the "pick which Date
+               List to view" picker (see FocusDateWidget.vue's own
+               comment), replacing the old bottom-left "lists" button
+               (mobile-bottom-nav below) entirely; Overview's own instance
+               passes neither, unchanged "plan ahead" pill behavior. -->
           <div v-if="themeStore.dateListsEnabled && (route.path === '/all' || route.path === '/current')" class="tablet-input-focus-date-widget-slot">
-            <FocusDateWidget panel />
+            <FocusDateWidget
+              panel
+              :show-calendar="route.path !== '/current'"
+              :model-value="route.path === '/current' ? (viewingDate ?? todayStr()) : undefined"
+              @update:model-value="viewingDate = $event"
+            />
           </div>
         </div>
 
@@ -1933,24 +1944,16 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 
     <!-- ══ MOBILE: Bottom nav ══ -->
     <nav class="mobile-bottom-nav mobile-only">
-      <!-- Phone-width only (see .sort-btn/.lists-btn CSS in mobile.css) —
-           this bottom-left slot used to also hold Overview's sort button,
-           now living in the main head instead (see .sort-order-btn
-           above) — Current's own "browse other Date Lists" entry point is
-           the only thing left using this slot. -->
-      <button
-        v-if="route.path === '/current' && themeStore.dateListsEnabled"
-        class="sort-btn lists-btn"
-        title="lists"
-        @click="listsPanelOpen = true"
-      >
-        <ListChecks :size="22" />
-      </button>
-      <!-- Empty slot on routes without a bottom-left action (e.g. Calendar) —
-           must render the same icon (invisible) rather than an empty div, or
-           this slot ends up narrower than the real buttons and shifts the
-           nav-views/settings icons via .mobile-bottom-nav's space-between. -->
-      <div v-else class="sort-btn" style="visibility: hidden">
+      <!-- Phone-width only (see .sort-btn CSS in mobile.css) — Current's
+           own "browse other Date Lists" entry point used to also live in
+           this bottom-left slot (a "lists" button opening ListsPanel), now
+           replaced by tapping the Focus-Date-Pille itself instead (see
+           App.vue's .tablet-input-focus-date-widget-slot above), so this
+           slot is unconditionally empty now — kept as an invisible
+           placeholder (not removed outright) so .mobile-bottom-nav's
+           space-between doesn't shift the nav-views/settings icons over
+           into where a real button used to sit. -->
+      <div class="sort-btn" style="visibility: hidden">
         <ArrowUpDown :size="22" />
       </div>
 

@@ -13,7 +13,11 @@ import ScrollDivider from './ScrollDivider.vue'
 // Date-List nav in its own sidebar (App.vue's aside) and doesn't need
 // this. Combines the plain calendar (any date) with the same today/
 // tomorrow/preset-week/upcoming-lists nav the desktop sidebar already
-// shows, via FocusDateNav.vue (single source of truth for all three).
+// shows, via FocusDateNav.vue (single source of truth for all three). Also
+// reused, calendar-less (showCalendar false), as Current's own phone
+// list-picker — same Focus-Date-Pille, but tapping it there switches which
+// Date List Current is showing (see FocusDateWidget.vue) instead of
+// picking a "plan ahead" target.
 //
 // One shared component, but two distinctly different shapes below 1024px
 // (see the `@media (max-width: 700px)` block at the bottom of the style):
@@ -32,10 +36,29 @@ import ScrollDivider from './ScrollDivider.vue'
 // on FocusDateWidget's own side) rather than being created fresh per open
 // — `open` is a plain prop toggling v-show inside a Transition, which is
 // what lets it actually slide in/out instead of just popping.
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+//
+// Optional `modelValue`, same dual-mode pattern as FocusDateNav.vue's own
+// (which this forwards it to below): defaults to driving the Focus-Date-
+// Pille (themeStore.selectedFocusDate) when omitted — FocusDateWidget's own
+// plain "plan ahead" instance never passes it, unchanged from before.
+// `showCalendar` (default true): Current's phone list-picker instance
+// (FocusDateWidget.vue) sets this false — it only ever needs the Date-List
+// widget, not a date-picker calendar, and hiding it just gives that one
+// widget the full vertical room instead (see .fdp-calendar-box's own v-if
+// in the template — no separate layout needed for this, flex: 1 on
+// .fdp-list-box already claims whatever room opens up).
+const props = defineProps<{ open: boolean; modelValue?: string; showCalendar?: boolean }>()
+const emit = defineEmits<{ close: []; 'update:modelValue': [dateStr: string] }>()
 const themeStore = useThemeStore()
 const store = useTodosStore()
+
+const activeDate = computed<string>({
+  get: () => props.modelValue ?? themeStore.selectedFocusDate,
+  set: (dateStr) => {
+    if (props.modelValue !== undefined) emit('update:modelValue', dateStr)
+    else themeStore.setSelectedFocusDate(dateStr)
+  },
+})
 
 function close() {
   emit('close')
@@ -43,7 +66,7 @@ function close() {
 
 function pickDate(day: { id: string }) {
   if (day.id < todayStr()) return
-  themeStore.setSelectedFocusDate(day.id)
+  activeDate.value = day.id
   scrollListToSelected()
 }
 
@@ -64,14 +87,15 @@ function scrollListToSelected() {
   })
 }
 
-// The reverse direction — picking a Date-List entry (FocusDateNav.vue sets
-// themeStore.selectedFocusDate itself, there's no click handler to hook
-// here) jumps the calendar to that date's month. Watching the store value
-// directly covers both directions the same way scrollListToSelected covers
-// its own — including the calendar's own pickDate above, where move()-ing
-// to the month already on screen is just a harmless no-op.
+// The reverse direction — picking a Date-List entry (FocusDateNav.vue's own
+// v-model write, see below) jumps the calendar to that date's month.
+// Watching activeDate directly covers both directions the same way
+// scrollListToSelected covers its own — including the calendar's own
+// pickDate above, where move()-ing to the month already on screen is just
+// a harmless no-op. A no-op entirely when showCalendar is false (the ref
+// just stays null, nothing to move).
 const fdpCalendarRef = ref<any>(null)
-watch(() => themeStore.selectedFocusDate, (dateStr) => {
+watch(activeDate, (dateStr) => {
   fdpCalendarRef.value?.move(new Date(dateStr + 'T12:00:00'))
 })
 
@@ -91,7 +115,7 @@ const dateAttributes = computed(() => {
       style: { backgroundColor: 'var(--ink-dark)', borderRadius: '4px' },
       contentStyle: { color: 'var(--bg)' },
     },
-    dates: new Date(themeStore.selectedFocusDate + 'T12:00:00'),
+    dates: new Date(activeDate.value + 'T12:00:00'),
   }]
   if (plannedDates.value.length) {
     attrs.push({ key: 'planned', dot: { style: { backgroundColor: 'var(--ink)' } }, dates: plannedDates.value })
@@ -162,8 +186,12 @@ watch(() => props.open, (isOpen) => {
 
         <!-- Widget #2 on phone (its own opaque box, see .fdp-calendar-box
              below) — stays the sticky calendar header of tablet's single
-             shared scroll box otherwise (.fdp-sticky-head, unchanged). -->
-        <div class="fdp-sticky-head fdp-calendar-box">
+             shared scroll box otherwise (.fdp-sticky-head, unchanged).
+             Skipped entirely when showCalendar is false (Current's phone
+             list-picker instance) — .fdp-list-box's flex: 1 then just
+             claims the room this would have taken, no separate layout
+             needed for the calendar-less case. -->
+        <div v-if="showCalendar ?? true" class="fdp-sticky-head fdp-calendar-box">
           <!-- trim-weeks drops leading/trailing days from adjacent months
                as a whole extra row instead of just hiding their numbers
                (v-calendar's default) — that row was still taking up full
@@ -189,7 +217,7 @@ watch(() => props.open, (isOpen) => {
              .fdp-panel's own flex/scroll, exactly as before. -->
         <div ref="fdpListRef" class="fdp-list-box" @scroll="onFdpListScroll">
           <ScrollDivider class="fdp-list-scroll-divider" :visible="fdpListScrolled" />
-          <FocusDateNav />
+          <FocusDateNav v-model="activeDate" />
         </div>
       </div>
     </Transition>

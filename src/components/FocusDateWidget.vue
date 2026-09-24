@@ -20,7 +20,19 @@ import FocusDatePanel from './FocusDatePanel.vue'
 // today/tomorrow/upcoming Date-List nav desktop's sidebar already shows
 // permanently (which tablet, without that sidebar, otherwise has no way
 // to reach). Static per instance — never toggled at runtime.
-const props = defineProps<{ panel?: boolean }>()
+//
+// `modelValue`/`showCalendar`: Current's own phone instance (App.vue)
+// passes both — repurposes this same pill, while viewing Current, into a
+// picker for which Date List is being shown (viewingDate) instead of the
+// "plan ahead" target (themeStore.selectedFocusDate), and drops the
+// calendar since Current only ever needs the plain list of existing Date
+// Lists, not a date-picker. Both are simply forwarded through to
+// FocusDatePanel, which already knows how to fall back to
+// themeStore.selectedFocusDate when modelValue is left unset — this
+// component's own display/pick just need the same fallback for the pill's
+// own face.
+const props = defineProps<{ panel?: boolean; modelValue?: string; showCalendar?: boolean }>()
+const emit = defineEmits<{ 'update:modelValue': [dateStr: string] }>()
 const themeStore = useThemeStore()
 const showModal = ref(false)
 const showPanel = ref(false)
@@ -46,10 +58,20 @@ function parts(dateStr: string) {
   }
 }
 
-const display = computed(() => parts(themeStore.selectedFocusDate))
+const display = computed(() => parts(props.modelValue ?? themeStore.selectedFocusDate))
 
 function pick(dateStr: string) {
   themeStore.setSelectedFocusDate(dateStr)
+}
+
+// Only reachable when a caller actually gave this instance a modelValue
+// (Current's phone list-picker) — FocusDatePanel's own dual-mode
+// activeDate only emits update:modelValue in that case, writing
+// themeStore.selectedFocusDate itself otherwise (see its own comment), so
+// there's nothing to forward when this fires from the plain "plan ahead"
+// instance.
+function onPanelPick(dateStr: string) {
+  emit('update:modelValue', dateStr)
 }
 
 function open() {
@@ -62,7 +84,7 @@ function open() {
   <button
     type="button"
     class="focus-date-widget"
-    title="Change the plan-ahead target date"
+    :title="modelValue !== undefined ? 'Choose which Date List to view' : 'Change the plan-ahead target date'"
     @click="open"
   >
     <!-- Both branches always render, stacked on the same grid cell (see
@@ -95,6 +117,9 @@ function open() {
   <FocusDatePanel
     v-if="panel"
     :open="showPanel"
+    :model-value="modelValue"
+    :show-calendar="showCalendar"
+    @update:model-value="onPanelPick"
     @close="showPanel = false"
   />
 </template>
