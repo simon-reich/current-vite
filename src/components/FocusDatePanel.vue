@@ -129,7 +129,6 @@ watch(() => props.open, (isOpen) => {
   gap: 18px;
   background: var(--bg);
   border-left: 2px solid var(--ink);
-  box-shadow: -6px 0 0 var(--ink);
   /* No top padding here anymore — it moved onto .fdp-sticky-head itself
      (see that rule) so the sticky calendar's own opaque box covers that
      whole band instead of leaving it as bare .fdp-panel padding above a

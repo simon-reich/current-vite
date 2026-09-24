@@ -221,7 +221,6 @@
     bottom: 0;
     width: clamp(260px, 34vw, 360px);
     border-right: 2px solid var(--ink);
-    box-shadow: 6px 0 0 var(--ink);
     z-index: 10001;
   }
 
