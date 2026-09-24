@@ -728,6 +728,15 @@
   opacity: 0.35;
 }
 
+/* The currently selected entry always reads at full strength, even if it
+   also happens to be a "nothing on this list yet" dimmed one (e.g. a
+   Date-List nav day with no list, picked anyway from the calendar) —
+   .active's own ink fill shouldn't wash out just because it's also
+   .dimmed. */
+.all-btn.active.dimmed {
+  opacity: 1;
+}
+
 /* Loop's default (unfiltered) state — same solid ink fill as .active, but
    pale, echoing how a loop-tagged card itself looks. Only vs. hide (the
    other two states) then reuse the existing .active/.dimmed look
@@ -759,6 +768,13 @@
 
 .tag-chip.dimmed {
   opacity: 0.35;
+}
+
+/* Same "selected always reads at full strength" fix as .all-btn.active.dimmed
+   above, for the chip-style Date-List entries (.date-nav-upcoming-chip
+   reuses .tag-chip, see below). */
+.tag-chip.active.dimmed {
+  opacity: 1;
 }
 
 /* Puff-up hover feedback — shared by both filter-chip styles (All/Priority
