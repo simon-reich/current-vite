@@ -13,13 +13,18 @@
 // siblings paint first (further back), so this paints after body's
 // background but before #app, with no z-index needed at all.
 // Old particle-based celebrations (hearts/confetti/balloons/fireworks) —
-// active again (see celebrateBackground's swap below): the frame-based SVG
-// animations (cat/whale/penguin/orca etc., further down this file) didn't
-// feel right yet, so this is a temporary swap back while those get
-// reworked, not a removal. Their own mechanics (playFrameCelebration,
-// resolveCelebrationConfig, the pre-completion teaser in App.vue) are
-// commented out rather than deleted for the same reason — see
-// celebrateBackground's own comment for the full swap-back-again path.
+// switched off again in favor of the frame-based SVG animations (cat/
+// whale/penguin/orca etc., further down this file, see
+// celebrateBackground's own comment). Kept defined here rather than
+// deleted, same as the frame mechanics were while they were the inactive
+// side of this same swap — either direction is meant to stay a two-line
+// flip in celebrateBackground, not a rewrite. nextBgEffect/bgHearts/
+// bgBalloons/bgConfetti/bgFireworks are `export`ed even though nothing
+// outside this file uses them — same trick playFrameCelebration already
+// relies on, since these are otherwise only ever called from
+// celebrateBackground's own commented-out lines while inactive, and
+// vue-tsc -b (unlike a plain --noEmit check) fails the build on an unused
+// local function.
 function particle(cx: number, cy: number, content: string, css: string): HTMLElement {
   const el = document.createElement('span')
   el.textContent = content
@@ -35,7 +40,7 @@ const bgEffectBag: BgEffectName[] = []
 // once per 4 completions instead of the same one occasionally repeating
 // several times in a row, while still feeling random completion to
 // completion (same trick as the old per-card burst used).
-function nextBgEffect(): BgEffectName {
+export function nextBgEffect(): BgEffectName {
   if (bgEffectBag.length === 0) {
     const bag: BgEffectName[] = ['hearts', 'confetti', 'balloons', 'fireworks']
     for (let i = bag.length - 1; i > 0; i--) {
@@ -55,7 +60,7 @@ function bgScale() {
   return Math.min(Math.max(window.innerWidth / 480, 1), 3.2)
 }
 
-function bgHearts() {
+export function bgHearts() {
   const w = window.innerWidth
   const h = window.innerHeight
   const scale = bgScale()
@@ -89,7 +94,7 @@ function bgHearts() {
   }
 }
 
-function bgBalloons() {
+export function bgBalloons() {
   const w = window.innerWidth
   const h = window.innerHeight
   for (let i = 0; i < 16; i++) {
@@ -124,7 +129,7 @@ function bgBalloons() {
 
 // Falls from above instead of rising, like actual confetti raining down —
 // the other three effects all rise, this is the deliberate exception.
-function bgConfetti() {
+export function bgConfetti() {
   const w = window.innerWidth
   const h = window.innerHeight
   const scale = Math.min(bgScale(), 1.8)
@@ -157,7 +162,7 @@ function bgConfetti() {
 // rocket rises from the bottom into position first, then a ring of
 // sparks radiates outward from there, genuinely explosive rather than a
 // drifting/falling effect like the other three.
-function bgFireworks() {
+export function bgFireworks() {
   const w = window.innerWidth
   const h = window.innerHeight
   const scale = bgScale()
@@ -493,22 +498,18 @@ export function hideCelebrationTeaser() {
 // ALL_CELEBRATIONS' comment) — not drawn here, so it always matches
 // whatever the pre-completion teaser just showed for that same todo.
 //
-// Swapped back to the old particle-based shuffle-bag (hearts/confetti/
-// balloons/fireworks) — not deleted, the frame-animation mechanics
-// (playFrameCelebration/resolveCelebrationConfig/the pre-completion teaser
-// in App.vue) are just commented out for now, the same swap in reverse
-// from when the frame animations first replaced these. `key`'s parameter
-// stays unused while frame celebrations are off; nothing currently reads
-// Todo.celebration either, but neither is worth ripping out for what's
-// meant to be a temporary switch back.
-export function celebrateBackground(_key: CelebrationKey) {
-  // hideCelebrationTeaser()
-  // playFrameCelebration(resolveCelebrationConfig(key))
-  const effect = nextBgEffect()
-  if (effect === 'hearts') bgHearts()
-  else if (effect === 'confetti') bgConfetti()
-  else if (effect === 'balloons') bgBalloons()
-  else bgFireworks()
+// Switched back to the frame-animation celebrations (Cat/Whale/Penguin/
+// Orca) — the old particle-based shuffle-bag (hearts/confetti/balloons/
+// fireworks) stays defined above, just commented out here rather than
+// ripped out, the same swap in reverse from when it was last switched off.
+export function celebrateBackground(key: CelebrationKey) {
+  hideCelebrationTeaser()
+  playFrameCelebration(resolveCelebrationConfig(key))
+  // const effect = nextBgEffect()
+  // if (effect === 'hearts') bgHearts()
+  // else if (effect === 'confetti') bgConfetti()
+  // else if (effect === 'balloons') bgBalloons()
+  // else bgFireworks()
 }
 
 import { ref as vueRef } from 'vue'
