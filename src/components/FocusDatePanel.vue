@@ -215,7 +215,7 @@ watch(() => props.open, (isOpen) => {
              box (.fdp-list-box below); display:contents on tablet folds it
              back out of the layout so FocusDateNav sits directly in
              .fdp-panel's own flex/scroll, exactly as before. -->
-        <div ref="fdpListRef" class="fdp-list-box" @scroll="onFdpListScroll">
+        <div ref="fdpListRef" class="fdp-list-box" :class="{ 'fdp-list-box--right': !(showCalendar ?? true) }" @scroll="onFdpListScroll">
           <ScrollDivider class="fdp-list-scroll-divider" :visible="fdpListScrolled" />
           <FocusDateNav v-model="activeDate" />
         </div>
@@ -465,6 +465,15 @@ watch(() => props.open, (isOpen) => {
 
   .fdp-list-box::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Current's calendar-less list-picker instance (showCalendar false) sits
+     on the right instead — there's no calendar widget above it to line up
+     with on the left any more, and the close button already sits on the
+     right (see .fdp-close-row's own align-self above), so this reads as
+     one right-aligned pair instead of split across both sides. */
+  .fdp-list-box--right {
+    align-self: flex-end;
   }
 
   .fdp-list-scroll-divider {
