@@ -373,10 +373,28 @@
      display:flex must stay here (not hoisted to layout.css): .mobile-only
      already makes this element flex here, so this is somewhat redundant,
      but keeps the win explicit and pinned to this breakpoint — actual
-     show/hide is v-show now (see App.vue), not a display toggle. */
+     show/hide is v-show now (see App.vue), not a display toggle. No
+     opaque background any more (overrides .mobile-tags-panel's own
+     layout.css default) — sits on top of .mobile-tags-backdrop's dimming
+     instead, same translucent-backdrop language every modal already uses,
+     so the Overview pool underneath stays visible and visibly rearranges
+     as filters toggle. z-index bumped above the backdrop's 10000 (see
+     .mobile-tags-backdrop below), same relationship tablet.css's own
+     side-panel version already has. */
   .mobile-tags-panel {
     display: flex;
     bottom: 60px;
+    background: transparent;
+    z-index: 10001;
+  }
+
+  /* Was a no-op here (display:none, see layout.css's own default) back
+     when the full-screen panel above was itself opaque and needed no
+     dimming behind it. Now that it's translucent, this is what actually
+     dims the Overview pool underneath — same role tablet.css's own
+     override already gives it for the side-panel version. */
+  .mobile-tags-backdrop {
+    display: block;
   }
 
   .mobile-tags-head {
@@ -388,8 +406,29 @@
     flex-shrink: 0;
     position: sticky;
     top: 0;
-    background: var(--bg);
+    background: transparent;
     z-index: 1;
+  }
+
+  .mobile-tags-head-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-basis: 100%;
+  }
+
+  /* Everything sitting directly on the now-translucent backdrop (panel
+     itself has no fill any more, see .mobile-tags-panel above) needs its
+     own opaque --bg fill to actually read against it — close button,
+     input, the all/prio/date filter trio, and the tag chips below all
+     otherwise render as just a border floating over the dimmed pool.
+     Inverted-fill states (.active, and the date filter's own resting
+     .loop-filter-default look, both an opaque --ink fill already) are
+     excluded, untouched here. */
+  .mobile-tags-close,
+  .mobile-tags-head .tag-new-input,
+  .mobile-tags-head .mobile-all-priority-row .all-btn:not(.active):not(.loop-filter-default),
+  .mobile-tag-list .tag-chip:not(.active) {
+    background: var(--bg);
   }
 
   .mobile-tags-head .tag-new-input {

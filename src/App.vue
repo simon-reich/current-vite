@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, CircleArrowDown, LayoutList, LayoutGrid, X, ListChecks, Plus } from '@lucide/vue'
+import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
@@ -1840,12 +1840,17 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       </button>
     </div>
 
-    <!-- ══ MOBILE: Tag panel — full screen on phone (replaces main-head +
-         content), a Date-List-panel-style side panel on tablet (see
-         .mobile-tags-backdrop/.mobile-tags-panel in layout.css/tablet.css)
-         opening from the left instead of the right. The backdrop is a
-         no-op on phone (display:none there, see layout.css) since that
-         panel already covers the full viewport. ══ -->
+    <!-- ══ MOBILE: Tag panel — floats on the same translucent
+         .modal-backdrop-style dimming every other overlay uses (see
+         .mobile-tags-backdrop below) on phone now too, not just tablet's
+         side panel — the panel itself has no opaque background of its own
+         any more, just its chips/buttons sitting directly on the dimmed
+         backdrop, so the Overview pool behind keeps visibly
+         rearranging live as filters toggle. Same close button every other
+         sheet/modal uses (.modal-btn/.modal-btn--cancel, see e.g. the
+         add-sheet's own close above) instead of the old back-arrow icon,
+         which read as out of place here. Tablet keeps its own side-panel
+         look untouched (.mobile-tags-panel override in tablet.css). ══ -->
     <template v-if="themeStore.tagsEnabled">
     <Transition name="tags-panel-backdrop">
     <div v-show="showMobileTags" class="mobile-tags-backdrop" @click="showMobileTags = false" />
@@ -1853,15 +1858,15 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <Transition name="tags-panel">
     <div v-show="showMobileTags" ref="tagsPanelRef" class="mobile-tags-panel mobile-only" @scroll="onTagsPanelScroll">
       <div class="mobile-tags-head">
+        <div class="mobile-tags-head-actions">
+          <button class="modal-btn modal-btn--cancel mobile-tags-close" @click="showMobileTags = false">close</button>
+        </div>
         <input
           v-model="tagInput"
           class="tag-new-input"
           placeholder="tag, ... + enter"
           @keydown="handleTagKey"
         />
-        <button class="nav-icon back-btn" title="Back" @click="showMobileTags = false">
-          <CircleArrowDown :size="24" />
-        </button>
 
         <div class="mobile-all-priority-row">
           <button

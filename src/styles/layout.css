@@ -1258,8 +1258,10 @@
 
 /* ── Mobile tags panel: breakpoint-independent bits ──
    mobile.css and tablet.css each open this panel with different geometry
-   (header layout, insets), but share these declarations verbatim — kept
-   here so they're not duplicated per breakpoint.
+   (header layout, insets) and mobile.css overrides `background` back to
+   transparent for its own translucent-backdrop look (see that rule's own
+   comment) — but share everything below verbatim otherwise, kept here so
+   it's not duplicated per breakpoint.
    display: flex is NOT here on purpose: it has to stay in mobile.css/
    tablet.css themselves, declared after their own .mobile-only rule (see
    comments there) — otherwise this unconditional rule would win the tie
@@ -1297,14 +1299,13 @@
   transform: translateY(100%);
 }
 
-/* Dim backdrop behind the tag panel — tablet-only (see tablet.css), where
-   the panel no longer covers the full screen so the content beside/behind
-   it needs dimming instead of hiding, same as FocusDatePanel.vue's own
-   backdrop for the mirrored Date-List panel. Phone doesn't need this: its
-   panel already covers the whole viewport, so display:none stays the
+/* Dim backdrop behind the tag panel, same translucent language
+   .modal-backdrop uses for every modal — the panel itself has no opaque
+   background at either breakpoint any more (mobile.css/tablet.css), so
+   this is what actually dims whatever's behind it. display:none stays the
    universal default here for the same reason .mobile-tags-panel's own
-   display:flex does (see above) — tablet.css turns it on only within its
-   own breakpoint. */
+   display:flex does (see above) — mobile.css/tablet.css each turn it on
+   only within their own breakpoint. */
 .mobile-tags-backdrop {
   display: none;
   position: fixed;

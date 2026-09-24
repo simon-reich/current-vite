@@ -260,10 +260,12 @@
     flex: 1;
   }
 
-  /* Phone still needs this (its panel is full-screen, nothing to click
-     outside of) — tablet's backdrop already closes the panel on any click
-     outside it (see .mobile-tags-backdrop), so the button's redundant here. */
-  .mobile-tags-head .back-btn {
+  /* Phone still needs this close button (nothing to click outside of on a
+     full-screen panel) — tablet's backdrop already closes the panel on any
+     click outside it (see .mobile-tags-backdrop), so the button's
+     redundant here, same as before this was a text button instead of an
+     icon one. */
+  .mobile-tags-head-actions {
     display: none;
   }
 
