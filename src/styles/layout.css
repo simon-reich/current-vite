@@ -617,6 +617,14 @@
      this up by that same 6px difference keeps .tag-list's unchanged 26px
      margin landing content at the same 36px total as before. */
   margin-top: -6px;
+  /* Extends this box 10px further left, eating into some of .sidebar's own
+     16px padding, then gives the content that same 10px back as padding —
+     net zero shift for the chips themselves, but now there's 10px of room
+     between them and this element's own clip edge (overflow-x: hidden
+     above) for their :hover puff-up (.all-btn/.tag-chip, layout.css) to
+     grow into on the left without getting visibly cropped there. */
+  margin-left: -10px;
+  padding-left: 10px;
   /* 32px reads clearly as a transition rather than a hard cut (a shorter
      band that stayed strictly under the 36px/16px top/bottom gaps below
      was technically correct but too subtle to actually notice) — the
@@ -756,7 +764,10 @@
 /* Puff-up hover feedback — shared by both filter-chip styles (All/Priority
    and tag chips); TodoCard.vue's closed-card hover uses the same idea with
    a subtler scale, kept separate there since it also needs a :not(.open)
-   guard. Real mouse devices only. */
+   guard. Real mouse devices only. Stays center-origin (a left-only origin
+   read as lopsided, plus visibly snapped on release) — the room this needs
+   to not get clipped on the left comes from .sidebar-scroll's own buffer
+   instead (see that rule's comment). */
 @media (hover: hover) {
   .all-btn:hover,
   .tag-chip:hover {
