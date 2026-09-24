@@ -1113,6 +1113,39 @@ function onSidebarScroll() {
   sidebarScrolled.value = (sidebarRef.value?.scrollTop ?? 0) > 0
 }
 
+// Current's Back/Next date-list paging (Current.vue's stepDateList) can land
+// on an entry that's already scrolled out of view further down the sidebar
+// nav — the active chip should always be visible while paging through it,
+// not just clickable-but-invisible below the fold. SAFE_BOTTOM mirrors
+// .sidebar-scroll's own bottom fade band (see its mask-image) plus a little
+// slack, so the active chip lands clear of the fade, not just technically
+// inside the scroll container. Also fires on a direct sidebar click, which
+// is a no-op there since the clicked chip is already in view.
+const DATE_NAV_SAFE_BOTTOM = 80
+watch(viewingDate, (dateStr) => {
+  nextTick(() => {
+    const container = sidebarRef.value
+    if (!container) return
+    // Today is always the nav's actual first row — paging back onto it
+    // should return to the exact rest position (scrollTop 0), not just
+    // "today" scrolled minimally into view above the top fade band, same
+    // idea as the route-change reset below.
+    if (dateStr === todayStr()) {
+      container.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    const active = container.querySelector<HTMLElement>('.date-nav-btn.active, .date-nav-upcoming-chip.active')
+    if (!active) return
+    const containerRect = container.getBoundingClientRect()
+    const activeRect = active.getBoundingClientRect()
+    if (activeRect.top < containerRect.top) {
+      container.scrollBy({ top: activeRect.top - containerRect.top, behavior: 'smooth' })
+    } else if (activeRect.bottom > containerRect.bottom - DATE_NAV_SAFE_BOTTOM) {
+      container.scrollBy({ top: activeRect.bottom - (containerRect.bottom - DATE_NAV_SAFE_BOTTOM), behavior: 'smooth' })
+    }
+  })
+})
+
 // ── Mobile tags panel scroll divider ──
 const tagsPanelRef = ref<HTMLElement | null>(null)
 const tagsListInnerRef = useTemplateRef<HTMLElement>('tagsListInner')
