@@ -707,6 +707,13 @@ function commitDraftTags(): boolean {
 // the same rule the add-todo tag row follows in App.vue.
 const tagMenuTags = computed(() => themeStore.tagsEnabled ? store.tags : store.tags.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 
+// Priority + date kept visually apart from user tags (see .tag-row-pinned
+// in layout.css) — split here so the template can render them as their
+// own row instead of one mixed v-for, same split as App.vue's add-todo
+// tag row.
+const tagMenuPinnedTags = computed(() => tagMenuTags.value.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
+const tagMenuRestTags = computed(() => tagMenuTags.value.filter(t => t.id !== PRIORITY_TAG_ID && t.id !== LOOP_TAG_ID))
+
 
 // The `obvious` flag on the Current move events tells the parent (see
 // AllTodos.vue/Current.vue) whether to skip the "sent to/removed from
@@ -2847,8 +2854,20 @@ onUnmounted(() => {
             </Transition>
 
             <template v-if="tagMenuTags.length">
+              <div v-if="tagMenuPinnedTags.length" class="tag-row-pinned">
+                <label
+                  v-for="tag in tagMenuPinnedTags"
+                  :key="tag.id"
+                  class="tag-row-opt"
+                  :class="{ checked: draftTags.includes(tag.id), dimmed: draftTags.length > 0 && !draftTags.includes(tag.id) }"
+                  @click.stop
+                >
+                  <input type="checkbox" :checked="draftTags.includes(tag.id)" @change="updateDraftTags(draftTags.includes(tag.id) ? draftTags.filter(i => i !== tag.id) : [...draftTags, tag.id])" />
+                  <span>{{ tag.label }}</span>
+                </label>
+              </div>
               <label
-                v-for="tag in tagMenuTags"
+                v-for="tag in tagMenuRestTags"
                 :key="tag.id"
                 class="tag-row-opt"
                 :class="{ checked: draftTags.includes(tag.id), dimmed: draftTags.length > 0 && !draftTags.includes(tag.id) }"

@@ -463,6 +463,18 @@
   transform: translateY(-50%);
 }
 
+/* Priority + date are always-available special tags (unshift'ed to the
+   front of store.tags, see stores/todos.ts), kept visually apart from
+   user tags in every tag picker that shares .tag-row-opt (.add-tag-row,
+   .add-sheet-tag-list, TodoCard.vue's .tag-row) via this one wrapper
+   instead of re-tuning spacing separately in each. */
+.tag-row-pinned {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
 .tag-row-opt {
   display: flex;
   align-items: center;

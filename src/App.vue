@@ -726,6 +726,13 @@ const hasTodoDraft = computed(() =>
 // this row.
 const addTagModalTags = computed(() => themeStore.tagsEnabled ? store.tags : store.tags.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 
+// Priority + date are always-available special tags, kept visually apart
+// from user tags in the picker (see .tag-row-pinned in layout.css) — split
+// here so the template can render them as their own row instead of one
+// mixed v-for.
+const addTagModalPinnedTags = computed(() => addTagModalTags.value.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
+const addTagModalRestTags = computed(() => addTagModalTags.value.filter(t => t.id !== PRIORITY_TAG_ID && t.id !== LOOP_TAG_ID))
+
 // Date checked for the first time in this add-session: default to a
 // one-time due date today (Once mode) instead of leaving the picker in
 // its ambiguous "nothing selected" state.
@@ -1454,8 +1461,20 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 </div>
               </div>
 
+              <div v-if="addTagModalPinnedTags.length" class="tag-row-pinned">
+                <label
+                  v-for="tag in addTagModalPinnedTags"
+                  :key="tag.id"
+                  class="tag-row-opt"
+                  :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
+                  @mousedown.prevent
+                >
+                  <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
+                  <span>{{ tag.label }}</span>
+                </label>
+              </div>
               <label
-                v-for="tag in addTagModalTags"
+                v-for="tag in addTagModalRestTags"
                 :key="tag.id"
                 class="tag-row-opt"
                 :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
@@ -1595,8 +1614,20 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 
               <div v-if="addTagModalTags.length" class="add-sheet-section">
                 <div class="add-sheet-tag-list">
+                  <div v-if="addTagModalPinnedTags.length" class="tag-row-pinned">
+                    <label
+                      v-for="tag in addTagModalPinnedTags"
+                      :key="tag.id"
+                      class="tag-row-opt"
+                      :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
+                      @mousedown.prevent
+                    >
+                      <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
+                      <span>{{ tag.label }}</span>
+                    </label>
+                  </div>
                   <label
-                    v-for="tag in addTagModalTags"
+                    v-for="tag in addTagModalRestTags"
                     :key="tag.id"
                     class="tag-row-opt"
                     :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
