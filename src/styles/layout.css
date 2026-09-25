@@ -547,7 +547,21 @@
   transition: color 0.1s, border-color 0.1s;
 }
 
+/* A priority todo's card background is ink-colored (see .todo-card.
+   priority in TodoCard.vue), so this circle — only ever nested inside a
+   priority card via TodoCard.vue's own edit-tag-menu, never App.vue's
+   add-todo dropdown — has to swap to --bg here or it disappears against
+   its own card, same swap .card-btn already does for the trash/plus/minus
+   icons above it. */
+.priority .tag-row-add-btn {
+  color: var(--bg);
+  border-color: var(--bg);
+}
+
 @media (hover: hover) {
+  /* Same dark hover regardless of priority — only the default, non-hover
+     color needs the priority swap above (so the circle stays visible
+     against the card), hovering already draws the eye there either way. */
   .tag-row-add-btn:hover {
     color: var(--ink-dark);
     border-color: var(--ink-dark);
@@ -567,6 +581,24 @@
   font: inherit;
   color: inherit;
   min-width: 4px;
+}
+
+/* The editing pill spawns exactly where the "+" circle just was, right
+   under the pointer — without this it reads as :hover from the instant
+   it mounts (same darkened highlight every other hovered tag gets),
+   which looks like it's already "focused/selected" before a single
+   character has been typed. Pinned to its plain, non-hover color instead,
+   regardless of where the pointer actually is. */
+@media (hover: hover) {
+  .tag-row-add-editing:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .priority .tag-row-add-editing:hover {
+    color: var(--bg);
+    border-color: var(--bg);
+  }
 }
 
 .sort-nav {

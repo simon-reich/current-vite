@@ -12,7 +12,7 @@ import { Plus } from '@lucide/vue'
 import { useTodosStore, type Tag } from '../stores/todos'
 
 const store = useTodosStore()
-const emit = defineEmits<{ created: [tag: Tag], 'focus-inside': [] }>()
+const emit = defineEmits<{ created: [tag: Tag], 'focus-inside': [], exit: [] }>()
 
 const editing = ref(false)
 const draft = ref('')
@@ -83,10 +83,21 @@ function commit() {
 // (App.vue's onGlobalKeydown, TodoCard.vue's onCardKeydown) and fire
 // delete/sort/etc. while the label is only used for its Enter/Escape
 // branches, everything else just needs to type normally into the field.
+//
+// Committing/cancelling via a key unmounts the input, and the browser
+// then drops focus to <body> (nothing here takes its place) — from there
+// a follow-up Enter/keystroke falls through to whatever document-level
+// shortcuts happen to be listening, not back to whatever this tag picker
+// belongs to. 'exit' tells the parent to reclaim focus (e.g. App.vue's
+// add-todo title input), so the very next Enter still means "submit the
+// todo" instead of leaking out to, say, Overview's own shortcuts. Not
+// fired on a plain blur (see the input's own handler below) — focus
+// already moved somewhere the user chose on purpose there, and forcing
+// it back would fight that.
 function onKeydown(e: KeyboardEvent) {
   e.stopPropagation()
-  if (e.key === 'Enter') { e.preventDefault(); commit() }
-  else if (e.key === 'Escape') { e.preventDefault(); cancel() }
+  if (e.key === 'Enter') { e.preventDefault(); commit(); emit('exit') }
+  else if (e.key === 'Escape') { e.preventDefault(); cancel(); emit('exit') }
 }
 </script>
 

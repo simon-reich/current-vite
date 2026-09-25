@@ -1491,7 +1491,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
                 <span>{{ tag.label }}</span>
               </label>
-              <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" />
+              <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" @exit="focusTodoInput" />
             </div>
           </div>
           <!-- Overview always; Current only at phone width (tablet keeps
@@ -1645,7 +1645,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                     <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
                     <span>{{ tag.label }}</span>
                   </label>
-                  <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" />
+                  <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" @exit="focusTodoInput" />
                 </div>
               </div>
             </div>
