@@ -521,6 +521,54 @@
   display: none;
 }
 
+/* TagInlineCreate.vue's idle state — a plain circle (not the .tag-row-opt
+   pill shape) that sits as the last item in a tag picker row. Width/height
+   come from --tag-row-add-size, set in JS off a real sibling .tag-row-opt's
+   measured height (see measureSize() there) instead of a guessed formula —
+   .tag-row-opt has no explicit line-height, so its actual rendered height
+   depends on var(--font-mono)'s own "normal" metrics (and, in the mobile
+   add-sheet, a larger overridden font-size), neither of which a CSS calc()
+   here could know without either guessing wrong or forcing a line-height
+   onto every tag pill just to make the math work (this used to do exactly
+   that, and grew every tag pill in the process — not just this circle). */
+.tag-row-add-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tag-row-add-size, 20px);
+  height: var(--tag-row-add-size, 20px);
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+@media (hover: hover) {
+  .tag-row-add-btn:hover {
+    color: var(--ink-dark);
+    border-color: var(--ink-dark);
+  }
+}
+
+/* Editing state — reuses .tag-row-opt itself for the pill shape (border,
+   radius, font), so the "+" circle turning into "an empty tag" is exactly
+   that: the same pill every other tag renders as, just with a live text
+   field instead of a label. */
+.tag-row-add-field {
+  border: none;
+  background: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  min-width: 4px;
+}
+
 .sort-nav {
   display: flex;
   align-items: center;

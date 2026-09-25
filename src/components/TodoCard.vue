@@ -577,7 +577,7 @@ export function closeActiveCard() {
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
-import { useTodosStore, type Todo, type Sub, type LoopInterval, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
+import { useTodosStore, type Todo, type Sub, type LoopInterval, type Tag, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickExpand'
 import { activeModal } from '../composables/useModalGuard'
@@ -586,6 +586,7 @@ import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr, tomorrowStr } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
+import TagInlineCreate from './TagInlineCreate.vue'
 
 const props = defineProps<{
   todo: Todo
@@ -713,6 +714,11 @@ const tagMenuTags = computed(() => themeStore.tagsEnabled ? store.tags : store.t
 // tag row.
 const tagMenuPinnedTags = computed(() => tagMenuTags.value.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 const tagMenuRestTags = computed(() => tagMenuTags.value.filter(t => t.id !== PRIORITY_TAG_ID && t.id !== LOOP_TAG_ID))
+
+// Same "select what you just created" rule as App.vue's add-todo tag row.
+function onCardTagCreated(tag: Tag) {
+  if (!draftTags.value.includes(tag.id)) updateDraftTags([...draftTags.value, tag.id])
+}
 
 
 // The `obvious` flag on the Current move events tells the parent (see
@@ -2876,6 +2882,7 @@ onUnmounted(() => {
                 <input type="checkbox" :checked="draftTags.includes(tag.id)" @change="updateDraftTags(draftTags.includes(tag.id) ? draftTags.filter(i => i !== tag.id) : [...draftTags, tag.id])" />
                 <span>{{ tag.label }}</span>
               </label>
+              <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onCardTagCreated" />
             </template>
             <span v-else class="tag-row-empty">No tags yet</span>
           </div>

@@ -5,7 +5,7 @@ import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, LayoutList, Layout
 import PoolIcon from './components/icons/PoolIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
-import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo } from './stores/todos'
+import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo, type Tag as TagModel } from './stores/todos'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
 import { useScrollTracking } from './composables/useScrollTracking'
@@ -17,6 +17,7 @@ import { todayStr, tomorrowStr } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
+import TagInlineCreate from './components/TagInlineCreate.vue'
 import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from './components/TodoCard.vue'
 // Frame-celebration pre-completion teaser — the particle celebrations have
 // no single frozen "first frame" to preview, so this (together with the
@@ -732,6 +733,13 @@ const addTagModalTags = computed(() => themeStore.tagsEnabled ? store.tags : sto
 // mixed v-for.
 const addTagModalPinnedTags = computed(() => addTagModalTags.value.filter(t => t.id === PRIORITY_TAG_ID || t.id === LOOP_TAG_ID))
 const addTagModalRestTags = computed(() => addTagModalTags.value.filter(t => t.id !== PRIORITY_TAG_ID && t.id !== LOOP_TAG_ID))
+
+// A tag created inline via the "+" at the end of the tag picker (see
+// TagInlineCreate.vue) is selected for the todo being created immediately,
+// not left for the user to check by hand.
+function onNewTodoTagCreated(tag: TagModel) {
+  if (!newTodoTagIds.value.includes(tag.id)) newTodoTagIds.value.push(tag.id)
+}
 
 // Date checked for the first time in this add-session: default to a
 // one-time due date today (Once mode) instead of leaving the picker in
@@ -1483,6 +1491,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
                 <span>{{ tag.label }}</span>
               </label>
+              <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" />
             </div>
           </div>
           <!-- Overview always; Current only at phone width (tablet keeps
@@ -1636,6 +1645,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                     <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
                     <span>{{ tag.label }}</span>
                   </label>
+                  <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" />
                 </div>
               </div>
             </div>
