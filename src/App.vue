@@ -1101,12 +1101,9 @@ const {
 
 function onScroll() { checkScrollState() }
 
-// ── Sidebar scroll divider ──
+// ── Sidebar scroll ref (date-nav scroll-into-view below still needs it —
+// the scroll-divider line that used to live here is shelved for now) ──
 const sidebarRef = ref<HTMLElement | null>(null)
-const sidebarScrolled = ref(false)
-function onSidebarScroll() {
-  sidebarScrolled.value = (sidebarRef.value?.scrollTop ?? 0) > 0
-}
 
 // Current's Back/Next date-list paging (Current.vue's stepDateList) can land
 // on an entry that's already scrolled out of view further down the sidebar
@@ -1686,15 +1683,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       v-if="(route.path === '/current' || route.path === '/all') && themeStore.dateListsEnabled"
       class="sidebar desktop-only"
     >
-      <!-- Plain absolute overlay now (not sticky-inside-the-scroll-area) —
-           the actual scrolling + fade-mask below lives one level down in
-           .sidebar-scroll, specifically so this divider sits outside that
-           masked subtree and never gets faded along with the content
-           passing underneath it (see .sidebar-scroll's own comment in
-           layout.css). -->
-      <ScrollDivider class="sidebar-scroll-divider" :visible="sidebarScrolled" />
-
-      <div ref="sidebarRef" class="sidebar-scroll" @scroll="onSidebarScroll">
+      <div ref="sidebarRef" class="sidebar-scroll">
         <!-- Current view: Date-List navigation switches which date's list is
              being viewed (viewingDate). today/tomorrow plus the rest of the
              7-day preset window (presetWeekDates) are always selectable, even

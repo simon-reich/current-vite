@@ -577,11 +577,6 @@
   overflow-x: hidden;
   scrollbar-width: none;
   animation: shell-fade-in-side 0.4s 0.04s ease-out both;
-  /* Containing block for .sidebar-scroll-divider below, now a plain
-     absolute overlay instead of a sticky flex child (see that rule's own
-     comment). Doesn't otherwise change anything here — .sidebar-right
-     shares this rule, including the inner .sidebar-scroll wrapper that
-     does the actual scrolling on both columns. */
   position: relative;
 }
 
@@ -589,47 +584,25 @@
   display: none;
 }
 
-/* Plain overlay flush with .sidebar's own outer edge (not sticky/nested
-   in the scrolling flow anymore) — the actual scrolling now happens one
-   level down, in .sidebar-scroll, so this divider sits outside that
-   subtree and always renders at full, unfaded opacity regardless of
-   scroll position. .sidebar is the containing block via position:
-   relative above, whose box (for a plain absolute offset) is the padding
-   box — the negative insets pull it back out through that 16px padding
-   so it still spans the full outer edge, same visual spot it always had.
-   Only used by the left sidebar (Current/Overview Date-List nav);
-   .sidebar-right has no divider. */
-.sidebar-scroll-divider {
-  position: absolute;
-  top: -16px;
-  left: -16px;
-  right: -16px;
-  z-index: 2;
-}
-
 /* Inner scrollport shared by both sidebars — split out from the outer
-   .sidebar so .sidebar-scroll-divider (the solid line that fades in once
-   this has scrolled, see that rule above) stays outside this subtree and
-   always renders at full opacity, rather than scrolling away with the
-   content underneath it. Both columns use it (see App.vue) specifically so
-   the actual clip edges match: a scroll container's own padding counts as
-   scrollable area, so scrolling on the padded .sidebar directly (which is
-   what the right column used to do) cuts content off at its outer edge
-   instead of 16px/10px in, which read as the two columns having different
-   heights even though their boxes are identical. min-height: 0 is the
-   usual flex-child fix that lets this actually shrink and scroll instead
-   of growing to fit its content. The outer .sidebar's own overflow-y
-   becomes a no-op on both now, since this fills it exactly via flex: 1. */
+   .sidebar specifically so the actual clip edges match: a scroll
+   container's own padding counts as scrollable area, so scrolling on the
+   padded .sidebar directly (which is what the right column used to do)
+   cuts content off at its outer edge instead of 16px/10px in, which read
+   as the two columns having different heights even though their boxes are
+   identical. min-height: 0 is the usual flex-child fix that lets this
+   actually shrink and scroll instead of growing to fit its content. The
+   outer .sidebar's own overflow-y becomes a no-op on both now, since this
+   fills it exactly via flex: 1. */
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  /* .sidebar-scroll-divider no longer eats into .sidebar's own 16px
-     padding the way it used to (see .tag-list's own comment) — pulling
-     this up by that same 6px difference keeps .tag-list's unchanged 26px
-     margin landing content at the same 36px total as before. */
+  /* Keeps .tag-list's unchanged 26px margin-top landing content at the
+     same 36px total from .sidebar's own outer edge (see .tag-list's own
+     comment) — pulls this box up by 6px first. */
   margin-top: -6px;
   /* Extends this box 10px further left, eating into some of .sidebar's own
      16px padding, then gives the content that same 10px back as padding —
@@ -661,9 +634,7 @@
      (36px padding-top there): .sidebar's own 16px padding, minus
      .sidebar-scroll's own -6px, plus this 26px = the same 36px from
      .sidebar's outer edge — identical in both sidebars now that they share
-     that wrapper (see its own comment). .sidebar-scroll-divider doesn't
-     participate in this math at all any more now that it's a plain
-     overlay. */
+     that wrapper (see its own comment). */
   margin-top: 26px;
   flex: 1;
   display: flex;
