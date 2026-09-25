@@ -1111,11 +1111,10 @@ function onSidebarScroll() {
 // Current's Back/Next date-list paging (Current.vue's stepDateList) can land
 // on an entry that's already scrolled out of view further down the sidebar
 // nav — the active chip should always be visible while paging through it,
-// not just clickable-but-invisible below the fold. SAFE_BOTTOM mirrors
-// .sidebar-scroll's own bottom fade band (see its mask-image) plus a little
-// slack, so the active chip lands clear of the fade, not just technically
-// inside the scroll container. Also fires on a direct sidebar click, which
-// is a no-op there since the clicked chip is already in view.
+// not just clickable-but-invisible below the fold. SAFE_BOTTOM leaves a bit
+// of breathing room below the active chip rather than landing it flush
+// against the container's own bottom edge. Also fires on a direct sidebar
+// click, which is a no-op there since the clicked chip is already in view.
 const DATE_NAV_SAFE_BOTTOM = 80
 watch(viewingDate, (dateStr) => {
   nextTick(() => {
@@ -1123,8 +1122,8 @@ watch(viewingDate, (dateStr) => {
     if (!container) return
     // Today is always the nav's actual first row — paging back onto it
     // should return to the exact rest position (scrollTop 0), not just
-    // "today" scrolled minimally into view above the top fade band, same
-    // idea as the route-change reset below.
+    // "today" scrolled minimally into view, same idea as the route-change
+    // reset below.
     if (dateStr === todayStr()) {
       container.scrollTo({ top: 0, behavior: 'smooth' })
       return
@@ -1760,72 +1759,83 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       v-if="route.path === '/all'"
       class="sidebar sidebar-right desktop-only"
     >
-      <div class="tag-list">
-        <button
-          ref="allBtnSidebarRef"
-          class="all-btn"
-          :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
-          @click="clearAllFilters"
-        >
-          all
-        </button>
-
-        <button
-          ref="prioBtnSidebarRef"
-          class="all-btn priority-btn"
-          :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
-          @click="toggleTag(PRIORITY_TAG_ID)"
-        >
-          prio
-        </button>
-
-        <button
-          ref="loopBtnSidebarRef"
-          class="all-btn loop-btn"
-          :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
-          @click="cycleLoopFilter"
-        >
-          date
-        </button>
-
-        <template v-if="themeStore.tagsEnabled">
-          <div class="tag-add-row">
-            <button
-              v-if="!tagInputOpen"
-              ref="tagAddBtnRef"
-              type="button"
-              class="tag-add-btn"
-              title="Add tag"
-              @click="openTagInput"
-            >
-              <Plus :size="12" />
-            </button>
-            <Transition name="tag-input-grow">
-              <input
-                v-if="tagInputOpen"
-                ref="tagInputRef"
-                v-model="tagInput"
-                class="tag-new-input tag-new-input--inline"
-                placeholder="tag, ... + enter"
-                @keydown="handleTagKey"
-                @blur="onTagInputBlur"
-              />
-            </Transition>
-          </div>
-
-          <div
-            v-for="tag in store.userTags"
-            :key="tag.id"
-            class="tag-chip"
-            :class="{
-              active: effectiveFilterTagIds.includes(tag.id),
-              dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
-            }"
+      <!-- Same inner scrollport the left sidebar uses (.sidebar-scroll) —
+           not just for symmetry's sake: a scroll container clips at its own
+           padding box, i.e. its padding counts as scrollable area, so
+           scrolling directly on the <aside> (which is what this did before)
+           let chips travel visibly through its whole 16px padding band and
+           only cut off at the outer edge, while the left column cut off
+           16px/10px in from its edges. Same wrapper both sides = same
+           clipping geometry and the same 36px content start by
+           construction, nothing to keep in sync by hand. -->
+      <div class="sidebar-scroll">
+        <div class="tag-list">
+          <button
+            ref="allBtnSidebarRef"
+            class="all-btn"
+            :class="{ active: effectiveFilterTagIds.length === 0, dimmed: effectiveFilterTagIds.length > 0 }"
+            @click="clearAllFilters"
           >
-            <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
-            <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
-          </div>
-        </template>
+            all
+          </button>
+
+          <button
+            ref="prioBtnSidebarRef"
+            class="all-btn priority-btn"
+            :class="{ active: effectiveFilterTagIds.includes(PRIORITY_TAG_ID), dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(PRIORITY_TAG_ID) }"
+            @click="toggleTag(PRIORITY_TAG_ID)"
+          >
+            prio
+          </button>
+
+          <button
+            ref="loopBtnSidebarRef"
+            class="all-btn loop-btn"
+            :class="{ 'loop-filter-default': loopFilterMode === 'default', active: loopFilterMode === 'only', dimmed: loopFilterMode === 'hide' }"
+            @click="cycleLoopFilter"
+          >
+            date
+          </button>
+
+          <template v-if="themeStore.tagsEnabled">
+            <div class="tag-add-row">
+              <button
+                v-if="!tagInputOpen"
+                ref="tagAddBtnRef"
+                type="button"
+                class="tag-add-btn"
+                title="Add tag"
+                @click="openTagInput"
+              >
+                <Plus :size="12" />
+              </button>
+              <Transition name="tag-input-grow">
+                <input
+                  v-if="tagInputOpen"
+                  ref="tagInputRef"
+                  v-model="tagInput"
+                  class="tag-new-input tag-new-input--inline"
+                  placeholder="tag, ... + enter"
+                  @keydown="handleTagKey"
+                  @blur="onTagInputBlur"
+                />
+              </Transition>
+            </div>
+
+            <div
+              v-for="tag in store.userTags"
+              :key="tag.id"
+              class="tag-chip"
+              :class="{
+                active: effectiveFilterTagIds.includes(tag.id),
+                dimmed: effectiveFilterTagIds.length > 0 && !effectiveFilterTagIds.includes(tag.id)
+              }"
+            >
+              <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
+              <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
+            </div>
+          </template>
+        </div>
       </div>
     </aside>
 

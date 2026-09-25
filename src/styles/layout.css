@@ -558,6 +558,19 @@
   grid-column: 1;
   grid-row: 2;
   padding: 16px;
+  /* Neither sidebar should stretch all the way down the row (grid-row: 2
+     is 1fr, whose own bottom edge already sits flush with the viewport's,
+     #app having no bottom padding) just because the grid track happens to
+     reach that far — both stop at the same height instead (shared rule,
+     so left/right always match). A vh max-height here doesn't work: this
+     box's top already starts well below the viewport's own top (below
+     the 88px header row + #app's 36px padding), so e.g. max-height: 90vh
+     would push its bottom edge *past* the real viewport bottom by that
+     same offset instead of stopping short of it — margin-bottom sidesteps
+     that entirely by reserving space at the bottom of the (already
+     viewport-bottom-flush) track instead, landing this box's own bottom
+     edge at the 96vh mark regardless of where its top happens to be. */
+  margin-bottom: 4vh;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -567,8 +580,8 @@
   /* Containing block for .sidebar-scroll-divider below, now a plain
      absolute overlay instead of a sticky flex child (see that rule's own
      comment). Doesn't otherwise change anything here — .sidebar-right
-     shares this rule and still scrolls on itself directly (no divider,
-     no inner wrapper, see its own rule further down). */
+     shares this rule, including the inner .sidebar-scroll wrapper that
+     does the actual scrolling on both columns. */
   position: relative;
 }
 
@@ -579,8 +592,8 @@
 /* Plain overlay flush with .sidebar's own outer edge (not sticky/nested
    in the scrolling flow anymore) — the actual scrolling now happens one
    level down, in .sidebar-scroll, so this divider sits outside that
-   masked subtree and always renders at full, unfaded opacity regardless
-   of scroll position. .sidebar is the containing block via position:
+   subtree and always renders at full, unfaded opacity regardless of
+   scroll position. .sidebar is the containing block via position:
    relative above, whose box (for a plain absolute offset) is the padding
    box — the negative insets pull it back out through that 16px padding
    so it still spans the full outer edge, same visual spot it always had.
@@ -594,18 +607,19 @@
   z-index: 2;
 }
 
-/* Inner scrollport for the left sidebar's Date-List nav — split out from
-   the outer .sidebar specifically so the fade mask below can apply to
-   the element that's actually scrolling (mask-image stops are relative
-   to ITS OWN box, which only stays pinned to the visible top/bottom edge
-   if applied to the element whose content moves under it) without also
-   masking .sidebar-scroll-divider above, which needs to stay outside
-   this subtree to render at full opacity always. min-height: 0 is the
+/* Inner scrollport shared by both sidebars — split out from the outer
+   .sidebar so .sidebar-scroll-divider (the solid line that fades in once
+   this has scrolled, see that rule above) stays outside this subtree and
+   always renders at full opacity, rather than scrolling away with the
+   content underneath it. Both columns use it (see App.vue) specifically so
+   the actual clip edges match: a scroll container's own padding counts as
+   scrollable area, so scrolling on the padded .sidebar directly (which is
+   what the right column used to do) cuts content off at its outer edge
+   instead of 16px/10px in, which read as the two columns having different
+   heights even though their boxes are identical. min-height: 0 is the
    usual flex-child fix that lets this actually shrink and scroll instead
    of growing to fit its content. The outer .sidebar's own overflow-y
-   becomes a no-op here since this fills it exactly via flex: 1 — it's
-   still needed as-is for .sidebar-right, which has no inner wrapper and
-   keeps scrolling on itself directly. */
+   becomes a no-op on both now, since this fills it exactly via flex: 1. */
 .sidebar-scroll {
   flex: 1;
   min-height: 0;
@@ -622,41 +636,34 @@
      net zero shift for the chips themselves, but now there's 10px of room
      between them and this element's own clip edge (overflow-x: hidden
      above) for their :hover puff-up (.all-btn/.tag-chip, layout.css) to
-     grow into on the left without getting visibly cropped there. */
+     grow into on the left without getting visibly cropped there. Mirrored
+     for the right column below, whose chips hug the opposite edge. */
   margin-left: -10px;
   padding-left: 10px;
-  /* 32px reads clearly as a transition rather than a hard cut (a shorter
-     band that stayed strictly under the 36px/16px top/bottom gaps below
-     was technically correct but too subtle to actually notice) — the
-     trade-off is the bottom fade now slightly overlaps a short list's
-     last item even at rest, which reads fine in practice. Bottom stays
-     fully transparent for a 45px margin before the actual edge (not just
-     exactly at it), same as .sidebar-right's own bottom. */
-  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
+}
+
+/* The right column's rows are right-aligned (see .sidebar-right .tag-list
+   below), so the hover-puff room above has to sit on that edge instead —
+   same 10px, just the other side. */
+.sidebar-right .sidebar-scroll {
+  margin-left: 0;
+  padding-left: 0;
+  margin-right: -10px;
+  padding-right: 10px;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
   display: none;
 }
 
-/* The Date-List nav can grow long (many month groups) — without this, its
-   very last row sits inside the bottom mask's fade band even when scrolled
-   all the way down, since the mask is relative to the viewport, not the
-   scrolled content's end. Extra bottom padding pushes the real last row
-   past the fade band once scrolled to the end, so it can actually reach
-   full opacity. */
-.sidebar-scroll .tag-list {
-  padding-bottom: 80px;
-}
-
 .tag-list {
   /* Lines "all" up with where the todo cards start in .content-inner
-     (36px padding-top there): .sidebar's own 16px padding plus this. On
-     the left sidebar that padding belongs to .sidebar-scroll's parent, so
-     the same 26px still lands content at 36px total from .sidebar's own
-     outer edge — .sidebar-scroll-divider no longer participates in this
-     math at all now that it's a plain overlay (see its own comment). */
+     (36px padding-top there): .sidebar's own 16px padding, minus
+     .sidebar-scroll's own -6px, plus this 26px = the same 36px from
+     .sidebar's outer edge — identical in both sidebars now that they share
+     that wrapper (see its own comment). .sidebar-scroll-divider doesn't
+     participate in this math at all any more now that it's a plain
+     overlay. */
   margin-top: 26px;
   flex: 1;
   display: flex;
@@ -884,22 +891,11 @@
 /* ── Sidebar body, right column (Overview only) — the tag filters that used
    to live in the left .sidebar, now here; the Focus-Date-Pille took their
    old spot in .sidebar-head instead (see .sidebar-focus-date-slot below).
-   Reuses .sidebar's own layout wholesale (padding, scroll, entrance
-   animation, .tag-list spacing) — only the grid column differs. ── */
+   Reuses .sidebar's own layout wholesale (padding, the .sidebar-scroll
+   inner scrollport, entrance animation, .tag-list spacing) — only the grid
+   column and which edge things hug differ (see the two rules below). ── */
 .sidebar-right {
   grid-column: 3;
-  /* Same fade-on-scroll as .sidebar-scroll (see that rule's comment for
-     why 32px at the top, including the "slightly overlaps a short list's
-     last item at rest" trade-off) — applied directly to .sidebar-right
-     itself since it has no divider to protect and scrolls on itself
-     (inherited overflow-y from .sidebar above). The bottom fade stays
-     fully transparent for a 45px margin before the actual edge (not just
-     exactly at it), same as .sidebar-scroll's own bottom —
-     .shortcuts-corner-hint's "Press Y..." sits fixed over this column's
-     bottom-right corner, and a chip needs to be fully gone by the time
-     it's back there, not just partway faded. */
-  mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 32px, black calc(100% - 72px), transparent calc(100% - 40px));
 }
 
 /* Right column: same .tag-list as the left sidebar, but every row
@@ -1377,6 +1373,10 @@
     font-size: 15px;
     color: var(--ink);
     opacity: 0.6;
+    /* Deliberately overlaid on top of .sidebar-right (z-index above its
+       own, no explicit stacking there) rather than the sidebar leaving
+       room for it — .sidebar-right's own chips just scroll underneath.
+       pointer-events: none keeps them clickable right through it. */
     pointer-events: none;
     z-index: 40;
   }
