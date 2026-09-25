@@ -233,14 +233,6 @@
   transition: transform 0.15s, background 0.15s, opacity 0.15s;
 }
 
-/* Middle position of the three-state cycle (off → half → full) — same as
-   Current.vue's desktop switch (.switch.half), duplicated here per this
-   app's usual small-styling-duplication convention. */
-.mobile-subs-switch.half .mobile-subs-switch-knob {
-  opacity: 0.7;
-  transform: translateY(-50%) translateX(7.5px);
-}
-
 .mobile-subs-switch.on .mobile-subs-switch-knob {
   background: var(--bg);
   opacity: 1;
@@ -264,10 +256,6 @@
 .desktop-subs-toggle .mobile-subs-switch-knob {
   width: 10px;
   height: 10px;
-}
-
-.desktop-subs-toggle .mobile-subs-switch.half .mobile-subs-switch-knob {
-  transform: translateY(-50%) translateX(6px);
 }
 
 .desktop-subs-toggle .mobile-subs-switch.on .mobile-subs-switch-knob {

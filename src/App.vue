@@ -1333,8 +1333,8 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 type="button"
                 class="mobile-subs-switch"
                 role="switch"
-                :aria-checked="desktopSubsState === 'full'"
-                :class="{ half: desktopSubsState === 'half', on: desktopSubsState === 'full' }"
+                :aria-checked="desktopSubsState === 'half'"
+                :class="{ on: desktopSubsState === 'half' }"
               >
                 <span class="mobile-subs-switch-knob" />
               </button>

@@ -575,7 +575,7 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, type Tag, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -607,8 +607,9 @@ const props = defineProps<{
   /** Current's own "expand all subs" toggle (see Current.vue) — forces the
    *  sub-list open even while the card itself is closed, without also
    *  opening the Done/Done-for-today menu. 'half' shows only unchecked
-   *  subs, 'full' shows every sub including already-checked ones. */
-  forceExpandSubs?: 'half' | 'full' | 'off'
+   *  subs — already-done ones are only ever revealed per-card, via the "N
+   *  done" hint next to that card's own sub-list (see toggleDoneSubsReveal). */
+  forceExpandSubs?: 'half' | 'off'
   /** Current's "Lists" panel previewing a future Date List (see
    *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-today are
    *  locked out until that date is actually today; removing from the list
@@ -746,8 +747,8 @@ const showTagMenu = computed(() => openTagMenuId.value === props.todo.id)
 const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'current' && showMenu.value))
 
 // Subs are collapsed by default — shown once the card is genuinely open
-// (see above), or forced via Current's "expand all" toggle ('half'/'full',
-// 'off' behaves like the toggle not being set at all).
+// (see above), or forced via Current's "expand all" toggle ('half', 'off'
+// behaves like the toggle not being set at all).
 const forceExpandActive = computed(() => !!props.forceExpandSubs && props.forceExpandSubs !== 'off')
 const subsVisible = computed(() =>
   themeStore.subsEnabled && (cardActuallyOpen.value || forceExpandActive.value)
@@ -768,14 +769,20 @@ const subsAddVisible = computed(() => themeStore.subsEnabled && cardActuallyOpen
 const halfHiddenPendingIds = reactive(new Set<string>())
 const halfHiddenLeavingIds = reactive(new Set<string>())
 
+// Per-card override for the "N done" hint below (see toggleDoneSubsReveal) —
+// shows this one card's already-done subs without opening the card itself,
+// and independently of every other card's own reveal state. Reset whenever
+// this display context is left entirely (see the watch below).
+const doneSubsRevealed = ref(false)
+
 // Which subs actually render: an explicitly opened card always shows every
 // sub (the user is in there to edit, not skim). Otherwise it's driven by
-// Current's toggle alone — 'half' hides already-checked subs so the list
-// reads as "what's left" (except one mid-vanish, see halfHiddenPendingIds
-// above), 'full' (or the card not being force-expanded at all) shows
-// everything.
+// Current's toggle — 'half' hides already-checked subs so the list reads as
+// "what's left" (except one mid-vanish, see halfHiddenPendingIds above,
+// or this one card's own doneSubsRevealed override); the card not being
+// force-expanded at all shows everything, same as before.
 const visibleSubs = computed(() =>
-  !cardActuallyOpen.value && props.forceExpandSubs === 'half'
+  !cardActuallyOpen.value && props.forceExpandSubs === 'half' && !doneSubsRevealed.value
     ? props.todo.subs.filter(s => !s.completedAt || halfHiddenPendingIds.has(s.id))
     : props.todo.subs
 )
@@ -792,23 +799,37 @@ const subsExpandedWide = computed(() =>
   !cardActuallyOpen.value && subsVisible.value && visibleSubs.value.length > 0
 )
 
-// Half-mode hides completed subs entirely (see visibleSubs above) — this
-// surfaces that there's more to see without opening the card, but only
-// while there's actually something hidden to report. A sub still mid-vanish
-// (halfHiddenPendingIds) isn't "hidden" yet — it's still on screen — so it
-// doesn't count here either.
-const hiddenCompletedSubsCount = computed(() => {
+// Half-mode's "N done" hint (see the sub-item--hint row below) — count of
+// this card's own completed subs, shown whenever there's anything to report
+// (whether currently hidden or, via doneSubsRevealed, already unfolded — the
+// row and its count stay put either way, only the chevron/visibleSubs
+// change, so the same click that reveals them can also hide them again). A
+// sub still mid-vanish (halfHiddenPendingIds) isn't done skimming its own
+// exit animation yet, so it doesn't count here either.
+const completedSubsHintCount = computed(() => {
   if (cardActuallyOpen.value || props.forceExpandSubs !== 'half') return 0
   return props.todo.subs.filter(s => s.completedAt && !halfHiddenPendingIds.has(s.id)).length
 })
+
+// The hint row's own click target — flips this one card's doneSubsRevealed
+// between showing/hiding its already-done subs. Doesn't touch
+// cardActuallyOpen at all (no full tag/check-menu edit involved), so it's a
+// plain, cheap, reversible toggle — the same button (chevron flips
+// direction) undoes it again.
+function toggleDoneSubsReveal() {
+  doneSubsRevealed.value = !doneSubsRevealed.value
+}
 
 // Leaving this display context entirely (card opens, or the toggle moves
 // off 'half') drops any in-flight vanish immediately — there's nothing left
 // to animate once the filtering that motivated it no longer applies, and a
 // stale fade-out could otherwise resurface (as an already-invisible row)
-// the next time half mode is re-entered for this card.
+// the next time half mode is re-entered for this card. Also resets this
+// card's own doneSubsRevealed, so a card that opened for a full edit (or
+// whose forced expand turned off) starts collapsed again next time.
 watch(() => [cardActuallyOpen.value, props.forceExpandSubs] as const, ([open, mode]) => {
   if (open || mode !== 'half') {
+    doneSubsRevealed.value = false
     pendingHalfHideTimers.forEach(t => clearTimeout(t))
     pendingHalfHideTimers.clear()
     halfHiddenPendingIds.clear()
@@ -1261,7 +1282,7 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
   }
   if (wasChecked) {
     cancelHalfHide(sub.id)
-  } else if (!cardActuallyOpen.value && props.forceExpandSubs === 'half') {
+  } else if (!cardActuallyOpen.value && props.forceExpandSubs === 'half' && !doneSubsRevealed.value) {
     scheduleHalfHide(sub.id)
   }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
@@ -2796,7 +2817,22 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <div v-if="hiddenCompletedSubsCount > 0" class="sub-hint" :style="font ? { fontFamily: font } : {}">({{ hiddenCompletedSubsCount }} done)</div>
+            <div v-if="completedSubsHintCount > 0" class="sub-item sub-item--hint">
+              <button
+                type="button"
+                class="sub-hint-btn"
+                :title="doneSubsRevealed ? 'Hide done subs' : 'Show done subs'"
+                @click.stop="toggleDoneSubsReveal"
+              >
+                <ChevronDown v-if="doneSubsRevealed" :size="17" :stroke-width="3" />
+                <ChevronUp v-else :size="17" :stroke-width="3" />
+              </button>
+              <span
+                class="sub-hint-text"
+                :style="font ? { fontFamily: font } : {}"
+                @click.stop="toggleDoneSubsReveal"
+              >({{ completedSubsHintCount }} done)</span>
+            </div>
 
             <div v-if="subsAddVisible" class="sub-item sub-item--add">
               <span class="sub-box sub-box--empty" aria-hidden="true" />
@@ -3579,14 +3615,53 @@ onUnmounted(() => {
   opacity: 0.3;
 }
 
-/* Half-mode's "N done" note (see hiddenCompletedSubsCount) — plain text, no
-   box, so it doesn't read as its own sub row. Left offset matches where a
-   sub's own title starts (.sub-box width + .sub-item gap), and the font is
-   the todo's own random font (passed in via :style), not a fixed one. */
-.sub-hint {
-  padding-left: 23px;
-  font-size: 0.92em;
+/* Half-mode's "(N done)" note (see completedSubsHintCount) — reuses
+   .sub-item's own row layout so its icon lines up roughly where a real
+   sub's .sub-box sits, but is deliberately *not* .sub-box itself — no
+   border/background/shadow, since this button never represents a sub, just
+   a disclosure toggle: click flips it (and doneSubsRevealed) between
+   showing and hiding this card's already-done subs, same row and chevron
+   either way. Same plain-icon-button pattern as .sub-edit/.sub-delete/
+   .sub-grip below (bare glyph, ink↔bg swap on priority cards), not
+   .sub-box's boxed one. Font is the todo's own random font (passed in via
+   :style), not a fixed one. */
+.sub-item--hint {
+  /* Center instead of .sub-item's own default flex-start — that's meant
+     for a top-aligned checkbox next to a title that can wrap to multiple
+     lines; this row is always a single line, so top-aligning the chevron
+     against the text read as it floating above/apart from it instead of
+     sitting next to it. */
+  align-items: center;
   opacity: 0.5;
+}
+
+.sub-hint-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.priority .sub-hint-btn {
+  color: var(--bg);
+}
+
+@media (hover: hover) {
+  .sub-hint-btn:hover {
+    opacity: 0.7;
+  }
+}
+
+.sub-hint-text {
+  font-size: 0.92em;
+  cursor: pointer;
 }
 
 .sub-edit,

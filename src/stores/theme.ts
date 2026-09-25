@@ -27,15 +27,16 @@ export const useThemeStore = defineStore('theme', () => {
   const selectedFocusDate = ref(todayStr())
   // Force every card's sub-list open without having to expand each one
   // individually — see App.vue's desktop-subs-toggle (and Current.vue's/
-  // AllTodos.vue's own force-expand-subs prop on TodoCard). Three-state
-  // instead of a plain boolean: 'off' (collapsed, same as before), 'half'
-  // (open, but only unchecked subs — skim what's left to do), 'full' (open,
-  // every sub including already-checked ones). Current and Overview each
-  // get their own independent state — expanding subs in one view has no
-  // bearing on the other, same as the two used to be two entirely separate
-  // features before Overview got its own toggle.
-  const expandCurrentSubs = ref<'off' | 'half' | 'full'>('off')
-  const expandOverviewSubs = ref<'off' | 'half' | 'full'>('off')
+  // AllTodos.vue's own force-expand-subs prop on TodoCard). Binary: 'off'
+  // (collapsed, same as before) or 'half' (open, but only unchecked subs —
+  // skim what's left to do). Already-done subs are no longer toggled in
+  // globally at all — each card reveals its own via the "N done" hint next
+  // to its own sub-list instead (see TodoCard.vue's revealDoneSubs). Current
+  // and Overview each get their own independent state — expanding subs in
+  // one view has no bearing on the other, same as the two used to be two
+  // entirely separate features before Overview got its own toggle.
+  const expandCurrentSubs = ref<'off' | 'half'>('off')
+  const expandOverviewSubs = ref<'off' | 'half'>('off')
   const savedThemes = ref<ColorTheme[]>([])
   const dailyThemeRotationEnabled = ref(false)
   // Last date (YYYY-MM-DD) a rotation actually happened — guards against
@@ -87,15 +88,11 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   function toggleExpandCurrentSubs() {
-    expandCurrentSubs.value =
-      expandCurrentSubs.value === 'off' ? 'half' :
-      expandCurrentSubs.value === 'half' ? 'full' : 'off'
+    expandCurrentSubs.value = expandCurrentSubs.value === 'off' ? 'half' : 'off'
   }
 
   function toggleExpandOverviewSubs() {
-    expandOverviewSubs.value =
-      expandOverviewSubs.value === 'off' ? 'half' :
-      expandOverviewSubs.value === 'half' ? 'full' : 'off'
+    expandOverviewSubs.value = expandOverviewSubs.value === 'off' ? 'half' : 'off'
   }
 
   function saveTheme(name: string) {
