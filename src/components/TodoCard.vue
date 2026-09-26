@@ -1782,26 +1782,50 @@ let cardResizeObserver: ResizeObserver | null = null
 const titleRef = ref<HTMLElement | null>(null)
 const OVERFLOW_TOLERANCE_CHARS = 6
 const MIN_SHRINK_RATIO = 0.85
+const SHRINK_STEP_PX = 0.3
+
+// `.todo-title` is a flex item (flex: 1 on the parent), which blockifies it
+// even though it's written as a <span> — so getClientRects() always reports
+// a single rect for the whole (possibly multi-line) box, not one per line.
+// clientWidth/scrollWidth are reliable here precisely because of that
+// blockification; wrapping is detected by forcing nowrap and comparing the
+// resulting scrollWidth against the box's normal clientWidth.
+function measureOverflowPx(el: HTMLElement): number {
+  const availableWidth = el.clientWidth
+  const prevWhiteSpace = el.style.whiteSpace
+  el.style.whiteSpace = 'nowrap'
+  const naturalWidth = el.scrollWidth
+  el.style.whiteSpace = prevWhiteSpace
+  return naturalWidth - availableWidth
+}
 
 function fitTitleFont() {
   const el = titleRef.value
   if (!el) return
   el.style.fontSize = ''
+  const overflow = measureOverflowPx(el)
+  if (overflow <= 0) return
+
+  // Only for a title that spills a handful of characters onto a second
+  // line — not one that's genuinely long enough to need two lines.
   const baseSize = parseFloat(getComputedStyle(el).fontSize)
-  const availableWidth = el.clientWidth
-  if (!availableWidth) return
-  const prevWhiteSpace = el.style.whiteSpace
-  el.style.whiteSpace = 'nowrap'
-  const naturalWidth = el.scrollWidth
-  el.style.whiteSpace = prevWhiteSpace
-  const overflow = naturalWidth - availableWidth
   // Rough proportional-font heuristic (avg char ≈ half the font size) —
   // exact enough to tell "a few characters" apart from "a whole extra word".
   const tolerancePx = OVERFLOW_TOLERANCE_CHARS * baseSize * 0.5
-  if (overflow > 0 && overflow <= tolerancePx) {
-    const ratio = Math.max(availableWidth / naturalWidth, MIN_SHRINK_RATIO)
-    el.style.fontSize = `${(baseSize * ratio).toFixed(2)}px`
+  if (overflow > tolerancePx) return
+
+  const minSize = baseSize * MIN_SHRINK_RATIO
+  for (let size = baseSize - SHRINK_STEP_PX; size >= minSize; size -= SHRINK_STEP_PX) {
+    el.style.fontSize = `${size.toFixed(2)}px`
+    // Re-measured at each step rather than computed once — text width
+    // doesn't scale perfectly linearly with font-size (glyph hinting/
+    // rounding), so a single computed guess can still overflow by a
+    // character or two.
+    if (measureOverflowPx(el) <= 0) return
   }
+  // Couldn't reach one line within the allowed shrink range — not a "just a
+  // few characters" case after all, leave the title at its base size.
+  el.style.fontSize = ''
 }
 
 onMounted(() => {
