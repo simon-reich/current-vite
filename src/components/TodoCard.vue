@@ -1773,13 +1773,53 @@ const swipeContainerRef = ref<HTMLElement | null>(null)
 const cardHeight = ref(0)
 let cardResizeObserver: ResizeObserver | null = null
 
+// A title that only barely wraps (a handful of characters spilling onto a
+// second line) shrinks back to one line instead — a title that's genuinely
+// long stays multi-line untouched. The base size always comes from
+// getComputedStyle (i.e. from .todo-card's CSS font-size) rather than a
+// duplicated constant here, so this keeps tracking the real breakpoint
+// values if those ever change.
+const titleRef = ref<HTMLElement | null>(null)
+const OVERFLOW_TOLERANCE_CHARS = 6
+const MIN_SHRINK_RATIO = 0.85
+
+function fitTitleFont() {
+  const el = titleRef.value
+  if (!el) return
+  el.style.fontSize = ''
+  const baseSize = parseFloat(getComputedStyle(el).fontSize)
+  const availableWidth = el.clientWidth
+  if (!availableWidth) return
+  const prevWhiteSpace = el.style.whiteSpace
+  el.style.whiteSpace = 'nowrap'
+  const naturalWidth = el.scrollWidth
+  el.style.whiteSpace = prevWhiteSpace
+  const overflow = naturalWidth - availableWidth
+  // Rough proportional-font heuristic (avg char ≈ half the font size) —
+  // exact enough to tell "a few characters" apart from "a whole extra word".
+  const tolerancePx = OVERFLOW_TOLERANCE_CHARS * baseSize * 0.5
+  if (overflow > 0 && overflow <= tolerancePx) {
+    const ratio = Math.max(availableWidth / naturalWidth, MIN_SHRINK_RATIO)
+    el.style.fontSize = `${(baseSize * ratio).toFixed(2)}px`
+  }
+}
+
 onMounted(() => {
   if (!swipeContainerRef.value) return
   cardResizeObserver = new ResizeObserver(entries => {
     cardHeight.value = entries[0].contentRect.height
+    fitTitleFont()
   })
   cardResizeObserver.observe(swipeContainerRef.value)
 })
+
+// Box-size changes are already covered by cardResizeObserver above — these
+// cover content changes that can alter wrapping without changing the box
+// itself (new text, a different assigned font, leaving edit mode remounts
+// the span fresh).
+watch(() => props.todo.title, () => nextTick(fitTitleFont))
+watch(() => props.font, () => nextTick(fitTitleFont))
+watch(isEditing, editing => { if (!editing) nextTick(fitTitleFont) })
 
 // 3.5% is fine for a typical card's height — the min() below only ever
 // binds once a card is tall enough that 3.5% would grow it by more than
@@ -2639,6 +2679,7 @@ onUnmounted(() => {
           />
           <span
             v-else
+            ref="titleRef"
             class="todo-title"
             :class="{ editable: mode === 'current' ? (showMenu || showTagMenu) : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
