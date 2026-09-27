@@ -68,14 +68,14 @@ export function useFocusDateNav() {
     return groups
   })
 
-  // "07.07, tuesday" — day.month first (day-before-month, not the US
+  // "07|07 tuesday" — day|month first (day-before-month, not the US
   // month-before-day order), then the spelled-out lowercase weekday, no
   // year (Date Lists only ever cover the near future in practice, see
   // rolloverExpiredFocusDates clearing out stale ones).
   function formatUpcomingDate(dateStr: string): string {
     const [y, m, d] = dateStr.split('-').map(Number)
     const weekday = WEEKDAY_FULL_LABELS[new Date(y, m - 1, d).getDay()]
-    return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}, ${weekday}`
+    return `${String(d).padStart(2, '0')}|${String(m).padStart(2, '0')} ${weekday}`
   }
 
   // Same as formatUpcomingDate, but special-cases today/tomorrow the same
