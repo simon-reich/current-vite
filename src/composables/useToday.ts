@@ -20,6 +20,18 @@ export function tomorrowStr(): string {
   return localDateStr(d)
 }
 
+// Offsets an already-known date string by N days — used wherever a date
+// needs to be derived from a reactive "today" anchor (e.g. useFocusDateNav)
+// instead of reading the wall clock again, which would re-introduce the
+// same "no reactive dependency" staleness a plain todayStr()/tomorrowStr()
+// call inside a computed has.
+export function addDaysStr(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  return localDateStr(date)
+}
+
 // Sunday-first, matching Date#getDay()/v-calendar's own weekday numbering.
 export const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 

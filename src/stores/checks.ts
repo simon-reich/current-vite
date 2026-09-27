@@ -159,7 +159,7 @@ export const useChecksStore = defineStore('checks', () => {
 
   return {
     // state
-    checks,
+    checks, today,
     // getters
     activeChecks, todayChecks, checksDueOn,
     completedOn, isCompletedOn, titleOn,

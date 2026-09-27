@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { useTodosStore } from '../stores/todos'
-import { todayStr, tomorrowStr, localDateStr, WEEKDAY_FULL_LABELS, MONTH_LABELS } from './useToday'
+import { useChecksStore } from '../stores/checks'
+import { addDaysStr, WEEKDAY_FULL_LABELS, MONTH_LABELS } from './useToday'
 
 // Shared by every Date-List nav rendering (Overview's aside on desktop,
 // Current's aside on desktop, and the tablet slide-in panel) — the actual
@@ -11,9 +12,21 @@ import { todayStr, tomorrowStr, localDateStr, WEEKDAY_FULL_LABELS, MONTH_LABELS 
 // just not this date math.
 export function useFocusDateNav() {
   const store = useTodosStore()
+  const checksStore = useChecksStore()
 
-  const hasTodayList = computed(() => store.hasFocusDateList(todayStr()))
-  const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrowStr()))
+  // Reactive "today" anchor instead of calling todayStr()/new Date()
+  // straight inside a computed below: a plain Date read isn't a reactive
+  // dependency, so a computed built on it has nothing to invalidate it at
+  // midnight — it just freezes at whatever it first evaluated to (on
+  // mount) for the rest of the tab's lifetime. checksStore.today already
+  // gets refreshed at the app's three canonical points (mount, midnight,
+  // tab refocus; see stores/checks.ts) for exactly this reason, so this
+  // reuses that single source of truth instead of adding a second one.
+  const today = computed(() => checksStore.today)
+  const tomorrow = computed(() => addDaysStr(today.value, 1))
+
+  const hasTodayList = computed(() => store.hasFocusDateList(today.value))
+  const hasTomorrowList = computed(() => store.hasFocusDateList(tomorrow.value))
 
   // The next 7 days (today included) — always offered as selectable slots,
   // dimmed (never disabled) when nothing's on them yet. A rolling window,
@@ -23,11 +36,7 @@ export function useFocusDateNav() {
   // past a week out.
   const presetWeekDates = computed(() => {
     const dates: string[] = []
-    for (let i = 0; i < 7; i++) {
-      const d = new Date()
-      d.setDate(d.getDate() + i)
-      dates.push(localDateStr(d))
-    }
+    for (let i = 0; i < 7; i++) dates.push(addDaysStr(today.value, i))
     return dates
   })
 
@@ -47,9 +56,7 @@ export function useFocusDateNav() {
   // (which all render this nav) stay in sync (see CLAUDE.md's single-
   // source-of-truth principle).
   const upcomingFocusDateGroups = computed(() => {
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() + 1
+    const [currentYear, currentMonth] = today.value.split('-').map(Number)
     const groups: { label: string; dates: string[] }[] = []
     for (const dateStr of upcomingFocusDates.value) {
       const [y, m] = dateStr.split('-').map(Number)
@@ -75,8 +82,8 @@ export function useFocusDateNav() {
   // way the dedicated buttons already read — used for the preset week's
   // day-3..7 slots, which don't get their own hardcoded button.
   function formatPresetDate(dateStr: string): string {
-    if (dateStr === todayStr()) return 'today'
-    if (dateStr === tomorrowStr()) return 'tomorrow'
+    if (dateStr === today.value) return 'today'
+    if (dateStr === tomorrow.value) return 'tomorrow'
     return formatUpcomingDate(dateStr)
   }
 
