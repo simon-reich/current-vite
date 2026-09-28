@@ -68,6 +68,14 @@
     flex: initial;
   }
 
+  /* Same reset as tablet.css — layout.css's desktop-only `margin: auto 0`
+     (which centers the nav row within .main-head's fixed height there)
+     has no fixed height to work with here either, see tablet.css's own
+     comment. */
+  .current-date-list-nav {
+    margin: 0;
+  }
+
   .add-wrapper {
     margin-left: 0;
   }

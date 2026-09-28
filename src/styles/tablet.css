@@ -29,11 +29,17 @@
     display: none;
   }
 
-  /* ── Header: input on its own line, buttons on a second line below ── */
+  /* ── Header: input on its own line, buttons on a second line below ──
+     justify-content: flex-start (not center) — this row is auto-height, so
+     centering the group is normally a no-op either way (no free space to
+     redistribute), but pinning main-head-inner to the top explicitly is
+     what actually guarantees it never moves depending on whether Current's
+     second row (.current-date-list-nav) is present, the same reasoning as
+     the base rule in layout.css. */
   .main-head {
     flex-direction: column;
     align-items: stretch;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 8px;
     padding: 14px 20px 10px;
   }
@@ -66,6 +72,17 @@
        row, so a hardcoded 59px would clip/overflow it instead of sizing
        to its real content. */
     flex: initial;
+  }
+
+  /* Resets layout.css's desktop-only `margin: auto 0` — that trick centers
+     the nav row within a *fixed-height* .main-head by having it alone soak
+     up the leftover free space. This row's height is auto/content-sized
+     instead, so there's no free space to soak up either way, but pinning
+     this to a plain 0 removes any doubt/edge case and keeps this row's
+     spacing to main-head-inner down to the plain `gap` above, exactly like
+     every other pair of stacked rows in this header. */
+  .current-date-list-nav {
+    margin: 0;
   }
 
   /* Input row: the date-picker pill (Overview only) sits directly left of
