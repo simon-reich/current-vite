@@ -131,19 +131,21 @@
 }
 
 /* ── Main head ──
-   flex-direction: column, not row — normally just the one row
-   (.main-head-inner, width:100%), packed at the top (default
-   justify-content: flex-start) exactly like the old row layout's single
-   child. Current with Date Lists on adds a second row below it
-   (.current-date-list-nav, see App.vue) instead of that living inline in
-   Current.vue's own scrolling template — deliberately *not* centered via
-   the container's own justify-content (that would recenter the whole
-   two-item block and shift .main-head-inner up whenever the second row
-   toggles on/off). Instead .current-date-list-nav alone carries
-   `margin: auto 0` (see below) so only *it* soaks up the leftover space
-   between .main-head-inner's fixed top-packed position and this box's own
-   bottom edge — .main-head-inner's position never depends on whether that
-   sibling exists. */
+   flex-direction: column, not row — just the one row (.main-head-inner,
+   width:100%), packed at the top (default justify-content: flex-start)
+   exactly like the old row layout's single child. Current with Date Lists
+   on adds a second row below it (.current-date-list-nav, see App.vue)
+   instead of that living inline in Current.vue's own scrolling template —
+   but that row is `position: absolute` (see its own comment below), not a
+   second flex child, specifically so it can *never* affect
+   .main-head-inner's own box in any way, not even indirectly through
+   shared free-space/rounding math. A flex-based "second child soaks up
+   the leftover space" approach was tried first and still left a
+   reproducible ~2px vertical drift on .main-head-inner between Current and
+   every other route/view at the tablet breakpoint — subpixel rounding
+   differences from the two flex children's combined layout, most likely —
+   so the two rows are now fully decoupled instead of just "shouldn't
+   interact in theory". */
 .main-head {
   grid-column: 2;
   grid-row: 1;
@@ -191,30 +193,37 @@
 
 /* Current's Date-List back/next browser, moved here from Current.vue's own
    template (see App.vue) so it sits fixed in the header instead of
-   scrolling away with the list underneath it. Same width/centering as
-   .main-head-inner above it, not a separately eyeballed max-width. Three
-   columns — two equal 1fr flanks around an auto-sized center, the same
-   "truly centered regardless of what's on either side" pattern
-   tablet.css's own header row uses — needed because "back"/"next" aren't
-   the same width, so plain flex space-between would leave the label
-   off-center.
-   `margin: auto 0` is what actually positions this row within .main-head
-   — an auto top+bottom margin on a flex-column child soaks up all the
-   free main-axis space around itself, centering it in whatever's left
-   below .main-head-inner (which stays top-packed regardless, see
-   .main-head's own comment above) down to this box's padding-bottom edge,
-   which is where the scroll-divider line sits once todos scroll under it
-   (.scroll-divider, sticky at .main-content's own top). Tablet/phone (see
-   tablet.css/mobile.css) don't have a fixed-height header to begin with —
-   there the row simply grows to fit both rows and these auto margins
-   resolve to 0, no different from a plain stacked layout. */
+   scrolling away with the list underneath it. Same content width as
+   .main-head-inner above it (796px cap), not a separately eyeballed
+   number. Three columns — two equal 1fr flanks around an auto-sized
+   center, the same "truly centered regardless of what's on either side"
+   pattern tablet.css's own header row uses — needed because "back"/"next"
+   aren't the same width, so plain flex space-between would leave the
+   label off-center.
+   `position: absolute` (relative to .main-head, see its own
+   `position: relative`) takes this row completely out of the normal flow
+   instead of making it a second flex child next to .main-head-inner — see
+   .main-head's own comment for why. `top`/`transform` center it precisely
+   within the fixed zone between .main-head-inner's own 59px zone (ending
+   at 12px padding-top + 59px = 71px down) and .main-head's own bottom
+   padding edge (130px row − 17px padding-bottom = 113px), i.e. the
+   midpoint of 71 and 113. That bottom edge is also where the
+   scroll-divider line sits once todos scroll under it (.scroll-divider,
+   sticky at .main-content's own top) — so this row ends up visually
+   centered between the input row above it and that line. Tablet/phone
+   (see tablet.css/mobile.css) don't have a fixed-height header or that
+   71/113 math to begin with — there this is repositioned to a plain
+   bottom-anchored spot instead (no known height to center within). */
 .current-date-list-nav {
+  position: absolute;
+  left: 50%;
+  top: 92px;
+  transform: translate(-50%, -50%);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  width: 100%;
+  width: calc(100% - 40px);
   max-width: 796px;
-  margin: auto 0;
 }
 
 .date-list-nav-btn {

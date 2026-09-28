@@ -68,11 +68,25 @@
     flex: initial;
   }
 
-  /* Same reset as tablet.css — layout.css's desktop-only `margin: auto 0`
-     (which centers the nav row within .main-head's fixed height there)
-     has no fixed height to work with here either, see tablet.css's own
-     comment. */
-  .current-date-list-nav {
+  /* Same `position: absolute` approach as desktop/tablet, and for the same
+     reason (see layout.css's/tablet.css's own comments) — keeps this row
+     from ever perturbing .main-head-inner's own box, which a flow-based
+     version (this app's sticky header included) was still subtly doing.
+     .main-head is `position: sticky` above, which — like `relative` —
+     still works as the containing block for this. */
+  #app.is-current.date-lists-enabled .main-head {
+    padding-bottom: 54px;
+  }
+
+  #app.is-current.date-lists-enabled .current-date-list-nav {
+    position: absolute;
+    top: auto;
+    left: 14px;
+    right: 14px;
+    bottom: 10px;
+    transform: none;
+    width: auto;
+    max-width: none;
     margin: 0;
   }
 

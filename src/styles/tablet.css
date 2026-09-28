@@ -30,11 +30,10 @@
   }
 
   /* ── Header: input on its own line, buttons on a second line below ──
-     justify-content: flex-start (not center) — this row is auto-height, so
-     centering the group is normally a no-op either way (no free space to
-     redistribute), but pinning main-head-inner to the top explicitly is
-     what actually guarantees it never moves depending on whether Current's
-     second row (.current-date-list-nav) is present, the same reasoning as
+     .main-head-inner is the only flex-flow child now (.current-date-list-
+     nav is `position: absolute`, see its own comment further down), so
+     justify-content/gap here only ever matter for that one child — kept
+     as flex-start (not center) regardless, harmless and consistent with
      the base rule in layout.css. */
   .main-head {
     flex-direction: column;
@@ -74,14 +73,33 @@
     flex: initial;
   }
 
-  /* Resets layout.css's desktop-only `margin: auto 0` — that trick centers
-     the nav row within a *fixed-height* .main-head by having it alone soak
-     up the leftover free space. This row's height is auto/content-sized
-     instead, so there's no free space to soak up either way, but pinning
-     this to a plain 0 removes any doubt/edge case and keeps this row's
-     spacing to main-head-inner down to the plain `gap` above, exactly like
-     every other pair of stacked rows in this header. */
-  .current-date-list-nav {
+  /* .current-date-list-nav is `position: absolute` here too, same as
+     desktop (see layout.css's own comment) — an earlier version left it
+     as a normal flex-flow row instead, relying on `gap`/`margin` to space
+     it below .main-head-inner, which turned out to leave a reproducible
+     ~2px vertical drift on .main-head-inner itself between Current and
+     every other route (subpixel layout rounding from having two flex
+     children instead of one, most likely). Pulling it out of flow removes
+     that class of bug entirely — .main-head-inner is now *always* laid
+     out as .main-head's sole flex child, identically regardless of
+     whether this row exists. Since an auto-height header doesn't grow to
+     fit an absolutely positioned child on its own, the extra room this
+     row needs is reserved explicitly via padding-bottom instead (bottom-
+     anchored, not vertically centered like desktop's fixed-height
+     version — there's no known total height here to center within). */
+  #app.is-current.date-lists-enabled .main-head {
+    padding-bottom: 54px;
+  }
+
+  #app.is-current.date-lists-enabled .current-date-list-nav {
+    position: absolute;
+    top: auto;
+    left: 20px;
+    right: 20px;
+    bottom: 10px;
+    transform: none;
+    width: auto;
+    max-width: none;
     margin: 0;
   }
 
