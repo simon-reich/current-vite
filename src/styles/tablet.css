@@ -74,14 +74,50 @@
     flex: initial;
   }
 
-  /* Resets layout.css's desktop-only `margin: auto 0` — that trick centers
-     the nav row within a *fixed-height* .main-head by having it alone soak
-     up the leftover free space. This row's height is auto/content-sized
-     instead, so there's no free space to soak up either way, but pinning
-     this to a plain 0 removes any doubt/edge case and keeps this row's
-     spacing to main-head-inner down to the plain `gap` above, exactly like
-     every other pair of stacked rows in this header. */
-  .current-date-list-nav {
+  /* .current-date-list-nav's horizontal position/width here can't just be
+     "centered within .main-head" (a plain max-width + margin:auto, like
+     the first attempt at this) — .main-head spans the *full* width here,
+     sidebar column included (see #app.is-current.date-lists-enabled
+     .main-head below), but the actual todo list/scroll-divider line only
+     ever lives in the narrower *content* column next to that sidebar
+     (#app.is-current.date-lists-enabled .main-content, further down).
+     Centering within .main-head's full span would land this row too far
+     left, ignoring the 180px sidebar + 16px gap that pushes the real
+     content (and its own centered-within-itself .current-view, capped at
+     640px — see Current.vue) further right.
+     The `left`/`width` calc() below replicates that exact math instead of
+     approximating it: 216px = 180px sidebar + 16px gap + 20px
+     (.content-inner's own left padding, tablet.css below) — i.e. where
+     .current-view's box would start if the content column were narrower
+     than 640+40px (no centering slack). Once the content column *is* wide
+     enough for .current-view to center with slack on both sides, `max()`
+     adds that same slack here too: 876px = 236px (196 sidebar+gap + 40px
+     .content-inner's total side padding) + 640px (.current-view's own
+     cap) — the point past which .current-view stops growing and starts
+     centering instead. Same reasoning for `width`'s `min()`. Verified at
+     both ends of this breakpoint's range (701px and 1024px viewport) to
+     land on the exact same left edge and width .current-view itself
+     renders at.
+     `position: absolute` (rather than a normal flow row) is what a plain
+     percentage-based left/width needs to resolve against .main-head's own
+     box in the first place — vertical placement moves to `bottom`
+     accordingly, with the height it needs reserved via
+     #app.is-current.date-lists-enabled .main-head's own padding-bottom
+     below, the same way desktop reserves room for its own fixed-height
+     version of this row. */
+  #app.is-current.date-lists-enabled .main-head {
+    padding-bottom: 54px;
+  }
+
+  #app.is-current.date-lists-enabled .current-date-list-nav {
+    position: absolute;
+    top: auto;
+    bottom: 10px;
+    left: calc(216px + max(0px, (100% - 876px) / 2));
+    right: auto;
+    width: min(640px, calc(100% - 236px));
+    max-width: none;
+    transform: none;
     margin: 0;
   }
 
