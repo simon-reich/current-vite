@@ -182,7 +182,10 @@
      letting this stretch to fill 130px instead would recenter it lower
      and throw it out of line with .sidebar-head/.settings-head, which
      keep the same 59px zone for exactly this reason (see their own
-     comments). */
+     comments). Desktop-only concept — tablet.css/mobile.css both reset
+     this back to `flex: initial` since their own .main-head-inner isn't a
+     single-line row any more (tablet: a two-line grid; both: sized to
+     their own real content, not this fixed number). */
   flex: 0 0 59px;
 }
 

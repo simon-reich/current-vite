@@ -60,6 +60,12 @@
     column-gap: 14px;
     max-width: none;
     width: 100%;
+    /* Resets layout.css's desktop-only `flex: 0 0 59px` (a fixed height
+       matching the old single-line row's own content box) back to its
+       initial value — this is a two-line grid here, not a single input
+       row, so a hardcoded 59px would clip/overflow it instead of sizing
+       to its real content. */
+    flex: initial;
   }
 
   /* Input row: the date-picker pill (Overview only) sits directly left of

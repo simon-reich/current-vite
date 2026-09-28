@@ -63,6 +63,9 @@
   .main-head-inner {
     gap: 10px;
     max-width: none;
+    /* Same reset as tablet.css — layout.css's desktop-only `flex: 0 0 59px`
+       must not cascade down here either (see that rule's own comment). */
+    flex: initial;
   }
 
   .add-wrapper {
