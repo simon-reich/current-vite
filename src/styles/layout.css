@@ -90,6 +90,14 @@
 .sidebar-head {
   grid-column: 1;
   grid-row: 1;
+  /* Pinned to the top of the row (not stretched/centered across its full
+     130px), at the original 88px height — reproduces exactly where this
+     content sat before .main-head grew a second row (see .main-head-inner's
+     own matching 59px-content-zone comment), so the Focus-Date-Pille lands
+     on the same line as the add-input again instead of drifting to the new,
+     taller row's true center. */
+  align-self: start;
+  height: 88px;
   display: flex;
   align-items: center;
   padding: 12px 16px;
@@ -166,6 +174,16 @@
      doesn't eat into .add-wrapper's flex:1 share of it; the box just grows
      by exactly what the new icon needs instead. */
   max-width: 796px;
+  /* Fixed at 59px — exactly the old row's own available content height
+     (the original 88px row minus its 12px/17px top/bottom padding), not
+     the new 130px row's full height. Reproduces the input row's original
+     vertical position (centered within this 59px zone via align-items
+     above, same as always) regardless of .main-head's own taller box —
+     letting this stretch to fill 130px instead would recenter it lower
+     and throw it out of line with .sidebar-head/.settings-head, which
+     keep the same 59px zone for exactly this reason (see their own
+     comments). */
+  flex: 0 0 59px;
 }
 
 /* Current's Date-List back/next browser, moved here from Current.vue's own
@@ -1012,6 +1030,11 @@
 .settings-head {
   grid-column: 3;
   grid-row: 1;
+  /* Same top-pinned 88px zone as .sidebar-head (see its own comment) — the
+     Settings icon otherwise centers in the new, taller 130px row and drops
+     out of line with the add-input. */
+  align-self: start;
+  height: 88px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
