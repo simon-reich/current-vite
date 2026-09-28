@@ -60,6 +60,25 @@
     gap: 3px;
   }
 
+  /* Current's Date-List nav (.date-nav-btn/.date-nav-upcoming-chip, see
+     layout.css's own "Current sidebar: Date-List nav" section) reuses
+     .all-btn/.tag-chip but overrides their font-size on its own (both a
+     size step up from --chip-font-size, to read as headings). Without a
+     matching override here, .sidebar .all-btn above (11px) hits
+     .date-nav-btn (today/tomorrow) but .date-nav-upcoming-chip's text
+     lives on .tag-label instead, which .sidebar .tag-chip never reaches —
+     so today/tomorrow shrank to 11px while the rest of the list stayed at
+     full size and no longer fit the narrowed column. One shared, in-between
+     size for both keeps the whole nav legible and uniform at this width. */
+  .sidebar .date-nav-btn,
+  .sidebar .date-nav-upcoming-chip .tag-label {
+    font-size: 12px;
+  }
+
+  .sidebar .date-nav-btn {
+    width: 64px;
+  }
+
   .sidebar .tag-x {
     font-size: 12px;
   }
