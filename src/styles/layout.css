@@ -198,18 +198,18 @@
    tablet.css's own header row uses — needed because "back"/"next" aren't
    the same width, so plain flex space-between would leave the label
    off-center.
-   `margin: auto 0 0` is what actually positions this row within
+   `margin: auto 0 -10px` is what actually positions this row within
    .main-head — an auto top margin on a flex-column child soaks up all the
-   free main-axis space above itself, pushing it down to sit flush against
-   this box's own padding-bottom edge (0 bottom margin) instead of
-   centering it in the leftover space. Deliberate, not just "however the
-   auto-margin trick happens to land": this row belongs to the todo list
-   below it (it browses *that*), not to the input/icon row above it, so it
-   reads more like part of the list than part of the header the closer it
-   sits to the bottom edge — which is also where the scroll-divider line
-   sits once todos scroll under it (.scroll-divider, sticky at
-   .main-content's own top). .main-head-inner stays top-packed regardless
-   (see .main-head's own comment above). Tablet/phone (see
+   free main-axis space above itself, pushing it down past this box's own
+   padding-bottom edge (the negative bottom margin eats into that padding)
+   instead of centering it in the leftover space. Deliberate, not just
+   "however the auto-margin trick happens to land": this row belongs to
+   the todo list below it (it browses *that*), not to the input/icon row
+   above it, so it reads more like part of the list than part of the
+   header the closer it sits to the bottom edge — which is also where the
+   scroll-divider line sits once todos scroll under it (.scroll-divider,
+   sticky at .main-content's own top). .main-head-inner stays top-packed
+   regardless (see .main-head's own comment above). Tablet/phone (see
    tablet.css/mobile.css) don't have a fixed-height header to begin with —
    there the row simply grows to fit both rows, sitting directly below the
    input/icon row with just the shared `gap`, which already reads as
@@ -221,7 +221,7 @@
   align-items: center;
   width: 100%;
   max-width: 796px;
-  margin: auto 0 0;
+  margin: auto 0 -10px;
 }
 
 .date-list-nav-btn {
