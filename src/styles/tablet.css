@@ -146,7 +146,8 @@
   .main-head-inner > *,
   .tablet-left-cluster > *,
   .tablet-header-right > *,
-  .tablet-header-right-center > * {
+  .tablet-header-right-center > *,
+  .current-date-list-nav {
     pointer-events: auto;
   }
 

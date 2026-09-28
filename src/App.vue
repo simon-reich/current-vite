@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { Sun, CalendarDays, Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus } from '@lucide/vue'
+import { CalendarDays, Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
+import LinesIcon from './components/icons/LinesIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo, type Tag as TagModel } from './stores/todos'
@@ -1041,7 +1042,47 @@ watch(() => themeStore.dateListsEnabled, (enabled) => {
 // Date math shared by every Date-List nav rendering (this file's own
 // Current variant below, FocusDateNav.vue's Overview variant, and the
 // tablet slide-in panel) — see useFocusDateNav's own comment.
-const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
+const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
+
+// ── Current's Date-List back/next browser — lives in the main head's
+// second row (see .current-date-list-nav below) instead of Current.vue's
+// own template, so it stays put in the header instead of scrolling away
+// with the list underneath it (that's the whole point of the move).
+// "tuesday, 23|09" — weekday before the date, the opposite order from
+// formatUpcomingDate's own "23|09 tuesday" (sidebar Date-List nav); still
+// that same function's date math, just the two pieces swapped for this
+// headline rather than a second date-formatting copy.
+const viewingDateLabel = computed(() => {
+  if (!viewingDate.value) return 'current'
+  const [datePart, weekday] = formatUpcomingDate(viewingDate.value).split(' ')
+  return `${weekday}, ${datePart}`
+})
+
+// Everything Current can show, in one fixed sequence: the same rolling
+// week the sidebar nav always offers (presetWeekDates — today through +6
+// days, regardless of whether anything's actually planned on them yet),
+// then whatever Date Lists exist further out (upcomingFocusDates,
+// membership-only beyond that window — see useFocusDateNav). Back/next
+// below just step an index through this one array and wrap at either end.
+// No null/day-agnostic pool stop any more — Date Lists on means Current
+// has no UI left that can ever set viewingDate to null (see this file's
+// own ref decl above), so this cycle never needs to include it.
+const dateListCycle = computed<(string | null)[]>(() => [...presetWeekDates.value, ...upcomingFocusDates.value])
+
+function stepDateList(delta: 1 | -1) {
+  const cycle = dateListCycle.value
+  const currentIndex = cycle.indexOf(viewingDate.value)
+  const nextIndex = (currentIndex + delta + cycle.length) % cycle.length
+  viewingDate.value = cycle[nextIndex]
+}
+
+function goBackDateList() {
+  stepDateList(-1)
+}
+
+function goNextDateList() {
+  stepDateList(1)
+}
 
 // Overview and Current share one "currently focused Date List" concept —
 // tapping back and forth between them (Tab, nav icons, ...) carries
@@ -1680,7 +1721,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <PoolIcon :size="27" />
           </RouterLink>
           <RouterLink ref="focusNavRef" to="/current" class="nav-icon" title="current">
-            <Sun :size="27" />
+            <LinesIcon :size="27" />
           </RouterLink>
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
             <CalendarDays :size="27" />
@@ -1714,6 +1755,26 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <Settings :size="26" />
           </button>
         </div>
+      </div>
+
+      <!-- ══ Current's Date-List back/next browser — its own centered row
+           below the input/icons row, not inline in Current.vue's own
+           template any more (see CLAUDE.md's Date-Feature section). Living
+           here in the fixed header instead means it no longer scrolls away
+           with the list underneath it. Only rendered for Current with Date
+           Lists on, but #app's header row (grid-row 1) is a global fixed
+           height (layout.css) regardless of route/state — this row taking
+           up space only sometimes must never shift row 2 (sidebars, main
+           content, Settings icon, ...) up/down depending on whether it's
+           showing. -->
+      <div v-if="themeStore.dateListsEnabled && route.path === '/current'" class="current-date-list-nav">
+        <button type="button" class="date-list-nav-btn" title="Previous list" @click="goBackDateList">
+          <ChevronLeft :size="15" /> back
+        </button>
+        <span class="date-list-nav-label">{{ viewingDateLabel }}</span>
+        <button type="button" class="date-list-nav-btn" title="Next list" @click="goNextDateList">
+          next <ChevronRight :size="15" />
+        </button>
       </div>
     </div>
 
@@ -1997,7 +2058,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <PoolIcon :size="24" />
         </RouterLink>
         <RouterLink to="/current" class="nav-icon" title="current" @click="showMobileTags = false">
-          <Sun :size="24" />
+          <LinesIcon :size="24" />
         </RouterLink>
         <RouterLink to="/calendar" class="nav-icon" title="Calendar" @click="showMobileTags = false">
           <CalendarDays :size="24" />

@@ -2,7 +2,7 @@
 import { computed, ref, inject } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Check, Pencil, ChevronLeft, ChevronRight } from '@lucide/vue'
+import { Plus, Check, Pencil } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -16,12 +16,10 @@ import { useListFlip } from '../composables/useListFlip'
 import { spawnRemovedFromCurrentToast } from '../composables/useToast'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr } from '../composables/useToday'
-import { useFocusDateNav } from '../composables/useFocusDateNav'
 
 const store = useTodosStore()
 const checksStore = useChecksStore()
 const themeStore = useThemeStore()
-const { formatUpcomingDate, presetWeekDates, upcomingFocusDates } = useFocusDateNav()
 const router = useRouter()
 
 // Shared with App.vue's tablet/phone "Lists" trigger buttons (outside the
@@ -71,44 +69,6 @@ const displayedTodos = computed(() => {
 // any other day is still in the future, so Done/Done-for-today stay
 // locked (see TodoCard.vue's previewLocked) until it actually arrives.
 const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
-
-// "tuesday, 23|09" — weekday before the date, the opposite order from
-// formatUpcomingDate's own "23|09 tuesday" (sidebar Date-List nav); still
-// that same function's date math, just the two pieces swapped for this
-// headline rather than a second date-formatting copy. `null` (the
-// day-agnostic Current pool) has no date of its own, so it just reads
-// "current".
-const viewingDateLabel = computed(() => {
-  if (!viewingDate.value) return 'current'
-  const [datePart, weekday] = formatUpcomingDate(viewingDate.value).split(' ')
-  return `${weekday}, ${datePart}`
-})
-
-// Everything Current can show, in one fixed sequence: the same rolling
-// week the sidebar nav always offers (presetWeekDates — today through +6
-// days, regardless of whether anything's actually planned on them yet),
-// then whatever Date Lists exist further out (upcomingFocusDates,
-// membership-only beyond that window — see useFocusDateNav). Back/next
-// below just step an index through this one array and wrap at either end.
-// No null/day-agnostic pool stop any more — Date Lists on means Current
-// has no UI left that can ever set viewingDate to null (see App.vue's own
-// ref decl), so this cycle never needs to include it.
-const dateListCycle = computed<(string | null)[]>(() => [...presetWeekDates.value, ...upcomingFocusDates.value])
-
-function stepDateList(delta: 1 | -1) {
-  const cycle = dateListCycle.value
-  const currentIndex = cycle.indexOf(viewingDate.value)
-  const nextIndex = (currentIndex + delta + cycle.length) % cycle.length
-  viewingDate.value = cycle[nextIndex]
-}
-
-function goBackDateList() {
-  stepDateList(-1)
-}
-
-function goNextDateList() {
-  stepDateList(1)
-}
 
 // Same pattern as Calendar.vue's own planThisDay() — points the Focus-Date-
 // Pille at this list's date and jumps to Overview, ready to swipe/assign
@@ -223,16 +183,6 @@ function editFromAllChecks(check: CheckItem) {
 
 <template>
   <div class="current-view" :class="{ 'is-empty': !displayedTodos.length }">
-    <div v-if="themeStore.dateListsEnabled" class="date-list-nav">
-      <button type="button" class="date-list-nav-btn" title="Previous list" @click="goBackDateList">
-        <ChevronLeft :size="15" /> back
-      </button>
-      <span class="date-list-nav-label">{{ viewingDateLabel }}</span>
-      <button type="button" class="date-list-nav-btn" title="Next list" @click="goNextDateList">
-        next <ChevronRight :size="15" />
-      </button>
-    </div>
-
     <div v-if="displayedTodos.length" class="todo-wrap">
       <TodoCard
         v-for="(todo, index) in displayedTodos"
@@ -347,57 +297,6 @@ function editFromAllChecks(check: CheckItem) {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-}
-
-/* Three columns — two equal 1fr flanks around an auto-sized center, the
-   same "truly centered regardless of what's on either side" pattern
-   tablet.css's own header row uses (see .main-head-inner there) — needed
-   because "back"/"next" aren't the same width, so plain flex
-   space-between would leave the label off-center. */
-.date-list-nav {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.date-list-nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  opacity: 0.6;
-  font-size: 16px;
-  font-weight: 600;
-  font-family: var(--font-playful, sans-serif);
-  cursor: pointer;
-  padding: 0;
-  transition: opacity 0.1s;
-}
-
-.date-list-nav-btn:first-of-type {
-  justify-self: start;
-}
-
-.date-list-nav-btn:last-of-type {
-  justify-self: end;
-}
-
-@media (hover: hover) {
-  .date-list-nav-btn:hover {
-    opacity: 1;
-  }
-}
-
-.date-list-nav-label {
-  justify-self: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink);
-  font-family: var(--font-playful, sans-serif);
-  text-align: center;
 }
 
 .empty {
