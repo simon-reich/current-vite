@@ -72,15 +72,15 @@ const displayedTodos = computed(() => {
 // locked (see TodoCard.vue's previewLocked) until it actually arrives.
 const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
 
-// "tuesday, 23.09" — weekday before the date, the opposite order from
-// formatUpcomingDate's own "23.09, tuesday" (sidebar Date-List nav); still
+// "tuesday, 23|09" — weekday before the date, the opposite order from
+// formatUpcomingDate's own "23|09 tuesday" (sidebar Date-List nav); still
 // that same function's date math, just the two pieces swapped for this
 // headline rather than a second date-formatting copy. `null` (the
 // day-agnostic Current pool) has no date of its own, so it just reads
 // "current".
 const viewingDateLabel = computed(() => {
   if (!viewingDate.value) return 'current'
-  const [datePart, weekday] = formatUpcomingDate(viewingDate.value).split(', ')
+  const [datePart, weekday] = formatUpcomingDate(viewingDate.value).split(' ')
   return `${weekday}, ${datePart}`
 })
 
