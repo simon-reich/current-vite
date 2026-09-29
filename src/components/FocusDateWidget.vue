@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useThemeStore } from '../stores/theme'
-import { WEEKDAY_LABELS, todayStr, tomorrowStr } from '../composables/useToday'
+import { WEEKDAY_LABELS } from '../composables/useToday'
 import DatePickerModal from './DatePickerModal.vue'
 import FocusDatePanel from './FocusDatePanel.vue'
 
@@ -38,19 +38,14 @@ const showModal = ref(false)
 const showPanel = ref(false)
 
 // Mechanical flip-calendar look: weekday/year stacked in their own cell,
-// day and month as two separate cells. For "today"/"tomorrow" (same
-// special-casing as the Current sidebar's Date-List nav and TodoCard's
-// swipe-zone label) the day/month cells collapse into one centered label
-// instead — a bare number pair wouldn't mean "today" on its own the way
-// the word does.
+// day and month as two separate cells. Unlike the sidebar Date-List nav
+// (App.vue/FocusDateNav.vue) and TodoCard's swipe-zone label, the pill
+// itself never collapses today/tomorrow into that word — it always shows
+// the actual date, same as every other day.
 function parts(dateStr: string) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const date = new Date(y, m - 1, d)
-  const isToday = dateStr === todayStr()
-  const isTomorrow = dateStr === tomorrowStr()
   return {
-    special: isToday || isTomorrow,
-    main: isToday ? 'today' : isTomorrow ? 'tomorrow' : '',
     weekday: WEEKDAY_LABELS[date.getDay()],
     day: String(d).padStart(2, '0'),
     month: String(m).padStart(2, '0'),
@@ -87,16 +82,7 @@ function open() {
     :title="modelValue !== undefined ? 'Choose which Date List to view' : 'Change the plan-ahead target date'"
     @click="open"
   >
-    <!-- Both branches always render, stacked on the same grid cell (see
-         .fdw-row/.fdw-special below) — only one is ever visible, but
-         visibility:hidden (not v-if/v-show, which both use display:none —
-         removed from layout, contributes nothing to sizing) keeps the
-         invisible one in the flow so the grid track auto-sizes to
-         whichever of the two actually needs more room, in both
-         directions. Guessing a single pixel width by hand (tried twice
-         already) either leaves dead space or clips content the moment
-         real font metrics don't match the guess. -->
-    <div class="fdw-row" :class="{ 'fdw-hidden': display.special }">
+    <div class="fdw-row">
       <div class="fdw-cell fdw-left">
         <span class="fdw-weekday">{{ display.weekday }}</span>
         <span class="fdw-year">{{ display.year }}</span>
@@ -104,7 +90,6 @@ function open() {
       <span class="fdw-cell fdw-num fdw-day">{{ display.day }}</span>
       <span class="fdw-cell fdw-num fdw-month">{{ display.month }}</span>
     </div>
-    <span class="fdw-cell fdw-special" :class="{ 'fdw-hidden': !display.special }">{{ display.main }}</span>
   </button>
 
   <DatePickerModal
@@ -159,23 +144,9 @@ function open() {
   box-shadow: 0 5px 0 var(--ink-dark);
 }
 
-/* The grid-stack trick: both children share the one implicit cell, so its
-   auto track size becomes the max of what each of them actually needs —
-   the browser measures this for real instead of either of us guessing a
-   number. align/justify-items default to stretch on a grid already, so
-   both fill the full cell in both axes without saying so explicitly. */
-.fdw-row,
-.fdw-special {
-  grid-area: 1 / 1;
-}
-
 .fdw-row {
   display: flex;
   align-items: stretch;
-}
-
-.fdw-hidden {
-  visibility: hidden;
 }
 
 .fdw-cell {
@@ -228,11 +199,5 @@ function open() {
 
 .fdw-day {
   border-right: 1px solid var(--ink);
-}
-
-.fdw-special {
-  padding: 5px 14px;
-  font-size: 15px;
-  font-weight: 700;
 }
 </style>

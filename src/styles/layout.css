@@ -1228,12 +1228,6 @@
   font-size: 8px;
 }
 
-.tablet-input-focus-date-widget-slot .fdw-special {
-  min-width: 72px;
-  padding: 5px 10px;
-  font-size: 12px;
-}
-
 /* Purely structural on desktop/phone — `display: contents` unwraps these
    wrappers entirely so their children (the widget/Settings duplicates
    above; .sort-nav plus the tag-panel toggle below) act as direct flex
