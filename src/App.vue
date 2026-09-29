@@ -1055,6 +1055,22 @@ function toggleSort() {
 const listView = ref(false)
 provide('listView', listView)
 
+// Subs brauchen nebeneinander im Grid keinen Platz zum Ausklappen — beim
+// Einschalten der Overview-Subs (expandOverviewSubs 'off' → 'half') wird
+// deshalb automatisch in die List-View gewechselt, war man vorher im Grid.
+// Merkt sich dafür den Grid/List-Stand von *vor* dem Subs-Umschalten und
+// stellt ihn beim Wieder-Zuklappen der Subs exakt so her (war man schon
+// vorher in der List View, ändert sich dadurch nichts).
+let listViewBeforeSubsExpand = listView.value
+watch(() => themeStore.expandOverviewSubs, (state, prevState) => {
+  if (state === 'half' && prevState === 'off') {
+    listViewBeforeSubsExpand = listView.value
+    listView.value = true
+  } else if (state === 'off' && prevState === 'half') {
+    listView.value = listViewBeforeSubsExpand
+  }
+})
+
 // ── Desktop subs-toggle (App.vue's own header icon, see .sort-nav) ──
 // Overview and Current each expand their own subs independently
 // (themeStore.expandOverviewSubs/expandCurrentSubs) — same header slot,
