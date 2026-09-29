@@ -1607,6 +1607,13 @@
   transform: translate(-100%, -50%);
 }
 
+/* ↑/↓ (Date-List cycling): anchors the label's own bottom-left to (x, y)
+   instead — sits left-aligned just above its target (the "today" entry)
+   rather than centered over it. */
+.shortcut-hint--above-left {
+  transform: translate(0, -100%);
+}
+
 /* Enter's own row (see enterHintPos/enterFollowupParts in App.vue) — a
    sequence of individually boxed keys (same look as .shortcut-hint
    itself) and plain arrow/parenthetical labels between them, laid out by

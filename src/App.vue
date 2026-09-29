@@ -352,6 +352,10 @@ const subsToggleBtnRef = ref<HTMLElement | null>(null)
 // through this wrapper for both the hint's position and the click is
 // simpler than exposing internals from the component itself.
 const focusDateWidgetSlotRef = ref<HTMLElement | null>(null)
+// ↑/↓'s own target — the Date-List sidebar (Overview and Current share the
+// one desktop-only <aside>, see its own comment above) — for the hint
+// centered above it.
+const dateListSidebarRef = ref<HTMLElement | null>(null)
 
 interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'left' }
 const shortcutHints = ref<ShortcutHint[]>([])
@@ -392,6 +396,11 @@ const subsHintPos = ref<{ x: number; y: number } | null>(null)
 // L (Overview's Focus-Date-Pille, see focusDateWidgetSlotRef) — same idea,
 // floats centered above the pill itself.
 const focusDateHintPos = ref<{ x: number; y: number } | null>(null)
+
+// ↑/↓ (Date-List cycling, see stepFocusDate) — a plain "↑↓" pill centered
+// above the whole Date-List sidebar (dateListSidebarRef), Overview and
+// Current alike, only shown when that sidebar actually exists.
+const dateListNavHintPos = ref<{ x: number; y: number } | null>(null)
 
 // Overview's T (tag-add button/input) — same "measure the real target"
 // approach, since it sits down in .sidebar-right's own tag list (grid-column
@@ -499,6 +508,18 @@ function computeShortcutHints() {
   if (route.path === '/all' && themeStore.dateListsEnabled) {
     const pillRect = focusDateWidgetSlotRef.value?.querySelector('.focus-date-widget')?.getBoundingClientRect()
     if (pillRect) focusDateHintPos.value = { x: pillRect.left + pillRect.width / 2, y: pillRect.top - 13 }
+  }
+
+  dateListNavHintPos.value = null
+  if (themeStore.dateListsEnabled && (route.path === '/all' || route.path === '/current')) {
+    // The "today" entry specifically (always the nav's first row, see
+    // .date-nav-btn's own comment) rather than the whole sidebar — the
+    // sidebar's own scroll padding left this floating with no visible
+    // relation to anything. Left-aligned to it rather than centered:
+    // matches how A/P/D/T already sit flush against their own target
+    // instead of centered over it.
+    const todayRect = dateListSidebarRef.value?.querySelector('.date-nav-btn')?.getBoundingClientRect()
+    if (todayRect) dateListNavHintPos.value = { x: todayRect.left, y: todayRect.top - 13 }
   }
 
   tagHintPos.value = null
@@ -1869,6 +1890,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
          see .sidebar-right below) ══ -->
     <aside
       v-if="(route.path === '/current' || route.path === '/all') && themeStore.dateListsEnabled"
+      ref="dateListSidebarRef"
       class="sidebar desktop-only"
     >
       <div ref="sidebarRef" class="sidebar-scroll">
@@ -2224,6 +2246,14 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       class="shortcut-hint"
       :style="{ left: focusDateHintPos.x + 'px', top: focusDateHintPos.y + 'px' }"
     >L</div>
+
+    <!-- ↑/↓ (Date-List cycling) — left-aligned just above the "today"
+         entry, see dateListNavHintPos. -->
+    <div
+      v-if="dateListNavHintPos"
+      class="shortcut-hint shortcut-hint--above-left"
+      :style="{ left: dateListNavHintPos.x + 'px', top: dateListNavHintPos.y + 'px' }"
+    >↑↓</div>
 
     <div
       v-if="tagHintPos"
