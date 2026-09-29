@@ -164,15 +164,20 @@ function onGlobalKeydown(e: KeyboardEvent) {
   if (shortcutsBlocked(e)) return
   const key = e.key.toLowerCase()
 
-  // S — toggle sort (date / A–Z) on Overview, matching where the sort
-  // button itself is shown. Reused on Current for its own "expand subs"
-  // switch (only when Subs are actually enabled) — same letter, since the
-  // two views never show both controls at once. No-op everywhere else.
+  // O — toggle sort (date / A–Z) on Overview, matching where the sort
+  // button itself is shown ("Order"). Used to share the S key with
+  // Current's "expand subs" switch below, moved off it to free S up for
+  // something else there.
+  if (key === 'o') {
+    if (route.path !== '/all') return
+    e.preventDefault()
+    toggleSort()
+    return
+  }
+
+  // S — Current's own "expand subs" switch (only when Subs are enabled).
   if (key === 's') {
-    if (route.path === '/all') {
-      e.preventDefault()
-      toggleSort()
-    } else if (route.path === '/current' && themeStore.subsEnabled) {
+    if (route.path === '/current' && themeStore.subsEnabled) {
       e.preventDefault()
       themeStore.toggleExpandCurrentSubs()
     }
@@ -390,7 +395,7 @@ function computeShortcutHints() {
     // sharing their one computed line (see below) would float its hint at
     // the header's height with the switch's x, nowhere near the switch
     // itself.
-    { key: 'S', el: route.path === '/all' ? sortOrderBtnRef.value : null },
+    { key: 'O', el: route.path === '/all' ? sortOrderBtnRef.value : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
