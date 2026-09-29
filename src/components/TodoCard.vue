@@ -1449,7 +1449,7 @@ function onCardKeydown(e: KeyboardEvent) {
   // see its own comment). Overview's tag menu already has the editor UI
   // open (showTagMenu), so a plain startEdit() is enough there. Current's
   // check-menu doesn't: it needs the same swap to the tag/date editor
-  // that double-clicking the title or F does (openEditFromCurrent), closing
+  // that double-clicking the title or C does (openEditFromCurrent), closing
   // the check-menu first, before it can start editing.
   if (e.key === ' ' && cardActuallyOpen.value) {
     e.preventDefault()
@@ -1467,12 +1467,16 @@ function onCardKeydown(e: KeyboardEvent) {
     else if (showMenu.value) emit('remove-from-current', props.todo.id)
     return
   }
-  // F — Overview only, same move as its own "+" button: plans onto the
+  // C — Overview only, same move as its own "+" button: plans onto the
   // selected Date List with Date Lists on, sends to Current otherwise (see
   // that button's own comment above). Split off from Enter: Enter is what
   // people intuitively reach for after just picking tags to "save and
-  // close", not to also move the todo as a side effect.
-  if (e.key.toLowerCase() === 'f' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  // close", not to also move the todo as a side effect. Shares its letter
+  // with App.vue's own C (Calendar toggle), same "only inside an open card"
+  // split already used for D (Delete vs. Date-filter cycle) — App.vue's
+  // Calendar shortcut only fires when no card is open, so the two never
+  // actually compete.
+  if (e.key.toLowerCase() === 'c' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     commitDraftTags()
     if (themeStore.dateListsEnabled) emit('send-to-focus-date', props.todo.id)
