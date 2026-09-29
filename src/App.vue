@@ -175,12 +175,23 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // S — Current's own "expand subs" switch (only when Subs are enabled).
+  // S — subs-toggle, Overview and Current alike (only when Subs are
+  // enabled) — same route-aware toggle the header icon itself uses.
   if (key === 's') {
-    if (route.path === '/current' && themeStore.subsEnabled) {
+    if (themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')) {
       e.preventDefault()
-      themeStore.toggleExpandCurrentSubs()
+      toggleDesktopSubs()
     }
+    return
+  }
+
+  // L — opens Overview's Focus-Date-Pille (the "plan ahead" date picker) —
+  // clicks the real button rather than reaching into the component, so
+  // this needs nothing exposed from FocusDateWidget.vue itself.
+  if (key === 'l') {
+    if (route.path !== '/all' || !themeStore.dateListsEnabled) return
+    e.preventDefault()
+    focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget')?.click()
     return
   }
 
@@ -323,6 +334,15 @@ const settingsBtnRef = ref<HTMLElement | null>(null)
 const allBtnSidebarRef = ref<HTMLElement | null>(null)
 const prioBtnSidebarRef = ref<HTMLElement | null>(null)
 const loopBtnSidebarRef = ref<HTMLElement | null>(null)
+// S's target — the one shared header subs-toggle (.desktop-subs-toggle),
+// Overview and Current alike (see toggleDesktopSubs's own comment).
+const subsToggleBtnRef = ref<HTMLElement | null>(null)
+// L's target — Overview's Focus-Date-Pille. A plain wrapper-div ref, not a
+// FocusDateWidget component ref: the pill's own real click handler already
+// does everything L needs (open the picker), so querying its DOM node
+// through this wrapper for both the hint's position and the click is
+// simpler than exposing internals from the component itself.
+const focusDateWidgetSlotRef = ref<HTMLElement | null>(null)
 
 interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'left' }
 const shortcutHints = ref<ShortcutHint[]>([])
@@ -354,11 +374,15 @@ const calendarHintParts: HintPart[] = [
   { text: '↑↓', kind: 'key' }, { text: '(week)', kind: 'label' },
 ]
 
-// Current's S (expand-subs switch, pinned under Settings on desktop — see
-// Current.vue's .expand-subs-row) — same "measure the real target" approach
-// as calendarHintPos above, since it doesn't live in the shared header
-// line the rest of the plain-pill hints share (see the 'S' targets entry).
-const expandSubsHintPos = ref<{ x: number; y: number } | null>(null)
+// S (subs-toggle, Overview and Current alike, see subsToggleBtnRef) — same
+// "measure the real target" approach as calendarHintPos above, since it
+// lives in the tablet-left-cluster rather than the shared header line the
+// rest of the plain-pill hints share.
+const subsHintPos = ref<{ x: number; y: number } | null>(null)
+
+// L (Overview's Focus-Date-Pille, see focusDateWidgetSlotRef) — same idea,
+// floats centered above the pill itself.
+const focusDateHintPos = ref<{ x: number; y: number } | null>(null)
 
 // Overview's T (tag-add button/input) — same "measure the real target"
 // approach, since it sits down in .sidebar-right's own tag list (grid-column
@@ -389,12 +413,11 @@ function computeShortcutHints() {
   const targets: { key: string; el: HTMLElement | null }[] = [
     { key: 'C', el: calendarNavRef.value?.$el ?? null },
     { key: 'G', el: route.path === '/all' ? sortListBtnRef.value : null },
-    // Current's own S target (the expand-subs switch) is measured separately
-    // below (expandSubsHintPos) rather than folded in here — it doesn't
-    // sit in the header row like every other target in this list, so
-    // sharing their one computed line (see below) would float its hint at
-    // the header's height with the switch's x, nowhere near the switch
-    // itself.
+    // S's own target (the subs-toggle) is measured separately below
+    // (subsHintPos) rather than folded in here — it doesn't sit in the
+    // header row like every other target in this list, so sharing their
+    // one computed line (see below) would float its hint at the header's
+    // height with the toggle's x, nowhere near the toggle itself.
     { key: 'O', el: route.path === '/all' ? sortOrderBtnRef.value : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
     { key: 'X', el: settingsBtnRef.value },
@@ -457,10 +480,16 @@ function computeShortcutHints() {
     if (calRect) calendarHintPos.value = { x: calRect.left + calRect.width / 2, y: calRect.top - 13 }
   }
 
-  expandSubsHintPos.value = null
-  if (route.path === '/current' && themeStore.subsEnabled) {
-    const switchRect = document.querySelector('.expand-subs-row .switch')?.getBoundingClientRect()
-    if (switchRect) expandSubsHintPos.value = { x: switchRect.left + switchRect.width / 2, y: switchRect.top - 13 }
+  subsHintPos.value = null
+  if (themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')) {
+    const subsRect = subsToggleBtnRef.value?.getBoundingClientRect()
+    if (subsRect) subsHintPos.value = { x: subsRect.left + subsRect.width / 2, y: subsRect.top - 13 }
+  }
+
+  focusDateHintPos.value = null
+  if (route.path === '/all' && themeStore.dateListsEnabled) {
+    const pillRect = focusDateWidgetSlotRef.value?.querySelector('.focus-date-widget')?.getBoundingClientRect()
+    if (pillRect) focusDateHintPos.value = { x: pillRect.left + pillRect.width / 2, y: pillRect.top - 13 }
   }
 
   tagHintPos.value = null
@@ -1337,7 +1366,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
          actually needed once those views got their own left-sidebar
          content (Date-List nav, or nothing at all). ══ -->
     <div class="sidebar-head desktop-only">
-      <div v-if="route.path === '/all'" class="sidebar-focus-date-slot">
+      <div v-if="route.path === '/all'" ref="focusDateWidgetSlotRef" class="sidebar-focus-date-slot">
         <FocusDateWidget v-if="themeStore.dateListsEnabled" />
       </div>
     </div>
@@ -1388,6 +1417,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           >
             <div
               v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
+              ref="subsToggleBtnRef"
               class="sort-btn desktop-subs-toggle"
               :title="`subs: ${desktopSubsState}`"
               @click="toggleDesktopSubs"
@@ -2146,14 +2176,21 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       >{{ part.text }}</span>
     </div>
 
-    <!-- Current's S (expand-subs switch) — a plain pill like the header
-         shortcuts, just floated over its own measured target instead of
-         the shared header line (see expandSubsHintPos). -->
+    <!-- S (subs-toggle) — a plain pill like the header shortcuts, just
+         floated over its own measured target instead of the shared header
+         line (see subsHintPos). -->
     <div
-      v-if="expandSubsHintPos"
+      v-if="subsHintPos"
       class="shortcut-hint"
-      :style="{ left: expandSubsHintPos.x + 'px', top: expandSubsHintPos.y + 'px' }"
+      :style="{ left: subsHintPos.x + 'px', top: subsHintPos.y + 'px' }"
     >S</div>
+
+    <!-- L (Overview's Focus-Date-Pille) — same idea, see focusDateHintPos. -->
+    <div
+      v-if="focusDateHintPos"
+      class="shortcut-hint"
+      :style="{ left: focusDateHintPos.x + 'px', top: focusDateHintPos.y + 'px' }"
+    >L</div>
 
     <div
       v-if="tagHintPos"
