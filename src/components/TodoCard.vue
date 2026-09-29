@@ -775,14 +775,14 @@ const halfHiddenLeavingIds = reactive(new Set<string>())
 // this display context is left entirely (see the watch below).
 const doneSubsRevealed = ref(false)
 
-// Which subs actually render: an explicitly opened card always shows every
-// sub (the user is in there to edit, not skim). Otherwise it's driven by
-// Current's toggle — 'half' hides already-checked subs so the list reads as
-// "what's left" (except one mid-vanish, see halfHiddenPendingIds above,
-// or this one card's own doneSubsRevealed override); the card not being
-// force-expanded at all shows everything, same as before.
+// Which subs actually render: hides already-checked subs by default so the
+// list reads as "what's left" — an explicitly opened card is no exception
+// any more, it starts collapsed exactly like the closed-card half-mode
+// preview (except one mid-vanish, see halfHiddenPendingIds above, or this
+// one card's own doneSubsRevealed override, which the watch below resets
+// to false every time the card opens, so it's always the default on entry).
 const visibleSubs = computed(() =>
-  !cardActuallyOpen.value && props.forceExpandSubs === 'half' && !doneSubsRevealed.value
+  !doneSubsRevealed.value
     ? props.todo.subs.filter(s => !s.completedAt || halfHiddenPendingIds.has(s.id))
     : props.todo.subs
 )
@@ -800,16 +800,15 @@ const subsExpandedWide = computed(() =>
 )
 
 // Half-mode's "N done" hint (see the sub-item--hint row below) — count of
-// this card's own completed subs, shown whenever there's anything to report
-// (whether currently hidden or, via doneSubsRevealed, already unfolded — the
-// row and its count stay put either way, only the chevron/visibleSubs
-// change, so the same click that reveals them can also hide them again). A
-// sub still mid-vanish (halfHiddenPendingIds) isn't done skimming its own
-// exit animation yet, so it doesn't count here either.
-const completedSubsHintCount = computed(() => {
-  if (cardActuallyOpen.value || props.forceExpandSubs !== 'half') return 0
-  return props.todo.subs.filter(s => s.completedAt && !halfHiddenPendingIds.has(s.id)).length
-})
+// this card's own completed subs, shown whenever there's anything to report,
+// open or closed alike (whether currently hidden or, via doneSubsRevealed,
+// already unfolded — the row and its count stay put either way, only the
+// chevron/visibleSubs change, so the same click that reveals them can also
+// hide them again). A sub still mid-vanish (halfHiddenPendingIds) isn't done
+// skimming its own exit animation yet, so it doesn't count here either.
+const completedSubsHintCount = computed(() =>
+  props.todo.subs.filter(s => s.completedAt && !halfHiddenPendingIds.has(s.id)).length
+)
 
 // The hint row's own click target — flips this one card's doneSubsRevealed
 // between showing/hiding its already-done subs. Doesn't touch
@@ -820,15 +819,20 @@ function toggleDoneSubsReveal() {
   doneSubsRevealed.value = !doneSubsRevealed.value
 }
 
-// Leaving this display context entirely (card opens, or the toggle moves
-// off 'half') drops any in-flight vanish immediately — there's nothing left
-// to animate once the filtering that motivated it no longer applies, and a
+// Leaving this display context entirely (card *opens* — not just staying
+// open, see openedNow below — or, while closed, the toggle moves off
+// 'half') drops any in-flight vanish immediately — there's nothing left to
+// animate once the filtering that motivated it no longer applies, and a
 // stale fade-out could otherwise resurface (as an already-invisible row)
 // the next time half mode is re-entered for this card. Also resets this
-// card's own doneSubsRevealed, so a card that opened for a full edit (or
-// whose forced expand turned off) starts collapsed again next time.
-watch(() => [cardActuallyOpen.value, props.forceExpandSubs] as const, ([open, mode]) => {
-  if (open || mode !== 'half') {
+// card's own doneSubsRevealed, so opening a card for a full edit (or
+// whose forced expand turned off while closed) starts collapsed again next
+// time — but only on the open transition itself: some unrelated prop change
+// firing this watch again while the card stays open must not silently
+// re-collapse subs the user just revealed mid-edit.
+watch(() => [cardActuallyOpen.value, props.forceExpandSubs] as const, ([open, mode], prev) => {
+  const openedNow = open && !(prev?.[0] ?? false)
+  if (openedNow || (!open && mode !== 'half')) {
     doneSubsRevealed.value = false
     pendingHalfHideTimers.forEach(t => clearTimeout(t))
     pendingHalfHideTimers.clear()
@@ -1282,7 +1286,7 @@ function handleToggleSub(sub: Sub, event: MouseEvent) {
   }
   if (wasChecked) {
     cancelHalfHide(sub.id)
-  } else if (!cardActuallyOpen.value && props.forceExpandSubs === 'half' && !doneSubsRevealed.value) {
+  } else if (!doneSubsRevealed.value) {
     scheduleHalfHide(sub.id)
   }
   const nowAllDone = props.todo.subs.length > 0 && props.todo.subs.every(s => s.completedAt)
@@ -2822,7 +2826,7 @@ onUnmounted(() => {
               :ref="(el) => registerSubRowEl(sub.id, el as Element | null)"
               :data-flip-id="sub.id"
               class="sub-item"
-              :class="{ dragging: dragSubId === sub.id, 'sub-item--leaving': !cardActuallyOpen && halfHiddenLeavingIds.has(sub.id) }"
+              :class="{ dragging: dragSubId === sub.id, 'sub-item--leaving': halfHiddenLeavingIds.has(sub.id) }"
               :style="subRowStyle(sub)"
             >
               <button
