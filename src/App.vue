@@ -153,11 +153,20 @@ function onGlobalKeydown(e: KeyboardEvent) {
   // title textarea needs ↑↓ free to move the cursor between lines, so
   // cycling can't carry an in-progress edit to the next card the way Tab
   // used to (see cycleOpenCard's own comment) — it saves the edit instead.
+  // No card open — the same two keys step through the Date-List nav
+  // instead (Overview and Current alike, see stepFocusDate), only when
+  // Date Lists are actually enabled (that's the only case either nav
+  // exists at all — see the #app.date-lists-enabled sidebar gate).
   if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-    if (!(openTagMenuId.value || openCheckMenuId.value)) return
     if (isTypingTarget(e.target)) return
+    if (openTagMenuId.value || openCheckMenuId.value) {
+      e.preventDefault()
+      cycleOpenCard(e.key === 'ArrowUp' ? -1 : 1)
+      return
+    }
+    if (!themeStore.dateListsEnabled || (route.path !== '/all' && route.path !== '/current')) return
     e.preventDefault()
-    cycleOpenCard(e.key === 'ArrowUp' ? -1 : 1)
+    stepFocusDate(e.key === 'ArrowUp' ? -1 : 1)
     return
   }
 
@@ -1136,6 +1145,24 @@ function goNextDateList() {
   stepDateList(1)
 }
 
+// The global ↑/↓ shortcut's version of stepDateList — Overview alongside
+// Current, since Overview has no `viewingDate` of its own to step (it
+// browses via themeStore.selectedFocusDate/the Focus-Date-Pille instead,
+// see the comment below). Reuses the exact same dateListCycle/wrap-around
+// math either way, just reading/writing whichever of the two the current
+// route actually uses.
+function stepFocusDate(delta: 1 | -1) {
+  if (route.path === '/current') {
+    stepDateList(delta)
+    return
+  }
+  const cycle = dateListCycle.value
+  const currentIndex = cycle.indexOf(themeStore.selectedFocusDate)
+  const nextIndex = (currentIndex + delta + cycle.length) % cycle.length
+  const next = cycle[nextIndex]
+  if (next) themeStore.setSelectedFocusDate(next)
+}
+
 // Overview and Current share one "currently focused Date List" concept —
 // tapping back and forth between them (Tab, nav icons, ...) carries
 // whichever date was selected across instead of losing your place: leaving
@@ -1220,8 +1247,12 @@ const sidebarRef = ref<HTMLElement | null>(null)
 // of breathing room below the active chip rather than landing it flush
 // against the container's own bottom edge. Also fires on a direct sidebar
 // click, which is a no-op there since the clicked chip is already in view.
+// Shared by both watchers below (Current's viewingDate and Overview's own
+// themeStore.selectedFocusDate, see FocusDateNav.vue) — same markup
+// (.date-nav-btn/.date-nav-upcoming-chip), same sidebarRef container,
+// same scroll math either way.
 const DATE_NAV_SAFE_BOTTOM = 80
-watch(viewingDate, (dateStr) => {
+function scrollActiveDateNavIntoView(dateStr: string | null) {
   nextTick(() => {
     const container = sidebarRef.value
     if (!container) return
@@ -1243,7 +1274,9 @@ watch(viewingDate, (dateStr) => {
       container.scrollBy({ top: activeRect.bottom - (containerRect.bottom - DATE_NAV_SAFE_BOTTOM), behavior: 'smooth' })
     }
   })
-})
+}
+watch(viewingDate, scrollActiveDateNavIntoView)
+watch(() => themeStore.selectedFocusDate, scrollActiveDateNavIntoView)
 
 // ── Mobile tags panel scroll divider ──
 const tagsPanelRef = ref<HTMLElement | null>(null)
