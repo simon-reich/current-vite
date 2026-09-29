@@ -1606,11 +1606,11 @@
   z-index: 10001;
 }
 
-/* A/P/D: anchors the label's own left-center to (x, y) instead — each
-   sits to the right of its own button, vertically centered on it,
+/* A/P/D: anchors the label's own right-center to (x, y) instead — each
+   sits to the left of its own button, vertically centered on it,
    rather than bottom-aligned above a shared line. */
-.shortcut-hint--right {
-  transform: translate(0, -50%);
+.shortcut-hint--left {
+  transform: translate(-100%, -50%);
 }
 
 /* Enter's own row (see enterHintPos/enterFollowupParts in App.vue) — a

@@ -319,7 +319,7 @@ const allBtnSidebarRef = ref<HTMLElement | null>(null)
 const prioBtnSidebarRef = ref<HTMLElement | null>(null)
 const loopBtnSidebarRef = ref<HTMLElement | null>(null)
 
-interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'right' }
+interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'left' }
 const shortcutHints = ref<ShortcutHint[]>([])
 
 // Enter gets its own row instead of the generic single-key pill every
@@ -355,6 +355,14 @@ const calendarHintParts: HintPart[] = [
 // line the rest of the plain-pill hints share (see the 'S' targets entry).
 const expandSubsHintPos = ref<{ x: number; y: number } | null>(null)
 
+// Overview's T (tag-add button/input) — same "measure the real target"
+// approach, since it sits down in .sidebar-right's own tag list (grid-column
+// 3, well below the header row), not the shared header line the rest of
+// the plain-pill hints share. Sharing that line used to plant it at the
+// header's y but the tag-add button's own x — which happens to be the same
+// grid column as the Settings icon (X), so it landed right on top of it.
+const tagHintPos = ref<{ x: number; y: number } | null>(null)
+
 // Overview's All/Prio/Date trio now always lives in the right-column tag
 // filters (allBtnSidebarRef etc.), regardless of themeStore.tagsEnabled —
 // the row/tagsEnabled fallback (allBtnRowRef etc.) only still exists for
@@ -384,7 +392,6 @@ function computeShortcutHints() {
     // itself.
     { key: 'S', el: route.path === '/all' ? sortOrderBtnRef.value : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
-    { key: 'T', el: route.path === '/all' && themeStore.tagsEnabled ? (tagInputOpen.value ? tagInputRef.value : tagAddBtnRef.value) : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
   const measured = targets
@@ -451,20 +458,31 @@ function computeShortcutHints() {
     if (switchRect) expandSubsHintPos.value = { x: switchRect.left + switchRect.width / 2, y: switchRect.top - 13 }
   }
 
+  tagHintPos.value = null
+  if (route.path === '/all' && themeStore.tagsEnabled) {
+    const tagEl = tagInputOpen.value ? tagInputRef.value : tagAddBtnRef.value
+    const tagRect = tagEl?.getBoundingClientRect()
+    // .tag-add-btn is a circle (border-radius: 50%), not a flat-edged
+    // rectangle like the A/P/D buttons — the same 16px gap used there reads
+    // visibly wider next to a curved edge, so a tighter gap here is what
+    // actually looks equally close.
+    if (tagRect) tagHintPos.value = { x: tagRect.left - 10, y: tagRect.top + tagRect.height / 2 }
+  }
+
   // A/P/D are Overview-only (Current can't be filtered at all) and each
-  // float to the right of their own button, vertically centered —
+  // float to the left of their own button, vertically centered —
   // they used to share one line above the whole All/Prio pair, but with
   // three of them now individually labeling separate buttons reads
   // clearer right next to each one than stacked above the group.
   if (route.path === '/all') {
-    const rightOf = (key: string, rect: DOMRect | null) =>
-      rect ? { key, x: rect.right + 16, y: rect.top + rect.height / 2, anchor: 'right' as const } : null
+    const leftOf = (key: string, rect: DOMRect | null) =>
+      rect ? { key, x: rect.left - 16, y: rect.top + rect.height / 2, anchor: 'left' as const } : null
 
     hints.push(
       ...[
-        rightOf('A', getAllBtnRect()),
-        rightOf('P', getPrioBtnRect()),
-        rightOf('D', getLoopBtnRect()),
+        leftOf('A', getAllBtnRect()),
+        leftOf('P', getPrioBtnRect()),
+        leftOf('D', getLoopBtnRect()),
       ].filter((h): h is NonNullable<typeof h> => !!h)
     )
   }
@@ -2090,7 +2108,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       v-for="hint in shortcutHints"
       :key="hint.key"
       class="shortcut-hint"
-      :class="{ 'shortcut-hint--right': hint.anchor === 'right' }"
+      :class="{ 'shortcut-hint--left': hint.anchor === 'left' }"
       :style="{ left: hint.x + 'px', top: hint.y + 'px' }"
     >{{ hint.key }}</div>
 
@@ -2131,6 +2149,12 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       class="shortcut-hint"
       :style="{ left: expandSubsHintPos.x + 'px', top: expandSubsHintPos.y + 'px' }"
     >S</div>
+
+    <div
+      v-if="tagHintPos"
+      class="shortcut-hint shortcut-hint--left"
+      :style="{ left: tagHintPos.x + 'px', top: tagHintPos.y + 'px' }"
+    >T</div>
   </template>
 
   <!-- Toast bubbles -->
