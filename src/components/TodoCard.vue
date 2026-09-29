@@ -1485,7 +1485,7 @@ function onCardKeydown(e: KeyboardEvent) {
   }
   if (e.key !== 'Escape' && e.key !== 'Enter') return
   e.preventDefault()
-  if (e.key === 'Enter' && showMenu.value) {
+  if (e.key === 'Enter' && showMenu.value && !props.previewLocked) {
     if (focusedCheckOption.value === 'today') handleDoneForToday(props.todo.id)
     else handleComplete(props.todo.id)
     return
