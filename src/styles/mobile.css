@@ -68,12 +68,16 @@
     flex: initial;
   }
 
-  /* Same reset as tablet.css — layout.css's desktop-only `margin: auto 0`
-     (which centers the nav row within .main-head's fixed height there)
-     has no fixed height to work with here either, see tablet.css's own
-     comment. */
+  /* layout.css's desktop-only `margin: auto 0 -10px` (which centers the
+     nav row within .main-head's fixed 130px height there) has no fixed
+     height to work with here — .main-head is sized to its own content on
+     phone. Centered "between the row above and .main-head's own bottom
+     edge" here instead just means: match the top gap to that bottom
+     edge's own padding (17px, see .main-head above), so the row sits
+     exactly as far from the input row as it does from the header's
+     bottom. */
   .current-date-list-nav {
-    margin: 0;
+    margin: 17px 0 0;
   }
 
   .add-wrapper {
