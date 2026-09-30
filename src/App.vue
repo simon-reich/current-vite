@@ -357,7 +357,14 @@ const focusDateWidgetSlotRef = ref<HTMLElement | null>(null)
 // centered above it.
 const dateListSidebarRef = ref<HTMLElement | null>(null)
 
-interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'left' }
+interface ShortcutHint { key: string; x: number; y: number; anchor?: 'above' | 'left' | 'right' }
+
+// Overview's tag sidebar sits in the left column whenever Date Lists is off
+// (nothing else would fill it), right column otherwise — see the <aside>'s
+// own comment. A/P/D/T's hints mirror to the far side of their buttons
+// along with it, so they always point inward toward the list rather than
+// off the viewport's edge.
+const tagSidebarOnLeft = computed(() => !themeStore.dateListsEnabled)
 const shortcutHints = ref<ShortcutHint[]>([])
 
 // Enter gets its own row instead of the generic single-key pill every
@@ -408,7 +415,7 @@ const dateListNavHintPos = ref<{ x: number; y: number } | null>(null)
 // the plain-pill hints share. Sharing that line used to plant it at the
 // header's y but the tag-add button's own x — which happens to be the same
 // grid column as the Settings icon (X), so it landed right on top of it.
-const tagHintPos = ref<{ x: number; y: number } | null>(null)
+const tagHintPos = ref<{ x: number; y: number; anchor: 'left' | 'right' } | null>(null)
 
 // Overview's All/Prio/Date trio now always lives in the right-column tag
 // filters (allBtnSidebarRef etc.), regardless of themeStore.tagsEnabled —
@@ -530,7 +537,11 @@ function computeShortcutHints() {
     // rectangle like the A/P/D buttons — the same 16px gap used there reads
     // visibly wider next to a curved edge, so a tighter gap here is what
     // actually looks equally close.
-    if (tagRect) tagHintPos.value = { x: tagRect.left - 10, y: tagRect.top + tagRect.height / 2 }
+    if (tagRect) {
+      tagHintPos.value = tagSidebarOnLeft.value
+        ? { x: tagRect.right + 10, y: tagRect.top + tagRect.height / 2, anchor: 'right' }
+        : { x: tagRect.left - 10, y: tagRect.top + tagRect.height / 2, anchor: 'left' }
+    }
   }
 
   // A/P/D are Overview-only (Current can't be filtered at all) and each
@@ -539,15 +550,20 @@ function computeShortcutHints() {
   // three of them now individually labeling separate buttons reads
   // clearer right next to each one than stacked above the group.
   if (route.path === '/all') {
-    const leftOf = (key: string, rect: DOMRect | null) =>
-      rect ? { key, x: rect.left - 16, y: rect.top + rect.height / 2, anchor: 'left' as const } : null
+    // Mirrored to the right of each button while the tag sidebar sits in
+    // the left column (see tagSidebarOnLeft).
+    const beside = (key: string, rect: DOMRect | null): ShortcutHint | null =>
+      !rect ? null
+        : tagSidebarOnLeft.value
+          ? { key, x: rect.right + 16, y: rect.top + rect.height / 2, anchor: 'right' }
+          : { key, x: rect.left - 16, y: rect.top + rect.height / 2, anchor: 'left' }
 
     hints.push(
       ...[
-        leftOf('A', getAllBtnRect()),
-        leftOf('P', getPrioBtnRect()),
-        leftOf('D', getLoopBtnRect()),
-      ].filter((h): h is NonNullable<typeof h> => !!h)
+        beside('A', getAllBtnRect()),
+        beside('P', getPrioBtnRect()),
+        beside('D', getLoopBtnRect()),
+      ].filter((h): h is ShortcutHint => !!h)
     )
   }
 
@@ -1973,10 +1989,15 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <!-- ══ DESKTOP: Sidebar body, right column — Overview's tag filters,
          moved here from the left (see .sidebar above for what took their
          old spot). Always shows All/Prio/Date; tag chips + the
-         plus-icon-expandable tag input only when tags are enabled. ══ -->
+         plus-icon-expandable tag input only when tags are enabled.
+         Only on the right while Date Lists is on — with the feature off
+         the left column has nothing else to show, so this drops the
+         .sidebar-right modifier and falls back to plain .sidebar (left
+         column, left-aligned rows) instead. See tagSidebarOnLeft. ══ -->
     <aside
       v-if="route.path === '/all'"
-      class="sidebar sidebar-right desktop-only"
+      class="sidebar desktop-only"
+      :class="{ 'sidebar-right': !tagSidebarOnLeft }"
     >
       <!-- Same inner scrollport the left sidebar uses (.sidebar-scroll) —
            not just for symmetry's sake: a scroll container clips at its own
@@ -2218,7 +2239,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       v-for="hint in shortcutHints"
       :key="hint.key"
       class="shortcut-hint"
-      :class="{ 'shortcut-hint--left': hint.anchor === 'left' }"
+      :class="{ 'shortcut-hint--left': hint.anchor === 'left', 'shortcut-hint--right': hint.anchor === 'right' }"
       :style="{ left: hint.x + 'px', top: hint.y + 'px' }"
     >{{ hint.key }}</div>
 
@@ -2277,7 +2298,8 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 
     <div
       v-if="tagHintPos"
-      class="shortcut-hint shortcut-hint--left"
+      class="shortcut-hint"
+      :class="`shortcut-hint--${tagHintPos.anchor}`"
       :style="{ left: tagHintPos.x + 'px', top: tagHintPos.y + 'px' }"
     >T</div>
   </template>

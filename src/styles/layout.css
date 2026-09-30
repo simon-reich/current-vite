@@ -83,7 +83,7 @@
     font-size: 12px;
   }
 
-  .sidebar-right .tag-new-input--inline {
+  .sidebar .tag-new-input--inline {
     font-size: 11px;
     padding: 2px 8px;
   }
@@ -1123,8 +1123,16 @@
 .tag-add-row {
   width: 100%;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin-bottom: 7px;
+}
+
+/* Right-column variant (Date Lists on, see the <aside>'s own comment in
+   App.vue): hugs the right edge like every other row there. With the
+   sidebar in the left column the base flex-start above mirrors all of
+   this — the circle sits flush left, the input grows out to the right. */
+.sidebar-right .tag-add-row {
+  justify-content: flex-end;
 }
 
 /* Derived from the same --chip-* variables .tag-chip/.all-btn/.tag-label
@@ -1605,6 +1613,13 @@
    rather than bottom-aligned above a shared line. */
 .shortcut-hint--left {
   transform: translate(-100%, -50%);
+}
+
+/* Mirror of --left for when Overview's tag sidebar sits in the left column
+   (tagSidebarOnLeft in App.vue): anchors the label's own left-center to
+   (x, y), to the right of its button. */
+.shortcut-hint--right {
+  transform: translate(0, -50%);
 }
 
 /* ↑/↓ (Date-List cycling): anchors the label's own bottom-left to (x, y)
