@@ -289,7 +289,7 @@ function editFromAllChecks(check: CheckItem) {
 <style scoped>
 .current-view {
   width: 100%;
-  max-width: 640px;
+  max-width: 800px;
 }
 
 .todo-wrap {
@@ -297,6 +297,16 @@ function editFromAllChecks(check: CheckItem) {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+}
+
+/* Same fix as AllTodos.vue's list-view: TodoCard.vue's own .todo-card has a
+   600px max-width of its own (to stop short-title cards stretching
+   absurdly wide in Overview's grid) — raised (not removed) here to match
+   this view's own, wider cap above, so a card still only ever gets as wide
+   as its own content needs. Lives inside the child component, hence
+   :deep(). */
+.todo-wrap :deep(.todo-card) {
+  max-width: 800px;
 }
 
 .empty {
@@ -436,8 +446,8 @@ function editFromAllChecks(check: CheckItem) {
 }
 
 /* Same fix as AllTodos.vue's list-view: content-inner centers this
-   640px-capped block, so its left edge drifts depending on how much wider
-   than 640px the row is at a given tablet width. Pin it to the left,
+   800px-capped block, so its left edge drifts depending on how much wider
+   than 800px the row is at a given tablet width. Pin it to the left,
    offset to match main-head's own left padding (20px) against
    content-inner's (6px). Doesn't apply to the empty state — there's no
    list to align against, so it stays centered like the calendar's own

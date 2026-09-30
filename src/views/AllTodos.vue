@@ -166,7 +166,7 @@ function unassignFocusDate(id: string, obvious?: boolean) {
 }
 
 .all-todos.list-view {
-  max-width: 640px;
+  max-width: 800px;
 }
 
 .todo-wrap {
@@ -181,7 +181,18 @@ function unassignFocusDate(id: string, obvious?: boolean) {
   flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: flex-start;
-  max-width: 640px;
+  max-width: 800px;
+}
+
+/* TodoCard.vue's own .todo-card has a 600px max-width of its own (to stop
+   short-title cards stretching absurdly wide in the grid) — that also caps
+   list mode's cards short of this wrapper's own, wider max-width above.
+   Raised (not removed) here so a card still only ever gets as wide as its
+   own content needs, just with more headroom before that cap kicks in.
+   Lives inside the child component, not this file's own template, hence
+   :deep(). */
+.todo-wrap.list-view :deep(.todo-card) {
+  max-width: 800px;
 }
 
 @media (max-width: 700px) {
