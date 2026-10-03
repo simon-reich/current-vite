@@ -927,7 +927,15 @@ function onSubDraftKeydown(e: KeyboardEvent) {
   }
 }
 
+// Refocused before onTodoBlur's delayed close ran (e.g. a sub → own todo
+// prefill, see the todoDraftRequest watch, which blurs the input with its
+// click and focuses it again right away) — the draft wasn't abandoned, so
+// that pending close must not fire anymore.
 function onTodoFocus() {
+  if (todoBlurCloseTimer) {
+    clearTimeout(todoBlurCloseTimer)
+    todoBlurCloseTimer = null
+  }
   if (addTagModalTags.value.length > 0) showTagModal.value = true
 }
 
