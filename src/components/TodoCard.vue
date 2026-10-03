@@ -802,9 +802,11 @@ const visibleSubs = computed(() =>
 // with several subs sits at its narrow title-only width while its sub-list
 // wraps inside that, leaving a large empty gap beside it in the row. An
 // actually-open card already gets that same width via .tag-editing, so
-// this only needs to cover the closed case.
+// this only needs to cover the closed case. Opt-out via Settings
+// (themeStore.subsFullWidth): the card then stays shrink-to-fit like any
+// other, sized by its widest line — title or sub.
 const subsExpandedWide = computed(() =>
-  !cardActuallyOpen.value && subsVisible.value && visibleSubs.value.length > 0
+  themeStore.subsFullWidth && !cardActuallyOpen.value && subsVisible.value && visibleSubs.value.length > 0
 )
 
 // Half-mode's "N done" hint (see the sub-item--hint row below) — count of

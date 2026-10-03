@@ -188,13 +188,22 @@ watch(deleteThemeConfirm, (open) => {
       </section>
     </div>
 
-    <!-- Date lists -->
+    <!-- Date lists + Subs width -->
     <div class="section-row">
       <section class="section">
         <h2 class="section-title">date lists</h2>
         <div class="option-row">
           <button class="btn-outline" :class="{ active: themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled || themeStore.toggleDateLists()">on</button>
           <button class="btn-outline" :class="{ active: !themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled && themeStore.toggleDateLists()">off</button>
+        </div>
+      </section>
+
+      <!-- Only meaningful while subs exist at all. -->
+      <section v-if="themeStore.subsEnabled" class="section">
+        <h2 class="section-title">subs width</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.subsFullWidth }" @click="themeStore.subsFullWidth || themeStore.toggleSubsFullWidth()">full</button>
+          <button class="btn-outline" :class="{ active: !themeStore.subsFullWidth }" @click="themeStore.subsFullWidth && themeStore.toggleSubsFullWidth()">fit</button>
         </div>
       </section>
     </div>

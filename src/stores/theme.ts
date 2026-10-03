@@ -20,6 +20,11 @@ export const useThemeStore = defineStore('theme', () => {
   const tagsEnabled = ref(true)
   const checksEnabled = ref(true)
   const subsEnabled = ref(true)
+  // Whether a card showing its subs via the subs toggle (not an actually
+  // open card) widens to the row's full width, or stays shrink-to-fit
+  // around its widest line (title or sub) like every other card — see
+  // TodoCard.vue's subsExpandedWide.
+  const subsFullWidth = ref(true)
   const dateListsEnabled = ref(true)
   // The Focus Date widget's currently selected target date (YYYY-MM-DD) —
   // where new "plan ahead" assignments go. Persists across reloads (see
@@ -74,6 +79,10 @@ export const useThemeStore = defineStore('theme', () => {
 
   function toggleSubs() {
     subsEnabled.value = !subsEnabled.value
+  }
+
+  function toggleSubsFullWidth() {
+    subsFullWidth.value = !subsFullWidth.value
   }
 
   function toggleDateLists() {
@@ -138,9 +147,9 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   return {
-    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, expandCurrentSubs, expandOverviewSubs, savedThemes,
+    activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, subsFullWidth, expandCurrentSubs, expandOverviewSubs, savedThemes,
     dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate,
-    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
+    apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleSubsFullWidth, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
     toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
   }
 }, { persist: true })
