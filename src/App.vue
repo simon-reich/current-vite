@@ -709,7 +709,13 @@ watch(deleteConfirm, (open) => {
 })
 
 function handleTagKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') { (e.target as HTMLElement)?.blur(); return }
+  // Escape discards whatever was typed, then blurs — with the input empty,
+  // onTagInputBlur collapses Overview's inline field back to its plus icon.
+  if (e.key === 'Escape') {
+    tagInput.value = ''
+    ;(e.target as HTMLElement)?.blur()
+    return
+  }
   if (e.key !== 'Enter') return
   const labels = tagInput.value.split(',').map(s => s.trim()).filter(Boolean)
   let dupIndex = 0
