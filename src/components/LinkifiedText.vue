@@ -42,9 +42,7 @@ function splitLinks(text: string): Segment[] {
 import { computed } from 'vue'
 import { ExternalLink } from '@lucide/vue'
 
-// showOpenIcon: touch devices have no Cmd/Ctrl, so an open card gets a small
-// tap target behind each link instead (CSS limits it to hover-less devices).
-const props = defineProps<{ text: string; showOpenIcon?: boolean }>()
+const props = defineProps<{ text: string }>()
 
 installModifierListener()
 
@@ -72,7 +70,7 @@ function openLink(href: string) {
   title="cmd/ctrl + click to open"
   @click="onLinkClick($event, seg.href)"
 >{{ seg.text }}</a><button
-  v-if="seg.href && showOpenIcon"
+  v-if="seg.href"
   type="button"
   class="link-open-btn"
   title="open link"
@@ -114,7 +112,10 @@ function openLink(href: string) {
   height: 0.95em;
 }
 
-@media (hover: none) {
+/* Touch has no Cmd/Ctrl, so every link gets a small tap target behind it on
+   the phone/tablet breakpoint (same 1024px as the rest of the app) or any
+   hover-less device — wherever Cmd/Ctrl+click isn't the expected gesture. */
+@media (max-width: 1024px), (hover: none) {
   .link-open-btn {
     display: inline-block;
   }

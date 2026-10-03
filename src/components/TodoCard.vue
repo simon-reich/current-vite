@@ -2733,7 +2733,7 @@ onUnmounted(() => {
             :class="{ editable: mode === 'current' ? (showMenu || showTagMenu) : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
-          ><LinkifiedText :text="todo.title" :show-open-icon="isCardOpen" /></span>
+          ><LinkifiedText :text="todo.title" /></span>
 
           <!-- When card is open (either mode) and not editing: just Delete —
                clicking the title text itself now starts editing directly
@@ -2873,7 +2873,7 @@ onUnmounted(() => {
                 :class="{ done: !!sub.completedAt }"
                 :style="font ? { fontFamily: font } : {}"
                 @click.stop="handleSubTitleClick(sub, $event)"
-              ><LinkifiedText :text="sub.title" :show-open-icon="isCardOpen" /></span>
+              ><LinkifiedText :text="sub.title" /></span>
 
               <button
                 v-if="editingSubId === sub.id"
