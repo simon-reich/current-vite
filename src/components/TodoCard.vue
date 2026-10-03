@@ -587,6 +587,7 @@ import { todayStr, tomorrowStr } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
 import TagInlineCreate from './TagInlineCreate.vue'
+import LinkifiedText from './LinkifiedText.vue'
 
 const props = defineProps<{
   todo: Todo
@@ -739,6 +740,13 @@ const emit = defineEmits<{
 
 const showMenu = computed(() => openCheckMenuId.value === props.todo.id)
 const showTagMenu = computed(() => openTagMenuId.value === props.todo.id)
+// In 'current' mode "open" covers both the check-menu (showMenu) and the
+// full tag/date editor (showTagMenu, e.g. after openEditFromCurrent) —
+// checking showMenu alone made a title click during an active full edit
+// (focus moved to a sub, then back to the title) register as "closed" and
+// fall into toggleCheckMenu(), which treats that as "done editing" and
+// collapses the whole card instead of re-entering the title edit.
+const isCardOpen = computed(() => props.mode === 'current' ? (showMenu.value || showTagMenu.value) : showTagMenu.value)
 
 // showTagMenu covers both Overview's tag/date editor and Current's own
 // title-edit, which reuses openTagMenuId too (see openEditFromCurrent) —
@@ -1619,17 +1627,33 @@ function openEditFromCurrent(caretPos?: number | null) {
 // spot instead of always landing at the start. caretRangeFromPoint is the
 // standard (Chrome/Safari); Firefox only has caretPositionFromPoint. Neither
 // is on the official TS DOM lib for the other browser's method, hence `any`.
+// The offset is relative to the hit text node, so it's shifted by the text
+// before that node — a title split into several nodes by LinkifiedText's
+// links would otherwise land the caret relative to just one segment.
 function caretOffsetFromEvent(e: MouseEvent): number | null {
   const doc = document as any
+  let node: Node | null = null
+  let offset = 0
   if (typeof doc.caretRangeFromPoint === 'function') {
     const range = doc.caretRangeFromPoint(e.clientX, e.clientY)
-    return range ? range.startOffset : null
-  }
-  if (typeof doc.caretPositionFromPoint === 'function') {
+    if (!range) return null
+    node = range.startContainer
+    offset = range.startOffset
+  } else if (typeof doc.caretPositionFromPoint === 'function') {
     const pos = doc.caretPositionFromPoint(e.clientX, e.clientY)
-    return pos ? pos.offset : null
+    if (!pos) return null
+    node = pos.offsetNode
+    offset = pos.offset
+  } else {
+    return null
   }
-  return null
+  const root = e.currentTarget as Node | null
+  if (!root || !node || !root.contains(node)) return offset
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let t = walker.nextNode(); t && t !== node; t = walker.nextNode()) {
+    offset += t.textContent?.length ?? 0
+  }
+  return offset
 }
 
 // Clicking the title text jumps straight into editing at the clicked
@@ -1639,14 +1663,7 @@ function caretOffsetFromEvent(e: MouseEvent): number | null {
 // straight past "open" into "edit" on a single click.
 function handleTitleClick(e: MouseEvent) {
   if (justDragged) { justDragged = false; return }
-  // In 'current' mode "open" covers both the check-menu (showMenu) and the
-  // full tag/date editor (showTagMenu, e.g. after openEditFromCurrent) —
-  // checking showMenu alone made a title click during an active full edit
-  // (focus moved to a sub, then back to the title) register as "closed" and
-  // fall into toggleCheckMenu(), which treats that as "done editing" and
-  // collapses the whole card instead of re-entering the title edit.
-  const isOpen = props.mode === 'current' ? (showMenu.value || showTagMenu.value) : showTagMenu.value
-  if (!isOpen) {
+  if (!isCardOpen.value) {
     if (props.mode === 'current') toggleCheckMenu()
     else toggleTagMenu()
     return
@@ -2716,7 +2733,7 @@ onUnmounted(() => {
             :class="{ editable: mode === 'current' ? (showMenu || showTagMenu) : showTagMenu }"
             :style="font ? { fontFamily: font } : {}"
             @click.stop="handleTitleClick"
-          >{{ todo.title }}</span>
+          ><LinkifiedText :text="todo.title" :show-open-icon="isCardOpen" /></span>
 
           <!-- When card is open (either mode) and not editing: just Delete —
                clicking the title text itself now starts editing directly
@@ -2856,7 +2873,7 @@ onUnmounted(() => {
                 :class="{ done: !!sub.completedAt }"
                 :style="font ? { fontFamily: font } : {}"
                 @click.stop="handleSubTitleClick(sub, $event)"
-              >{{ sub.title }}</span>
+              ><LinkifiedText :text="sub.title" :show-open-icon="isCardOpen" /></span>
 
               <button
                 v-if="editingSubId === sub.id"
