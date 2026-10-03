@@ -1901,7 +1901,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <LinesIcon :size="27" />
           </RouterLink>
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
-            <CalendarDays :size="27" />
+            <CalendarDays class="calendar-icon" :size="27" />
           </RouterLink>
         </nav>
 
@@ -2244,7 +2244,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <LinesIcon :size="24" />
         </RouterLink>
         <RouterLink to="/calendar" class="nav-icon" title="Calendar" @click="showMobileTags = false">
-          <CalendarDays :size="24" />
+          <CalendarDays class="calendar-icon" :size="24" />
         </RouterLink>
       </div>
 

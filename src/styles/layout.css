@@ -1677,3 +1677,16 @@
   color: var(--ink);
   opacity: 0.7;
 }
+
+/* Lucide's calendar has rounded corners and round line caps baked in, no
+   square variant — in Settings' square corner mode (.corners-square, see
+   useTheme.ts) it follows along: sharp frame corners, square line ends,
+   so the day dots turn into tiny squares too. */
+.corners-square .calendar-icon {
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.corners-square .calendar-icon rect {
+  rx: 0;
+}
