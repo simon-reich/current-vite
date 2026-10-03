@@ -222,11 +222,12 @@ function unassignFocusDate(id: string, obvious?: boolean) {
      center then centers that narrower block, so its left edge drifts
      depending on how much wider than 640px the row happens to be at a
      given tablet width, instead of lining up with the top-menu's icons.
-     Pin it to the left, offset to match main-head's own left padding
-     (20px) against content-inner's (6px). */
+     Pin it to the left — content-inner's own 20px tablet padding already
+     matches main-head's, so no extra offset (an extra margin-left on top
+     of width: 100% overflowed the right edge and clipped the hover puff
+     there). */
   .all-todos.list-view {
     align-self: flex-start;
-    margin-left: 14px;
   }
 }
 

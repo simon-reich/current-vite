@@ -447,15 +447,15 @@ function editFromAllChecks(check: CheckItem) {
 
 /* Same fix as AllTodos.vue's list-view: content-inner centers this
    800px-capped block, so its left edge drifts depending on how much wider
-   than 800px the row is at a given tablet width. Pin it to the left,
-   offset to match main-head's own left padding (20px) against
-   content-inner's (6px). Doesn't apply to the empty state — there's no
+   than 800px the row is at a given tablet width. Pin it to the left —
+   content-inner's own 20px tablet padding already matches main-head's, so
+   no extra offset (an extra margin-left on top of width: 100% overflowed
+   the right edge and clipped the hover puff there). Doesn't apply to the empty state — there's no
    list to align against, so it stays centered like the calendar's own
    empty-day placeholder. */
 @media (min-width: 701px) and (max-width: 1024px) {
   .current-view:not(.is-empty) {
     align-self: flex-start;
-    margin-left: 14px;
   }
 }
 </style>
