@@ -181,6 +181,8 @@ Ein Klick auf einen Tag öffnet eine Detail-Liste der an diesem Tag erledigten (
 
 Die Liste selbst ist nicht nach Done/Done-for-today gruppiert (das bleibt nur als ✓✓/✓-Icon pro Zeile erhalten), sondern nach **Priority vs. Rest** — Priority ist schon überall sonst in der App das zentrale "das war wichtig"-Signal, und beantwortet im Rückblick eher "habe ich das Wichtige geschafft" als die eher buchhalterische Done/Worked-on-Unterscheidung. Titel laufen in der Kalender-eigenen Fancy-Font (`--font-playful`), nicht in der zufälligen Todo-Font aus AllTodos/Current — letzteres wurde kurz ausprobiert und wieder verworfen.
 
+**Log + Undo.** Ein `calendar | log`-Umschalter oben im Kalender-View tauscht Monatsraster + Tagesdetail gegen eine Liste aller erledigten (Done) Todos (`store.completedTodos`, neueste zuerst, gruppiert nach Erledigungstag, gelöschte ausgeblendet). Erledigte Todos werden nie entfernt, nur über `completedAt` aus Overview/Current herausgefiltert — das Log braucht deshalb kein eigenes Datenmodell. Undo (`UndoDoneButton.vue`, im Log und bei Done-Einträgen im Tagesdetail) ruft `store.uncompleteTodo` auf: `completedAt` weg, das Todo ist wieder im Pool (Overview). Current-/Date-List-Mitgliedschaften kommen bewusst nicht zurück (`completeTodo` löscht sie und merkt sie sich nicht), `workLog` bleibt. Ein fälliges Date-/Loop-Todo rejoint Current danach sofort (`runLoopSchedule`).
+
 ## Typografie – Zufällige Schriftarten pro Todo
 
 Jedes Todo-Item bekommt beim Rendern eine Schriftart aus einem Pool von 17 Familien zugewiesen. Die Logik liegt in `src/composables/useTodoFonts.ts`:

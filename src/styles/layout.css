@@ -79,6 +79,12 @@
     width: 64px;
   }
 
+/* Calendar's calendar | log switch (CalendarModeToggle.vue) — same look as
+   the Date-List nav's today/tomorrow, just wide enough for "calendar". */
+.date-nav-btn.calendar-mode-btn {
+  width: 100px;
+}
+
   .sidebar .tag-x {
     font-size: 12px;
   }
@@ -1262,7 +1268,7 @@
 #app.is-settings .all-btn,
 #app.is-settings .sort-btn,
 #app.is-settings .add-wrapper,
-#app.is-calendar .all-btn,
+#app.is-calendar .all-btn:not(.calendar-mode-btn),
 #app.is-calendar .add-wrapper {
   pointer-events: none;
   opacity: 0.35;

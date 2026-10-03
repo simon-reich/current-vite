@@ -230,6 +230,15 @@ export const useTodosStore = defineStore('todos', () => {
     return todos.value.filter(t => t.completedAt?.slice(0, 10) === dateStr)
   }
 
+  // Every Done todo, newest first — the Calendar's log view. Deleted ones
+  // are left out: deleting means "don't want to see this anymore", even
+  // though the calendar itself still shows their history (see deletedAt).
+  const completedTodos = computed(() =>
+    todos.value
+      .filter(t => t.completedAt && !t.deletedAt)
+      .sort((a, b) => b.completedAt!.localeCompare(a.completedAt!))
+  )
+
   function workedOn(dateStr: string) {
     const doneIds = new Set(completedOn(dateStr).map(t => t.id))
     return todos.value.filter(t =>
@@ -429,6 +438,15 @@ export const useTodosStore = defineStore('todos', () => {
   function removeFromCurrent(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) todo.inCurrent = false
+  }
+
+  // Undoes a Done — the todo goes back to the pool (Overview) only.
+  // Current/Date-List memberships were cleared by completeTodo and aren't
+  // remembered, so they don't come back; workLog stays, those days really
+  // happened.
+  function uncompleteTodo(id: string) {
+    const todo = todos.value.find(t => t.id === id)
+    if (todo) todo.completedAt = undefined
   }
 
   function completeTodo(id: string) {
@@ -683,9 +701,9 @@ export const useTodosStore = defineStore('todos', () => {
     todos, tags,
     // getters
     activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
-    completedOn, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
+    completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
-    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, doneForToday, doneForTodayOnDate,
+    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForToday, doneForTodayOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,

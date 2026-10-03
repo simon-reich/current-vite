@@ -7,6 +7,7 @@ import LinesIcon from './components/icons/LinesIcon.vue'
 import CalendarIcon from './components/icons/CalendarIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
+import CalendarModeToggle from './components/CalendarModeToggle.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo, type Tag as TagModel } from './stores/todos'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
@@ -1183,6 +1184,11 @@ provide('listsPanelOpen', listsPanelOpen)
 const viewingDate = ref<string | null>(themeStore.dateListsEnabled ? todayStr() : null)
 provide('viewingDate', viewingDate)
 
+// Calendar view's calendar | log switch (see CalendarModeToggle.vue) — owned
+// here because its desktop buttons sit in this file's left sidebar.
+const calendarViewMode = ref<'calendar' | 'log'>('calendar')
+provide('calendarViewMode', calendarViewMode)
+
 // Toggling the setting live (Settings view) has to flip viewingDate the
 // same way — turning Date Lists off should drop straight back into the
 // classic Current pool (nothing else can set it to null any more), turning
@@ -2018,6 +2024,15 @@ function onSheetHandlePointerUp(e: PointerEvent) {
              FocusDateNav.vue — also reused by the tablet slide-in panel
              (FocusDatePanel.vue) below. -->
         <FocusDateNav v-else-if="route.path === '/all'" />
+      </div>
+    </aside>
+
+    <!-- ══ DESKTOP: Sidebar body — Calendar's calendar | log switch ══ -->
+    <aside v-if="route.path === '/calendar'" class="sidebar desktop-only">
+      <div class="sidebar-scroll">
+        <div class="tag-list">
+          <CalendarModeToggle />
+        </div>
       </div>
     </aside>
 

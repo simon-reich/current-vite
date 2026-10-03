@@ -10,6 +10,8 @@ import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
+import UndoDoneButton from '../components/UndoDoneButton.vue'
+import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 
 const store = useTodosStore()
 const router = useRouter()
@@ -37,6 +39,19 @@ function onDayDetailScroll() {
 
 const selectedDate = ref<string>(todayStr())
 
+// 'log' swaps the month grid + day detail for a flat list of every Done
+// todo (see logGroups below) — the calendar's own "look back" area, so no
+// separate route or nav entry. Owned by App.vue (see CalendarModeToggle.vue).
+const viewMode = inject<Ref<'calendar' | 'log'>>('calendarViewMode')!
+
+// The grid remounts when coming back from the log — reopen it on the
+// month of the still-selected day instead of v-calendar's default.
+watch(viewMode, async (mode) => {
+  if (mode !== 'calendar') return
+  await nextTick()
+  calendarRef.value?.move(new Date(selectedDate.value + 'T12:00:00'))
+})
+
 onMounted(async () => {
   await nextTick()
   calendarRef.value?.move(new Date())
@@ -55,6 +70,7 @@ function shiftDate(days: number) {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  if (viewMode.value === 'log') return
   if (e.key === 'ArrowLeft')  { e.preventDefault(); shiftDate(-1) }
   if (e.key === 'ArrowRight') { e.preventDefault(); shiftDate(1) }
   if (e.key === 'ArrowUp')    { e.preventDefault(); shiftDate(-7) }
@@ -137,18 +153,41 @@ function onDayClick(day: { id: string }) {
   selectedDate.value = day.id
 }
 
-watch(selectedDate, async () => {
+watch([selectedDate, viewMode], async () => {
   if (dayDetailScrollRef.value) dayDetailScrollRef.value.scrollTop = 0
   await nextTick()
   checkDayDetailScrollState()
 })
 
-const selectedDateLabel = computed(() => {
-  if (!selectedDate.value) return ''
-  return new Date(selectedDate.value + 'T12:00:00').toLocaleDateString('en-US', {
+// "Saturday, October 3, 2026" — the day detail's own heading and each of
+// the log's day groups.
+function formatDayLabel(dateStr: string): string {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
+}
+
+const selectedDateLabel = computed(() => selectedDate.value ? formatDayLabel(selectedDate.value) : '')
+
+// The log view: every Done todo (store.completedTodos, newest first, deleted
+// ones left out) grouped by its completion day — same day key completedOn
+// uses, so a todo sits under exactly the day the calendar shows it on.
+const logGroups = computed(() => {
+  const groups: { dateStr: string; label: string; todos: Todo[] }[] = []
+  for (const todo of store.completedTodos) {
+    const dateStr = todo.completedAt!.slice(0, 10)
+    const last = groups[groups.length - 1]
+    if (last && last.dateStr === dateStr) last.todos.push(todo)
+    else groups.push({ dateStr, label: formatDayLabel(dateStr), todos: [todo] })
+  }
+  return groups
 })
+
+function tagLabels(todo: Todo): string[] {
+  return todo.tags
+    .map(id => store.tags.find(t => t.id === id)?.label)
+    .filter((label): label is string => !!label)
+}
 
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
 const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedDate.value) : [])
@@ -248,7 +287,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 <template>
   <div ref="viewRef" class="calendar-view" tabindex="0" @keydown="onKeydown">
+    <!-- Below desktop width only — desktop has it in App.vue's left sidebar. -->
+    <div class="view-toggle">
+      <CalendarModeToggle />
+    </div>
+
     <motion.div
+      v-if="viewMode === 'calendar'"
       class="calendar-inner"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
@@ -276,7 +321,26 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           appear-active-class="unfold-appear-active"
           appear-from-class="unfold-appear-from"
         >
-          <div :key="selectedDate" class="day-detail-content">
+          <div v-if="viewMode === 'log'" key="log" class="day-detail-content">
+            <template v-if="logGroups.length">
+              <div v-for="group in logGroups" :key="group.dateStr" class="log-group">
+                <p class="log-day-label">{{ group.label }}</p>
+                <div class="day-items">
+                  <div v-for="todo in group.todos" :key="todo.id" class="day-item">
+                    <span class="icon icon--done">✓✓</span>
+                    <span class="day-item-title">
+                      {{ todo.title }}
+                      <span v-if="tagLabels(todo).length" class="log-tags">{{ tagLabels(todo).join(' · ') }}</span>
+                    </span>
+                    <UndoDoneButton :todo-id="todo.id" />
+                  </div>
+                </div>
+              </div>
+            </template>
+            <p v-else class="no-activity">Nothing completed yet.</p>
+          </div>
+
+          <div v-else :key="selectedDate" class="day-detail-content">
             <div class="day-label-row">
               <p class="day-label">{{ selectedDateLabel }}</p>
             </div>
@@ -321,7 +385,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               <div v-if="hasActivity" class="day-items">
                 <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
                   <div class="day-item">
-                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
+                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>
+                    <span class="day-item-title">{{ entry.todo.title }}</span>
+                    <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
                     <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
@@ -330,7 +396,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                 <div v-if="priorityEntries.length && otherEntries.length" class="day-divider" />
                 <div v-for="entry in otherEntries" :key="entry.todo.id" class="day-entry">
                   <div class="day-item">
-                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>{{ entry.todo.title }}
+                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>
+                    <span class="day-item-title">{{ entry.todo.title }}</span>
+                    <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
                     <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
@@ -494,7 +562,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   margin-top: 20px;
 }
 
-.planned-items-label {
+.planned-items-label,
+.log-day-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
@@ -619,6 +688,43 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-weight: bold;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
+}
+
+/* calendar | log switch for tablet/phone — desktop shows it in App.vue's
+   left sidebar instead. */
+.view-toggle {
+  display: none;
+  justify-content: center;
+  gap: 7px;
+}
+
+@media (max-width: 1024px) {
+  .view-toggle {
+    display: flex;
+  }
+}
+
+/* Takes the rest of the row so an Undo button after it sits at the far
+   right, and a wrapped second line stays under the title. */
+.day-item-title {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.log-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.log-tags {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.5;
+  font-family: var(--font-mono, monospace);
 }
 
 .unfold-enter-active,
