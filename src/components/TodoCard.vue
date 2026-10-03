@@ -2534,9 +2534,14 @@ function onDrag(event: PointerEvent, info: PanInfo) {
   }
 }
 
+// Also settles scale back to 1 explicitly: `:while-drag`'s own 1.05 is
+// meant to revert by itself on release, but with cardScale bound into
+// :style Motion can resolve that revert's target to the dragged value and
+// leave the card stuck puffed up (with the CSS hover puff stacking on top).
 function springBackToCenter() {
   animate(x, 0, SPRING_BACK)
   animate(y, 0, SPRING_BACK)
+  animate(cardScale, 1, SPRING_BACK)
 }
 
 // Reads the same `armedDir` the indicator itself displays — whatever it was
