@@ -2108,7 +2108,7 @@ const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner } & Record<ViewportTier
 const ZONE_EDGE_INSET = 15
 
 // Builds one slot's triangle against the backdrop rect measured at drag
-// start — the single geometry both hit-testing (pointInZone) and rendering
+// start — the single geometry both hit-testing (zoneDepth) and rendering
 // (zonePath) read from.
 function buildZone(key: ZoneSlot, label: string, rect: { top: number; left: number; width: number; height: number }): SwipeZone {
   const layout = ZONE_LAYOUT[key]
@@ -2125,13 +2125,41 @@ function buildZone(key: ZoneSlot, label: string, rect: { top: number; left: numb
   }
 }
 
-// "Closer to the corner than the slanted edge": how far along each leg the
-// point sits (0 at the corner, 1 at the leg's far end) — inside while both
-// are non-negative and together don't exceed 1.
-function pointInZone(zone: SwipeZone, px: number, py: number): boolean {
+// What touches the zones while dragging: not the whole card (a tall card
+// with its subs expanded would touch some triangle almost anywhere, leaving
+// no free spot to drop it without firing anything) and not just the bare
+// pointer either, but a contact box scaled off the card's own size — each
+// side ZONE_CONTACT_SCALE of the card's (0.7² ≈ half its area), centered
+// on the grip point and slid back inside the card where it would stick
+// out. ZONE_CONTACT_MAX caps it in px so a very big card still leaves the
+// middle free to drop it in.
+const ZONE_CONTACT_SCALE = 0.7
+const ZONE_CONTACT_MAX = { width: 360, height: 220 }
+
+type ContactRect = { left: number; top: number; right: number; bottom: number }
+
+// How deep a rect reaches into a zone, or null if it doesn't touch it.
+// Measured at the rect's point closest to the zone's corner: how far along
+// each leg that point sits (0 at the corner, 1 at the leg's far end) —
+// touching while both are non-negative and together don't exceed 1 ("closer
+// to the corner than the slanted edge"); smaller sum = deeper in.
+function zoneDepth(zone: SwipeZone, rect: ContactRect): number | null {
+  const px = Math.min(Math.max(zone.cornerX, rect.left), rect.right)
+  const py = Math.min(Math.max(zone.cornerY, rect.top), rect.bottom)
   const u = (px - zone.cornerX) / zone.w
   const v = (py - zone.cornerY) / zone.h
-  return u >= 0 && v >= 0 && u + v <= 1
+  return u >= 0 && v >= 0 && u + v <= 1 ? u + v : null
+}
+
+// The zone the contact box reaches deepest into — a wide or tall box can
+// touch two triangles at once (e.g. both top corners on a portrait tablet).
+function deepestZoneHit(list: SwipeZone[], rect: ContactRect): ZoneSlot | null {
+  let best: { key: ZoneSlot; depth: number } | null = null
+  for (const zone of list) {
+    const depth = zoneDepth(zone, rect)
+    if (depth !== null && (!best || depth < best.depth)) best = { key: zone.key, depth }
+  }
+  return best?.key ?? null
 }
 
 function zoneVertices(zone: SwipeZone): [number, number][] {
@@ -2220,6 +2248,10 @@ const zones = computed<SwipeZone[]>(() => {
 // useTheme.ts), read once per drag so the triangles round their corners the
 // same way cards do without restating the value here.
 const zoneCornerRadius = ref(0)
+
+// The card's own viewport rect at grab time — onDrag shifts it by the
+// drag offset (x/y) to know where the card currently is.
+let gripCardRect: ContactRect | null = null
 
 // The one authoritative "what would happen on release" state for zones
 // mode — same role armedDir/armedZone play for the threshold model.
@@ -2402,6 +2434,7 @@ function onDragStart() {
   everArmed = false
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
+  gripCardRect = rect ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } : null
   if (window.innerWidth > 700) {
     // Tablet and desktop both use the same grid layout with no fixed
     // top/bottom chrome fighting for the same space (that's mobile-only:
@@ -2436,9 +2469,24 @@ function onDrag(event: PointerEvent, info: PanInfo) {
     // armedZone tracking drift once the list had scrolled (see its own
     // comment above). backdropRect is viewport-relative too (getBoundingClientRect),
     // so both sides of this comparison now agree.
-    // A card grabbed while the pointer already sits inside a zone counts as
-    // in it right away — dropping it there fires that action, by design.
-    zoneHit.value = zones.value.find(zone => pointInZone(zone, event.clientX, event.clientY))?.key ?? null
+    // Contact box (see ZONE_CONTACT_SCALE) on the card's current position —
+    // its grab-time rect shifted by the drag offset (the slight drag
+    // rotation is ignored, a few px at most). A card grabbed while already
+    // inside a zone counts as in it right away — dropping it there fires
+    // that action, by design.
+    let contact: ContactRect = { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }
+    if (gripCardRect) {
+      const cardLeft = gripCardRect.left + x.get()
+      const cardTop = gripCardRect.top + y.get()
+      const cardW = gripCardRect.right - gripCardRect.left
+      const cardH = gripCardRect.bottom - gripCardRect.top
+      const boxW = Math.min(cardW * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.width)
+      const boxH = Math.min(cardH * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.height)
+      const left = Math.min(Math.max(event.clientX - boxW / 2, cardLeft), cardLeft + cardW - boxW)
+      const top = Math.min(Math.max(event.clientY - boxH / 2, cardTop), cardTop + cardH - boxH)
+      contact = { left, top, right: left + boxW, bottom: top + boxH }
+    }
+    zoneHit.value = deepestZoneHit(zones.value, contact)
     return
   }
 
