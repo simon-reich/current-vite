@@ -2103,9 +2103,9 @@ type ZoneSize = Record<ViewportTier, [number, number]>
 // 'all', per tier) — the slots are shared with Current, but Overview has
 // just two zones and room for a bigger one.
 const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner; overview?: Partial<ZoneSize> } & ZoneSize> = {
-  focus:  { corner: 'top-right',   phone: [0.39, 0.28], tablet: [0.37, 0.30], desktop: [0.41, 0.43], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45] } },
-  date:   { corner: 'top-left',    phone: [0.46, 0.39], tablet: [0.51, 0.52], desktop: [0.33, 0.63] },
-  delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.20, 0.27] },
+  focus:  { corner: 'top-right',   phone: [0.39, 0.28], tablet: [0.37, 0.30], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
+  date:   { corner: 'top-left',    phone: [0.46, 0.39], tablet: [0.51, 0.52], desktop: [0.37, 0.64] },
+  delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.23, 0.29], overview: { desktop: [0.27, 0.33] } },
 }
 
 // Gap between each triangle and the edge of backdropRect — about half on
