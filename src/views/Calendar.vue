@@ -427,17 +427,23 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-size: 20px !important;
 }
 
-/* Narrower than the calendar grid above it (which keeps its own 640px cap
-   via .calendar-inner) — the day's entries read better in a tighter,
-   centered column instead of stretching out to match the grid's width. */
+/* On desktop the day's entries share the calendar grid's own width cap
+   (.calendar-inner, 640px) — a narrower column there left long titles
+   wrapping in a thin strip with lots of empty space beside it. Tablet and
+   phone keep a tighter centered column (see the media queries below). */
 .day-detail {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 28px;
   width: 100%;
-  max-width: 420px;
   margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .day-detail {
+    max-width: 420px;
+  }
 }
 
 .day-detail-content {
