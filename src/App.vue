@@ -12,6 +12,7 @@ import { useChecksStore } from './stores/checks'
 import { useScrollTracking } from './composables/useScrollTracking'
 import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickExpand'
 import { activeModal } from './composables/useModalGuard'
+import { todoDraftRequest } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast, spawnSentToCurrentToast, spawnTodoAddedToast } from './composables/useToast'
 import { todayStr, tomorrowStr } from './composables/useToday'
@@ -1004,6 +1005,25 @@ function currentTodoInputEl() {
 function focusTodoInput() {
   currentTodoInputEl()?.focus()
 }
+
+// Prefill requests from elsewhere (TodoCard.vue's sub → own todo) replace
+// whatever draft was there, open the phone panel if that's where the input
+// lives, and place the caret where the request asks for it.
+watch(todoDraftRequest, (request) => {
+  if (!request) return
+  todoDraftRequest.value = null
+  resetTodoDraft()
+  todoInput.value = request.title
+  newTodoTagIds.value = [...request.tags]
+  if (isPhoneWidth.value && isAddSheetRoute.value) addSheetOpen.value = true
+  nextTick(() => {
+    const el = currentTodoInputEl()
+    if (!el) return
+    el.focus()
+    const pos = request.caret === 'start' ? 0 : el.value.length
+    el.setSelectionRange(pos, pos)
+  })
+})
 
 // The X button — unlike backspacing the title down to nothing (see
 // resetTodoDraft's comment), this is an explicit "start over" action, so

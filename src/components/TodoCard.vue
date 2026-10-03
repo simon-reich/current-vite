@@ -576,12 +576,13 @@ export function closeActiveCard() {
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown } from '@lucide/vue'
+import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown, ArrowUpRight } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, type Tag, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickExpand'
 import { activeModal } from '../composables/useModalGuard'
+import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr, tomorrowStr } from '../composables/useToday'
@@ -907,6 +908,26 @@ function startEditSub(sub: Sub, caretPos?: number | null) {
 // position, same as handleTitleClick above.
 function handleSubTitleClick(sub: Sub, e: MouseEvent) {
   startEditSub(sub, caretOffsetFromEvent(e))
+}
+
+// Turns a sub into its own todo — not directly, but by prefilling the
+// add-todo input (App.vue, see requestTodoDraft) so the title can still be
+// reworded and the whole thing cancelled with Escape. A parent titled
+// "Project: Task" lends its "Project: " prefix (caret at the end, title
+// is usually done); without one, just the sub's text with the caret at
+// the start, where a prefix typically gets added. Carries over the
+// parent's tags incl. priority, but not Date/loop — the parent's schedule
+// rarely fits a single sub. The sub itself stays as it is, no link.
+function promoteSubToTodo(sub: Sub) {
+  if (editingSubId.value === sub.id) saveEditSub()
+  const colon = props.todo.title.indexOf(':')
+  const prefix = colon > 0 ? props.todo.title.slice(0, colon).trim() : ''
+  requestTodoDraft({
+    title: prefix ? `${prefix}: ${sub.title}` : sub.title,
+    tags: props.todo.tags.filter(id => id !== LOOP_TAG_ID),
+    caret: prefix ? 'end' : 'start',
+  })
+  closeActiveCard()
 }
 
 function saveEditSub() {
@@ -3036,6 +3057,15 @@ onUnmounted(() => {
 
               <button
                 type="button"
+                class="sub-promote"
+                title="Make own todo"
+                @click.stop="promoteSubToTodo(sub)"
+              >
+                <ArrowUpRight :size="12" />
+              </button>
+
+              <button
+                type="button"
                 class="sub-delete"
                 title="Delete sub"
                 @click.stop="handleDeleteSub(sub.id)"
@@ -3551,6 +3581,7 @@ onUnmounted(() => {
 }
 
 .priority .sub-edit,
+.priority .sub-promote,
 .priority .sub-delete,
 .priority .sub-grip {
   color: var(--bg);
@@ -3905,6 +3936,7 @@ onUnmounted(() => {
 }
 
 .sub-edit,
+.sub-promote,
 .sub-delete,
 .sub-grip {
   flex-shrink: 0;
@@ -3932,6 +3964,7 @@ onUnmounted(() => {
 
 @media (hover: hover) {
   .sub-edit:hover,
+  .sub-promote:hover,
   .sub-delete:hover,
   .sub-grip:hover {
     opacity: 1;
