@@ -55,15 +55,19 @@ export function useFocusDateNav() {
   // here rather than per-caller so Overview, Current and the tablet panel
   // (which all render this nav) stay in sync (see CLAUDE.md's single-
   // source-of-truth principle).
+  // `sectionBreak` marks the one real break in the nav: today/tomorrow,
+  // week and the current month's "month" group form one near-term block,
+  // the first group past the current month starts the further-out lists.
   const upcomingFocusDateGroups = computed(() => {
     const [currentYear, currentMonth] = today.value.split('-').map(Number)
-    const groups: { label: string; dates: string[] }[] = []
+    const groups: { label: string; dates: string[]; sectionBreak: boolean }[] = []
     for (const dateStr of upcomingFocusDates.value) {
       const [y, m] = dateStr.split('-').map(Number)
-      const label = (y === currentYear && m === currentMonth) ? 'month' : MONTH_LABELS[m - 1]
+      const isCurrentMonth = y === currentYear && m === currentMonth
+      const label = isCurrentMonth ? 'month' : MONTH_LABELS[m - 1]
       const last = groups[groups.length - 1]
       if (last && last.label === label) last.dates.push(dateStr)
-      else groups.push({ label, dates: [dateStr] })
+      else groups.push({ label, dates: [dateStr], sectionBreak: !isCurrentMonth && !groups.some(g => g.sectionBreak) })
     }
     return groups
   })

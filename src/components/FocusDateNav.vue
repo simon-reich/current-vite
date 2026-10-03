@@ -61,8 +61,8 @@ const activeDate = computed<string>({
       <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
     </div>
 
-    <template v-for="(group, groupIndex) in upcomingFocusDateGroups" :key="group.label">
-      <div class="date-nav-section-label" :class="{ 'date-nav-section-label--month-first': groupIndex === 0 }">{{ group.label }}</div>
+    <template v-for="group in upcomingFocusDateGroups" :key="group.label">
+      <div class="date-nav-section-label" :class="{ 'date-nav-section-label--section-break': group.sectionBreak, 'date-nav-section-label--month': group.label === 'month' }">{{ group.label }}</div>
       <div
         v-for="dateStr in group.dates"
         :key="dateStr"

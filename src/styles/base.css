@@ -45,6 +45,10 @@
   --chip-font-size: 13px;
   --chip-line-height: 1.4;
 
+  /* Date-List nav's step between rows inside its near-term block —
+     tomorrow → week and week → month (layout.css) share this one value. */
+  --date-nav-row-step: 12px;
+
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);
   font-size: 16px;
   color: var(--ink);

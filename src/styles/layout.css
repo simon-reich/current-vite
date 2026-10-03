@@ -912,7 +912,7 @@
 }
 
 .date-nav-btn.loop-btn {
-  margin-bottom: 12px;
+  margin-bottom: var(--date-nav-row-step);
 }
 
 .all-btn.dimmed {
@@ -1047,12 +1047,18 @@
   opacity: 0.5;
 }
 
-/* The only real section break in the whole nav: week (always-present,
-   still near-term) vs. everything further out. Every other transition —
-   today/tomorrow into week, and month group into month group — uses just
-   the list's own 7px gap, no extra margin. */
-.date-nav-section-label--month-first {
-  margin-top: 34px;
+/* The only real section break in the whole nav: the near-term block
+   (today/tomorrow, week and the current month's "month" group) vs.
+   everything further out — see sectionBreak in useFocusDateNav.ts. Every
+   other transition uses just the list's own 7px gap, no extra margin. */
+.date-nav-section-label--section-break {
+  margin-top: 28px;
+}
+
+/* Week → the current month's "month" group: still inside the near-term
+   block (no section break) — same step as tomorrow → week. */
+.date-nav-section-label--month {
+  margin-top: var(--date-nav-row-step);
 }
 
 /* ── Settings head ── */
