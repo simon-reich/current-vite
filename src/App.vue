@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { CalendarDays, Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight } from '@lucide/vue'
+import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import LinesIcon from './components/icons/LinesIcon.vue'
+import CalendarIcon from './components/icons/CalendarIcon.vue'
 import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo, type Tag as TagModel } from './stores/todos'
@@ -1901,7 +1902,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <LinesIcon :size="27" />
           </RouterLink>
           <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
-            <CalendarDays class="calendar-icon" :size="27" />
+            <CalendarIcon :size="27" />
           </RouterLink>
         </nav>
 
@@ -2244,7 +2245,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <LinesIcon :size="24" />
         </RouterLink>
         <RouterLink to="/calendar" class="nav-icon" title="Calendar" @click="showMobileTags = false">
-          <CalendarDays class="calendar-icon" :size="24" />
+          <CalendarIcon :size="24" />
         </RouterLink>
       </div>
 

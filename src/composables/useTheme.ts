@@ -37,7 +37,4 @@ export function applyTheme(bg: string, gray: string, rounded = true, prioritySha
   root.style.setProperty('--ink-dark', grayDark)
   root.style.setProperty('--priority-shadow', priorityShadow === 'mono' ? gray : grayDark)
   root.style.setProperty('--radius', rounded ? '6px' : '0px')
-  // For what --radius alone can't reach — e.g. an icon's own SVG corners and
-  // line caps (see .calendar-icon in layout.css).
-  root.classList.toggle('corners-square', !rounded)
 }
