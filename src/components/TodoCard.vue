@@ -2098,28 +2098,35 @@ interface SwipeZone {
 // don't read well on both a landscape and a portrait screen.
 // Slots are place names, not actions — see the zones computed below for
 // what each one does in Overview vs. Current.
-const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner } & Record<ViewportTier, [number, number]>> = {
-  focus:  { corner: 'top-right',   phone: [0.42, 0.30], tablet: [0.37, 0.30], desktop: [0.41, 0.43] },
-  date:   { corner: 'top-left',    phone: [0.50, 0.42], tablet: [0.51, 0.52], desktop: [0.33, 0.63] },
+type ZoneSize = Record<ViewportTier, [number, number]>
+// `overview` optionally overrides a slot's size for Overview only (mode
+// 'all', per tier) — the slots are shared with Current, but Overview has
+// just two zones and room for a bigger one.
+const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner; overview?: Partial<ZoneSize> } & ZoneSize> = {
+  focus:  { corner: 'top-right',   phone: [0.39, 0.28], tablet: [0.37, 0.30], desktop: [0.41, 0.43], overview: { phone: [0.58, 0.38] } },
+  date:   { corner: 'top-left',    phone: [0.46, 0.39], tablet: [0.51, 0.52], desktop: [0.33, 0.63] },
   delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.20, 0.27] },
 }
 
-// Gap between each triangle and the edge of backdropRect.
-const ZONE_EDGE_INSET = 15
+// Gap between each triangle and the edge of backdropRect — about half on
+// phones, where every px of a narrow screen counts.
+const ZONE_EDGE_INSET: Record<ViewportTier, number> = { phone: 8, tablet: 15, desktop: 15 }
 
 // Builds one slot's triangle against the backdrop rect measured at drag
 // start — the single geometry both hit-testing (zoneDepth) and rendering
 // (zonePath) read from.
-function buildZone(key: ZoneSlot, label: string, rect: { top: number; left: number; width: number; height: number }): SwipeZone {
+function buildZone(key: ZoneSlot, label: string, rect: { top: number; left: number; width: number; height: number }, overview: boolean): SwipeZone {
   const layout = ZONE_LAYOUT[key]
-  const [fw, fh] = layout[currentViewportTier()]
+  const tier = currentViewportTier()
+  const [fw, fh] = (overview && layout.overview?.[tier]) || layout[tier]
+  const inset = ZONE_EDGE_INSET[tier]
   const right = layout.corner.endsWith('right')
   const bottom = layout.corner.startsWith('bottom')
   return {
     key,
     label,
-    cornerX: right ? rect.left + rect.width - ZONE_EDGE_INSET : rect.left + ZONE_EDGE_INSET,
-    cornerY: bottom ? rect.top + rect.height - ZONE_EDGE_INSET : rect.top + ZONE_EDGE_INSET,
+    cornerX: right ? rect.left + rect.width - inset : rect.left + inset,
+    cornerY: bottom ? rect.top + rect.height - inset : rect.top + inset,
     w: (right ? -1 : 1) * fw * rect.width,
     h: (bottom ? -1 : 1) * fh * rect.height,
   }
@@ -2224,7 +2231,7 @@ const zones = computed<SwipeZone[]>(() => {
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    list.push(buildZone('delete', 'Delete', rect))
+    list.push(buildZone('delete', 'Delete', rect, true))
     // Date Lists on: this slot plans/unplans onto the selected date instead
     // of Current (see isOnSelectedFocusDate above) — Current has no UI of
     // its own to reuse a second zone for once Date Lists are on, so the
@@ -2232,13 +2239,13 @@ const zones = computed<SwipeZone[]>(() => {
     const label = themeStore.dateListsEnabled
       ? (isOnSelectedFocusDate.value ? 'Remove' : `List ${formatShortDate(themeStore.selectedFocusDate)}`)
       : (props.todo.inCurrent ? 'Remove' : 'Current')
-    list.push(buildZone('focus', label, rect))
+    list.push(buildZone('focus', label, rect, true))
   } else {
     if (!props.previewLocked) {
-      list.push(buildZone('focus', 'Done', rect))
-      list.push(buildZone('date', 'For today', rect))
+      list.push(buildZone('focus', 'Done', rect, false))
+      list.push(buildZone('date', 'For today', rect, false))
     }
-    list.push(buildZone('delete', 'Remove', rect))
+    list.push(buildZone('delete', 'Remove', rect, false))
   }
 
   return list
