@@ -249,9 +249,10 @@ function loadFrameSvg(importer: () => Promise<{ default: string }>): Promise<str
 // src/assets/animations/svg/<name>_<width>.svg, matching the app's own
 // existing breakpoints (700px mobile/tablet split, 1024px tablet/desktop
 // split — see mobile.css/layout.css) rather than inventing new ones.
-type CelebrationTier = 'phone' | 'tablet' | 'desktop'
+// Shared with the swipe zones' per-tier triangle sizes (ZONE_LAYOUT).
+type ViewportTier = 'phone' | 'tablet' | 'desktop'
 
-function currentCelebrationTier(): CelebrationTier {
+function currentViewportTier(): ViewportTier {
   const w = window.innerWidth
   if (w <= 700) return 'phone'
   if (w <= 1024) return 'tablet'
@@ -269,7 +270,7 @@ interface CelebrationVariant {
 }
 
 interface CelebrationConfig {
-  variants: Record<CelebrationTier, CelebrationVariant>
+  variants: Record<ViewportTier, CelebrationVariant>
   verticalAnchor?: 'center' | 'bottom'
 }
 
@@ -338,7 +339,7 @@ function buildFrameOverlay(svgRaw: string, config: CelebrationConfig): { overlay
 // while celebrateBackground's own call to it is commented out — see that
 // function's comment.
 export async function playFrameCelebration(config: CelebrationConfig) {
-  const variant = config.variants[currentCelebrationTier()]
+  const variant = config.variants[currentViewportTier()]
   const svgRaw = await loadFrameSvg(variant.importer)
   const { overlay, svg } = buildFrameOverlay(svgRaw, config)
   document.body.prepend(overlay)
@@ -395,7 +396,7 @@ export async function playFrameCelebration(config: CelebrationConfig) {
 // Which key a given todo gets is decided once, in stores/todos.ts's
 // sendToCurrent (see Todo.celebration and useCelebrations.ts) — not here;
 // this map only knows how to actually render a given key. Each celebration
-// needs all three tiers (desktop/tablet/phone, see CelebrationTier) —
+// needs all three tiers (desktop/tablet/phone, see ViewportTier) —
 // there's no single-tier fallback, since a viewport can only ever ask for
 // its own tier.
 const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
@@ -468,7 +469,7 @@ let teaserToken = 0
 export async function showCelebrationTeaser(key: CelebrationKey) {
   const token = ++teaserToken
   const config = resolveCelebrationConfig(key)
-  const svgRaw = await loadFrameSvg(config.variants[currentCelebrationTier()].importer)
+  const svgRaw = await loadFrameSvg(config.variants[currentViewportTier()].importer)
   // Superseded by a newer show/hide call (menu closed again, or a
   // different card's opened) while the SVG was still loading.
   if (token !== teaserToken) return
@@ -2056,9 +2057,9 @@ function formatShortDate(dateStr: string): string {
 const isOnSelectedFocusDate = computed(() => props.todo.focusDates?.includes(themeStore.selectedFocusDate) ?? false)
 
 // ── Swipe interaction mode ──────────────────────────────────────────
-// 'zones': Overview's drop-in-a-circle model below (date/delete/focus,
+// 'zones': the drop-in-a-corner-triangle model below (date/delete/focus,
 // see zoneHit/onDrag/onDragEnd's early-return branches) — absolute-
-// position hit-testing against three fixed circles, no arm/release
+// position hit-testing against fixed corner triangles, no arm/release
 // thresholds at all. 'threshold': the original horizontal-swipe-distance
 // arming model above (armedDir/armDistance/releaseMargin), left fully
 // intact rather than deleted. Flip this one constant to switch between
@@ -2068,35 +2069,109 @@ const isOnSelectedFocusDate = computed(() => props.todo.focusDates?.includes(the
 // Overview's three-way date/delete/focus choice.
 const SWIPE_MODE: 'zones' | 'threshold' = 'zones'
 
+type ZoneSlot = 'focus' | 'date' | 'delete'
+type ZoneCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+
 interface SwipeZone {
-  key: 'date' | 'delete' | 'focus'
+  key: ZoneSlot
   label: string
-  cx: number
-  cy: number
-  radius: number
+  // Right-angle corner (sits in the matching corner of backdropRect, pulled
+  // in by ZONE_EDGE_INSET) plus each leg's signed length — positive w/h
+  // point right/down, negative left/up, i.e. always away from the corner
+  // toward the screen center.
+  cornerX: number
+  cornerY: number
+  w: number
+  h: number
 }
 
-// Hand-placed per-zone offsets from the card's own center, deliberately
-// *not* symmetric/on a shared orbit — an evenly-spaced arrangement (equal
-// radius, equal angle apart) read as too mechanical/static. Current sits
-// highest and slightly left; date sits below it but pulled right and
-// further out, a bit smaller; delete sits at the bottom on its own
-// distinct rightward axis (not lined up under date), smallest of the
-// three. Each is [dx, dy, radius] in px, phone/desktop pair — same
-// breakpoint armDistance()/releaseMargin() already use.
-// Current/date swapped horizontally from an earlier version — the natural
-// first direction of a swipe-right gesture landed almost every drag
-// straight on whichever circle sat on the right, which needs to be
-// Current (the far more common action) rather than Date. Delete pulled in
-// closer to center horizontally too.
-const ZONE_LAYOUT: Record<'focus' | 'date' | 'delete', { phone: [number, number, number]; desktop: [number, number, number] }> = {
-  focus:  { phone: [95, -180, 92],   desktop: [155, -270, 122] },
-  date:   { phone: [-95, -150, 92],  desktop: [-150, -220, 122] },
-  delete: { phone: [0, 210, 48],     desktop: [0, 300, 62] },
+// Right triangles in the corners, slanted edge facing the screen center —
+// close enough to the middle that a card never has to travel far to land
+// in one, while the middle itself stays free to drag around in (and to
+// abort a swipe by just letting go there). Each slot is its own corner +
+// [horizontal leg, vertical leg] as fractions of backdropRect's width and
+// height, so every triangle stretches with the screen (wide and flat on a
+// landscape desktop, tall and narrow on a portrait tablet) instead of
+// sitting at fixed pixel offsets like the old circles did. Deliberately
+// different size and shape per slot — an even/symmetric set read as too
+// mechanical. Per tier (currentViewportTier) because the same fractions
+// don't read well on both a landscape and a portrait screen.
+// Slots are place names, not actions — see the zones computed below for
+// what each one does in Overview vs. Current.
+const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner } & Record<ViewportTier, [number, number]>> = {
+  focus:  { corner: 'top-right',   phone: [0.42, 0.30], tablet: [0.37, 0.30], desktop: [0.41, 0.43] },
+  date:   { corner: 'top-left',    phone: [0.50, 0.42], tablet: [0.51, 0.52], desktop: [0.33, 0.63] },
+  delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.20, 0.27] },
 }
 
-function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
-  return window.innerWidth <= 700 ? ZONE_LAYOUT[key].phone : ZONE_LAYOUT[key].desktop
+// Gap between each triangle and the edge of backdropRect.
+const ZONE_EDGE_INSET = 15
+
+// Builds one slot's triangle against the backdrop rect measured at drag
+// start — the single geometry both hit-testing (pointInZone) and rendering
+// (zonePath) read from.
+function buildZone(key: ZoneSlot, label: string, rect: { top: number; left: number; width: number; height: number }): SwipeZone {
+  const layout = ZONE_LAYOUT[key]
+  const [fw, fh] = layout[currentViewportTier()]
+  const right = layout.corner.endsWith('right')
+  const bottom = layout.corner.startsWith('bottom')
+  return {
+    key,
+    label,
+    cornerX: right ? rect.left + rect.width - ZONE_EDGE_INSET : rect.left + ZONE_EDGE_INSET,
+    cornerY: bottom ? rect.top + rect.height - ZONE_EDGE_INSET : rect.top + ZONE_EDGE_INSET,
+    w: (right ? -1 : 1) * fw * rect.width,
+    h: (bottom ? -1 : 1) * fh * rect.height,
+  }
+}
+
+// "Closer to the corner than the slanted edge": how far along each leg the
+// point sits (0 at the corner, 1 at the leg's far end) — inside while both
+// are non-negative and together don't exceed 1.
+function pointInZone(zone: SwipeZone, px: number, py: number): boolean {
+  const u = (px - zone.cornerX) / zone.w
+  const v = (py - zone.cornerY) / zone.h
+  return u >= 0 && v >= 0 && u + v <= 1
+}
+
+function zoneVertices(zone: SwipeZone): [number, number][] {
+  return [
+    [zone.cornerX, zone.cornerY],
+    [zone.cornerX + zone.w, zone.cornerY],
+    [zone.cornerX, zone.cornerY + zone.h],
+  ]
+}
+
+// SVG path for the triangle, each corner rounded by `radius` — the app's
+// own --radius (Settings' rounded/square, read at drag start, see
+// zoneCornerRadius), so 0 keeps it sharp. The curve starts/ends `radius`
+// along each edge from the vertex (capped so two neighbouring roundings
+// never overlap on a short edge) with the vertex as its control point.
+function zonePath(zone: SwipeZone, radius: number): string {
+  const pts = zoneVertices(zone)
+  if (radius <= 0) return `M${pts.map(p => p.join(',')).join('L')}Z`
+  const along = (from: [number, number], to: [number, number]): [number, number] => {
+    const dx = to[0] - from[0]
+    const dy = to[1] - from[1]
+    const len = Math.hypot(dx, dy)
+    const d = Math.min(radius, len / 2)
+    return [from[0] + (dx / len) * d, from[1] + (dy / len) * d]
+  }
+  let d = ''
+  pts.forEach((p, i) => {
+    const prev = pts[(i + pts.length - 1) % pts.length]
+    const next = pts[(i + 1) % pts.length]
+    const a = along(p, prev)
+    const b = along(p, next)
+    d += `${i === 0 ? 'M' : 'L'}${a[0]},${a[1]}Q${p[0]},${p[1]} ${b[0]},${b[1]}`
+  })
+  return d + 'Z'
+}
+
+// Label sits on the triangle's centroid — a third of the way along each
+// leg from the corner.
+function zoneLabelPos(zone: SwipeZone): [number, number] {
+  return [zone.cornerX + zone.w / 3, zone.cornerY + zone.h / 3]
 }
 
 // The three position slots (focus/date/delete) are reused as-is for
@@ -2118,14 +2193,10 @@ function zoneOffset(key: keyof typeof ZONE_LAYOUT): [number, number, number] {
 const zones = computed<SwipeZone[]>(() => {
   const rect = backdropRect.value
   if (!rect) return []
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    const [ddx, ddy, dradius] = zoneOffset('delete')
-    list.push({ key: 'delete', label: 'Delete', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
-    const [fdx, fdy, fradius] = zoneOffset('focus')
+    list.push(buildZone('delete', 'Delete', rect))
     // Date Lists on: this slot plans/unplans onto the selected date instead
     // of Current (see isOnSelectedFocusDate above) — Current has no UI of
     // its own to reuse a second zone for once Date Lists are on, so the
@@ -2133,24 +2204,26 @@ const zones = computed<SwipeZone[]>(() => {
     const label = themeStore.dateListsEnabled
       ? (isOnSelectedFocusDate.value ? 'Remove' : `List ${formatShortDate(themeStore.selectedFocusDate)}`)
       : (props.todo.inCurrent ? 'Remove' : 'Current')
-    list.push({ key: 'focus', label, cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
+    list.push(buildZone('focus', label, rect))
   } else {
     if (!props.previewLocked) {
-      const [fdx, fdy, fradius] = zoneOffset('focus')
-      list.push({ key: 'focus', label: 'Done', cx: centerX + fdx, cy: centerY + fdy, radius: fradius })
-      const [dx, dy, radius] = zoneOffset('date')
-      list.push({ key: 'date', label: 'For today', cx: centerX + dx, cy: centerY + dy, radius })
+      list.push(buildZone('focus', 'Done', rect))
+      list.push(buildZone('date', 'For today', rect))
     }
-    const [ddx, ddy, dradius] = zoneOffset('delete')
-    list.push({ key: 'delete', label: 'Remove', cx: centerX + ddx, cy: centerY + ddy, radius: dradius })
+    list.push(buildZone('delete', 'Remove', rect))
   }
 
   return list
 })
 
+// The app's own corner radius (Settings' rounded/square → --radius, see
+// useTheme.ts), read once per drag so the triangles round their corners the
+// same way cards do without restating the value here.
+const zoneCornerRadius = ref(0)
+
 // The one authoritative "what would happen on release" state for zones
 // mode — same role armedDir/armedZone play for the threshold model.
-const zoneHit = ref<'date' | 'delete' | 'focus' | null>(null)
+const zoneHit = ref<ZoneSlot | null>(null)
 
 watch(zoneHit, (hit, prev) => {
   if (hit !== prev) navigator.vibrate?.(hit === null ? 8 : 12)
@@ -2325,6 +2398,7 @@ function onDragStart() {
   swipeRelX.value = 0
   armedZone.value = 'focus'
   zoneHit.value = null
+  zoneCornerRadius.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 0
   everArmed = false
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
@@ -2362,13 +2436,9 @@ function onDrag(event: PointerEvent, info: PanInfo) {
     // armedZone tracking drift once the list had scrolled (see its own
     // comment above). backdropRect is viewport-relative too (getBoundingClientRect),
     // so both sides of this comparison now agree.
-    let hit: typeof zoneHit.value = null
-    for (const zone of zones.value) {
-      const dx = event.clientX - zone.cx
-      const dy = event.clientY - zone.cy
-      if (dx * dx + dy * dy <= zone.radius * zone.radius) { hit = zone.key; break }
-    }
-    zoneHit.value = hit
+    // A card grabbed while the pointer already sits inside a zone counts as
+    // in it right away — dropping it there fires that action, by design.
+    zoneHit.value = zones.value.find(zone => pointInZone(zone, event.clientX, event.clientY))?.key ?? null
     return
   }
 
@@ -2657,13 +2727,11 @@ onUnmounted(() => {
         </Transition>
       </Teleport>
 
-      <!-- Zones model — see SWIPE_MODE above. Each circle is its own
-           position:fixed element in the same viewport coordinate space
-           onDrag's hit-testing uses (event.clientX/clientY), rather than
-           living inside a single backdrop box — sidesteps any risk of an
-           ancestor's overflow/stacking context clipping or mispositioning
-           them, and keeps the geometry (zones computed) as the one single
-           source of truth for both hit-testing and rendering. -->
+      <!-- Zones model — see SWIPE_MODE above. One viewport-sized SVG in the
+           same coordinate space onDrag's hit-testing uses (event.clientX/
+           clientY), teleported to body so no ancestor's overflow/stacking
+           context can clip it — every triangle's path, label position and
+           hit area all come from the same zones geometry. -->
       <Teleport to="body">
         <Transition name="swipe-indicator">
           <div v-if="isGripped && SWIPE_MODE === 'zones'" class="swipe-zones-layer">
@@ -2672,15 +2740,22 @@ onUnmounted(() => {
               class="swipe-zones-dim"
               :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
             />
-            <div
-              v-for="zone in zones"
-              :key="zone.key"
-              class="swipe-zone-circle"
-              :class="{ armed: zoneHit === zone.key }"
-              :style="{ left: zone.cx + 'px', top: zone.cy + 'px', width: zone.radius * 2 + 'px', height: zone.radius * 2 + 'px' }"
-            >
-              <span class="swipe-zone-label">{{ zone.label }}</span>
-            </div>
+            <svg class="swipe-zones-svg">
+              <g
+                v-for="zone in zones"
+                :key="zone.key"
+                class="swipe-zone-tri"
+                :class="{ armed: zoneHit === zone.key }"
+                :style="{ transformOrigin: `${zone.cornerX}px ${zone.cornerY}px` }"
+              >
+                <path class="swipe-zone-shape" :d="zonePath(zone, zoneCornerRadius)" />
+                <text
+                  class="swipe-zone-label"
+                  :x="zoneLabelPos(zone)[0]"
+                  :y="zoneLabelPos(zone)[1]"
+                >{{ zone.label }}</text>
+              </g>
+            </svg>
           </div>
         </Transition>
       </Teleport>
@@ -3212,7 +3287,7 @@ onUnmounted(() => {
 /* Same weight/opacity as the threshold model's own backdrop fill (see
    .swipe-backdrop-fill.visible) — but constant rather than toggled by an
    armed state, so the rest of the app recedes as soon as a card is
-   gripped, not only once a specific circle is hit. The dragged card
+   gripped, not only once a specific zone is hit. The dragged card
    itself stays on top of this (z-index:9999, see the wrapper's
    fixedOrigin style), same as before. */
 .swipe-zones-dim {
@@ -3221,37 +3296,50 @@ onUnmounted(() => {
   opacity: 0.35;
 }
 
-.swipe-zone-circle {
+.swipe-zones-svg {
   position: fixed;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 2px solid var(--ink);
-  background: var(--bg);
-  opacity: 0.6;
-  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.swipe-zone-circle.armed {
+.swipe-zone-tri {
+  opacity: 0.6;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+/* Grows out of its own right-angle corner (transform-origin set inline,
+   see the template) rather than its center, so it stays tucked into the
+   corner instead of drifting off it. */
+.swipe-zone-tri.armed {
   opacity: 1;
-  background: var(--ink);
-  transform: translate(-50%, -50%) scale(1.12);
+  transform: scale(1.06);
+}
+
+.swipe-zone-shape {
+  fill: var(--bg);
+  stroke: var(--ink);
+  stroke-width: 2px;
+  transition: fill 0.15s;
+}
+
+.swipe-zone-tri.armed .swipe-zone-shape {
+  fill: var(--ink);
 }
 
 .swipe-zone-label {
-  padding: 0 8px;
-  color: var(--ink);
+  fill: var(--ink);
   font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  text-align: center;
+  text-anchor: middle;
+  dominant-baseline: middle;
 }
 
-.swipe-zone-circle.armed .swipe-zone-label {
-  color: var(--bg);
+.swipe-zone-tri.armed .swipe-zone-label {
+  fill: var(--bg);
 }
 
 .todo-card {
