@@ -677,6 +677,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-family: var(--font-playful, sans-serif);
 }
 
+/* Empty-state messages read pale, set back from real entries — both of
+   them, since .day-plan-empty stands in for .no-activity (see above). */
+.no-activity,
+.day-plan-empty {
+  opacity: 0.5;
+}
+
 /* calendar | log switch for phone — desktop shows it in App.vue's left
    sidebar, tablet in App.vue's header row instead. */
 .view-toggle {
