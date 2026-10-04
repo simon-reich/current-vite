@@ -116,7 +116,8 @@ input::placeholder, textarea::placeholder {
   opacity: 1;
 }
 
-/* Small icon-only circle button — dim by default, brightens on hover. One
+/* Small icon-only circle button — pale like the text it sits next to
+   (e.g. Current's Checks), brightens on hover. One
    shared class instead of every view redefining the same circle (Current's
    Checks add/edit icons, Calendar's day-detail Add/Edit icons, ...). */
 .icon-circle-btn {
@@ -126,7 +127,7 @@ input::placeholder, textarea::placeholder {
   justify-content: center;
   width: var(--icon-circle-btn-size);
   height: var(--icon-circle-btn-size);
-  border: 1px solid var(--ink);
+  border: 1.5px solid var(--ink);
   border-radius: 50%;
   background: none;
   padding: 0;
@@ -134,6 +135,12 @@ input::placeholder, textarea::placeholder {
   cursor: pointer;
   opacity: 0.55;
   transition: opacity 0.1s;
+}
+
+/* Overrides Lucide's own stroke-width attribute — a slightly heavier line
+   so these small icons don't read as faint decoration. */
+.icon-circle-btn svg {
+  stroke-width: 2.5;
 }
 
 @media (hover: hover) {
