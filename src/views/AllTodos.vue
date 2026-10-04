@@ -272,6 +272,14 @@ function unassignFocusDate(id: string, obvious?: boolean) {
   max-width: 800px;
 }
 
+/* Smaller caption on tablet + phone — set on the wrapper, so the 1lh in
+   its bottom margin (see .selected-list-break) shrinks along with it. */
+@media (max-width: 1024px) {
+  .selected-list-break {
+    font-size: 13px;
+  }
+}
+
 @media (max-width: 700px) {
   .all-todos {
     max-width: 100%;
