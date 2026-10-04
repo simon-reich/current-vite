@@ -188,7 +188,7 @@ const logGroups = computed(() => {
 // enough to always reach the next day that actually has entries, so a
 // click never turns up nothing. Display-only: nothing is persisted, and
 // switching to the log again starts back at one window.
-const LOG_WINDOW_DAYS = 14
+const LOG_WINDOW_DAYS = 30
 const logWindows = ref(1)
 watch(viewMode, (mode) => { if (mode === 'log') logWindows.value = 1 })
 
