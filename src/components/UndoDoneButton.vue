@@ -21,10 +21,3 @@ function undo() {
     <Undo2 :size="10" />
   </button>
 </template>
-
-<style scoped>
-/* Lines up with the first line of the 20px day-item title next to it. */
-.undo-done-btn {
-  margin-top: 5px;
-}
-</style>

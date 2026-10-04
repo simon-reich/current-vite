@@ -53,6 +53,10 @@
      (layout.css) and the empty-list message (Current.vue) share it. */
   --current-aside-font-size: 15px;
 
+  /* .icon-circle-btn's diameter — also what Calendar's undo column
+     reserves for it, so that column is exactly as wide as the button. */
+  --icon-circle-btn-size: 17px;
+
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);
   font-size: 16px;
   color: var(--ink);
@@ -120,8 +124,8 @@ input::placeholder, textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
+  width: var(--icon-circle-btn-size);
+  height: var(--icon-circle-btn-size);
   border: 1px solid var(--ink);
   border-radius: 50%;
   background: none;

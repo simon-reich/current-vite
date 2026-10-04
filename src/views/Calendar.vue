@@ -346,7 +346,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                   <div v-for="todo in group.todos" :key="todo.id" class="day-item">
                     <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
                     <span class="day-item-title">{{ todo.title }}</span>
-                    <UndoDoneButton :todo-id="todo.id" />
+                    <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
                   </div>
                 </div>
               </div>
@@ -409,7 +409,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                   <div class="day-item">
                     <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" filled size="1em" /></span>
                     <span class="day-item-title">{{ entry.todo.title }}</span>
-                    <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
+                    <span v-if="entry.kind === 'done' && !entry.todo.deletedAt" class="day-undo-slot"><UndoDoneButton :todo-id="entry.todo.id" /></span>
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
                     <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
@@ -420,7 +420,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                   <div class="day-item">
                     <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" size="1em" /></span>
                     <span class="day-item-title">{{ entry.todo.title }}</span>
-                    <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
+                    <span v-if="entry.kind === 'done' && !entry.todo.deletedAt" class="day-undo-slot"><UndoDoneButton :todo-id="entry.todo.id" /></span>
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
                     <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
@@ -620,6 +620,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 .day-item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: var(--day-item-icon-gap);
@@ -734,6 +735,30 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   flex: 1;
   min-width: 0;
   word-break: break-word;
+}
+
+/* The undo button gets its own column at the right edge: every entry (and
+   its subs) keeps that column free, whether or not it has an undo button
+   itself — so long titles all wrap at the same edge instead of some
+   running on into the space others leave for the button. */
+.day-items {
+  --day-undo-col: calc(var(--icon-circle-btn-size) + var(--day-item-icon-gap));
+}
+
+.day-item,
+.day-subs {
+  padding-right: var(--day-undo-col);
+}
+
+/* One line-height tall, like .icon — centers the button on the title's
+   first line at any text size. */
+.day-undo-slot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  height: 1lh;
 }
 
 .log-group {
