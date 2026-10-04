@@ -100,6 +100,11 @@ const plannedActiveDates = computed(() => {
   return store.futureFocusDates.map(d => new Date(d + 'T12:00:00'))
 })
 
+// Today's fill and the selected day's outline follow Settings' corner
+// style: 4px rounded (a touch tighter than --radius, these boxes are
+// small), square corners in square mode.
+const dayHighlightRadius = computed(() => themeStore.rounded ? '4px' : '0')
+
 const attributes = computed(() => {
   const attrs: object[] = []
   if (selectedDate.value) {
@@ -109,7 +114,7 @@ const attributes = computed(() => {
         style: {
           backgroundColor: 'transparent',
           border: '2px solid var(--ink)',
-          borderRadius: '4px',
+          borderRadius: dayHighlightRadius.value,
           width: '28px',
           height: '20px',
         },
@@ -121,8 +126,8 @@ const attributes = computed(() => {
     key: 'today',
     highlight: {
       style: {
-        backgroundColor: 'var(--ink-dark)',
-        borderRadius: '4px',
+        backgroundColor: 'var(--ink)',
+        borderRadius: dayHighlightRadius.value,
         width: '28px',
         height: '20px',
       },
