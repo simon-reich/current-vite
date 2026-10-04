@@ -12,8 +12,8 @@ export interface ColorTheme {
 }
 
 export const useThemeStore = defineStore('theme', () => {
-  const activeBg = ref('#E2E790')
-  const activeGray = ref('#878080')
+  const activeBg = ref('#ffffff')
+  const activeGray = ref('#1f004d')
   const rounded = ref(true)
   const priorityShadow = ref<'mono' | 'dark'>('dark')
   const celebrationsEnabled = ref(true)

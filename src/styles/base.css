@@ -29,9 +29,9 @@
 
 /* ══ Design Tokens ══ */
 :root {
-  --bg: #E2E790;
-  --ink: #878080;
-  --ink-dark: #4a4545;
+  --bg: #ffffff;
+  --ink: #1f004d;
+  --ink-dark: #0a001a;
   --radius: 6px;
 
   /* .tag-chip/.all-btn/.tag-label's shared box model (layout.css) — pulled
