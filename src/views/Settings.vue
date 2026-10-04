@@ -153,6 +153,27 @@ watch(deleteThemeConfirm, (open) => {
       </section>
     </div>
 
+    <!-- ── Features ── -->
+
+    <!-- Subs + Date lists -->
+    <div class="section-row">
+      <section class="section">
+        <h2 class="section-title">subs</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.subsEnabled }" @click="themeStore.subsEnabled || themeStore.toggleSubs()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.subsEnabled }" @click="themeStore.subsEnabled && themeStore.toggleSubs()">off</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">date lists</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled || themeStore.toggleDateLists()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled && themeStore.toggleDateLists()">off</button>
+        </div>
+      </section>
+    </div>
+
     <!-- Checks + Tags -->
     <div class="section-row">
       <section class="section">
@@ -172,32 +193,15 @@ watch(deleteThemeConfirm, (open) => {
       </section>
     </div>
 
-    <!-- Celebrations + Subs -->
+    <!-- ── Styling ── -->
+
+    <!-- Celebrations + Subs width -->
     <div class="section-row">
       <section class="section">
         <h2 class="section-title">celebrations</h2>
         <div class="option-row">
           <button class="btn-outline" :class="{ active: themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled || themeStore.toggleCelebrations()">on</button>
           <button class="btn-outline" :class="{ active: !themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled && themeStore.toggleCelebrations()">off</button>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">subs</h2>
-        <div class="option-row">
-          <button class="btn-outline" :class="{ active: themeStore.subsEnabled }" @click="themeStore.subsEnabled || themeStore.toggleSubs()">on</button>
-          <button class="btn-outline" :class="{ active: !themeStore.subsEnabled }" @click="themeStore.subsEnabled && themeStore.toggleSubs()">off</button>
-        </div>
-      </section>
-    </div>
-
-    <!-- Date lists + Subs width -->
-    <div class="section-row">
-      <section class="section">
-        <h2 class="section-title">date lists</h2>
-        <div class="option-row">
-          <button class="btn-outline" :class="{ active: themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled || themeStore.toggleDateLists()">on</button>
-          <button class="btn-outline" :class="{ active: !themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled && themeStore.toggleDateLists()">off</button>
         </div>
       </section>
 
