@@ -12,6 +12,7 @@ import { todayStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
+import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 
 const store = useTodosStore()
 const router = useRouter()
@@ -247,7 +248,7 @@ const isSelectedToday = computed(() => selectedDate.value === todayStr())
 // plus an Add button that plans into the past is nonsensical there.
 const isPastDate = computed(() => !!selectedDate.value && selectedDate.value < todayStr())
 
-// Each entry keeps its own done/worked "kind" (for the ✓✓ vs ✓ icon) even
+// Each entry keeps its own done/worked "kind" (double vs. single circle check) even
 // though the day's list is no longer *grouped* by that — see dayEntries
 // below. What was actually finished vs. just touched today is still worth
 // showing per item, it's just not the more interesting question for a
@@ -327,7 +328,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                 <p class="log-day-label">{{ group.label }}</p>
                 <div class="day-items">
                   <div v-for="todo in group.todos" :key="todo.id" class="day-item">
-                    <span class="icon icon--done">✓✓</span>
+                    <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
                     <span class="day-item-title">
                       {{ todo.title }}
                       <span v-if="tagLabels(todo).length" class="log-tags">{{ tagLabels(todo).join(' · ') }}</span>
@@ -385,26 +386,26 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               <div v-if="hasActivity" class="day-items">
                 <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
                   <div class="day-item">
-                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>
+                    <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" filled size="1em" /></span>
                     <span class="day-item-title">{{ entry.todo.title }}</span>
                     <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
-                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
+                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
                   </div>
                 </div>
-                <div v-if="priorityEntries.length && otherEntries.length" class="day-divider" />
+                <div v-if="priorityEntries.length && otherEntries.length" class="day-group-spacer" />
                 <div v-for="entry in otherEntries" :key="entry.todo.id" class="day-entry">
                   <div class="day-item">
-                    <span :class="['icon', entry.kind === 'done' ? 'icon--done' : 'icon--worked']">{{ entry.kind === 'done' ? '✓✓' : '✓' }}</span>
+                    <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" size="1em" /></span>
                     <span class="day-item-title">{{ entry.todo.title }}</span>
                     <UndoDoneButton v-if="entry.kind === 'done' && !entry.todo.deletedAt" :todo-id="entry.todo.id" />
                   </div>
                   <div v-if="entry.subs.length" class="day-subs">
-                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item">– {{ sub.title }}</div>
+                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
                   </div>
                 </div>
-                <div v-if="(priorityEntries.length || otherEntries.length) && checksOnDay.length" class="day-divider" />
+                <div v-if="(priorityEntries.length || otherEntries.length) && checksOnDay.length" class="day-group-spacer" />
                 <div v-for="check in checksOnDay" :key="check.id" class="day-item day-item--check">
                   <span class="icon icon--check"><span class="icon-dot" /></span>{{ checksStore.titleOn(check, selectedDate) }}
                 </div>
@@ -499,6 +500,12 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
    (.calendar-inner, 640px) on every viewport — a narrower column left long
    titles wrapping in a thin strip with lots of empty space beside it. */
 .day-detail {
+  /* An entry's text size and the gap after its icon — shared by .day-item
+     itself and .day-subs' indent, which has to clear exactly that icon
+     column (the icon is 1em of this size, see .icon). Phone shrinks the
+     size below. */
+  --day-item-font-size: 20px;
+  --day-item-icon-gap: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -593,8 +600,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 .day-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  font-size: 20px;
+  gap: var(--day-item-icon-gap);
+  font-size: var(--day-item-font-size);
   font-weight: bold;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
@@ -603,17 +610,22 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 /* Completed subs for that same day, nested under their parent todo — same
    lower-weight opacity treatment as Checks (.day-item--check) rather than
    a new color, matching the app's four-value color rule. Indented past
-   the ✓✓/✓ icon column (1.4em + its 10px gap) so it reads as belonging to
+   the circle-check icon column (+ its 10px gap) so it reads as belonging to
    the todo above it. */
 .day-subs {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-left: calc(1.4em + 10px);
+  margin-left: calc(var(--day-item-font-size) + var(--day-item-icon-gap));
   opacity: 0.65;
 }
 
+/* Dash and title as two flex items, so a wrapped title's further lines
+   stay aligned under its own first line (hanging indent) instead of
+   running back under the dash. */
 .day-sub-item {
+  display: flex;
+  gap: 0.3em;
   font-size: 15px;
   font-weight: 600;
   color: var(--ink);
@@ -621,21 +633,23 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   word-break: break-word;
 }
 
-.icon {
-  font-size: 13px;
-  line-height: 27px;
-  margin-top: 4px;
+.day-sub-item > :first-child {
   flex-shrink: 0;
-  letter-spacing: -1px;
-  width: 1.4em;
-  text-align: right;
 }
 
-.icon--done {
-  color: var(--ink);
+.day-sub-item > :last-child {
+  min-width: 0;
 }
 
-.icon--worked {
+.icon {
+  /* Inherits .day-item's font-size (the icon itself is 1em) and is exactly
+     one of its line-heights tall, so the icon centers on the first line of
+     the title at any text size — no per-size nudging needed. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1lh;
+  flex-shrink: 0;
   color: var(--ink);
 }
 
@@ -646,20 +660,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   opacity: 0.65;
 }
 
+/* Dot instead of a circle icon, but in the same 1em-wide column. */
 .icon--check {
-  /* .day-item is align-items:flex-start, so its children top-align by
-     default — align-self:stretch instead makes this icon's own box match
-     the row's full height (i.e. the text's line height), and
-     align-items:center below then centers the dot within *that*, rather
-     than the fixed line-height/margin-top nudge the ✓✓/✓ text glyphs
-     above use (tuned for their own font-size/line-height, not this). */
-  align-self: stretch;
-  margin-top: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  letter-spacing: normal;
-  color: var(--ink);
+  width: 1em;
 }
 
 .icon-dot {
@@ -669,11 +672,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   background: currentColor;
 }
 
-.day-divider {
-  height: 1px;
-  border-top: 2px dashed var(--ink);
-  opacity: 1;
-  margin: 2px 0;
+/* Plain space between the priority / other / checks groups — the filled
+   vs. outlined icons already tell priority apart, no line needed. Adds to
+   .day-items' own gap on both sides. */
+.day-group-spacer {
+  height: 12px;
 }
 
 .no-activity {
@@ -778,6 +781,49 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     left: 0;
     right: 0;
     pointer-events: none;
+  }
+
+  /* Room between the calendar | log switch and the calendar below it. */
+  .view-toggle {
+    margin-bottom: 18px;
+  }
+
+  /* Smaller type on phone than the desktop/tablet sizes above. */
+  .cal :deep(.vc-title) {
+    font-size: 20px !important;
+  }
+
+  .cal :deep(.vc-weekday) {
+    font-size: 14px !important;
+  }
+
+  .cal :deep(.vc-day-content) {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+  }
+
+  /* Day headline — uppercase, so the longest one ("WEDNESDAY, SEPTEMBER
+     30, 2026") needs to get this small to stay on one line on a phone. */
+  .day-label {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* The day's/log's entries, scaled down along with the grid — plus the
+     empty-state messages standing in for them, so those never read bigger
+     than the entries they replace. */
+  .day-detail {
+    --day-item-font-size: 16px;
+  }
+
+  .day-plan-empty,
+  .no-activity {
+    font-size: var(--day-item-font-size);
+  }
+
+  .day-sub-item {
+    font-size: 13px;
   }
 }
 </style>
