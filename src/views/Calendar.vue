@@ -184,12 +184,6 @@ const logGroups = computed(() => {
   return groups
 })
 
-function tagLabels(todo: Todo): string[] {
-  return todo.tags
-    .map(id => store.tags.find(t => t.id === id)?.label)
-    .filter((label): label is string => !!label)
-}
-
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
 const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedDate.value) : [])
 // Own section at the end of the day's list (see the template) rather than
@@ -329,10 +323,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                 <div class="day-items">
                   <div v-for="todo in group.todos" :key="todo.id" class="day-item">
                     <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
-                    <span class="day-item-title">
-                      {{ todo.title }}
-                      <span v-if="tagLabels(todo).length" class="log-tags">{{ tagLabels(todo).join(' · ') }}</span>
-                    </span>
+                    <span class="day-item-title">{{ todo.title }}</span>
                     <UndoDoneButton :todo-id="todo.id" />
                   </div>
                 </div>
@@ -712,14 +703,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   flex-direction: column;
   gap: 8px;
   width: 100%;
-}
-
-.log-tags {
-  margin-left: 8px;
-  font-size: 11px;
-  font-weight: 400;
-  opacity: 0.5;
-  font-family: var(--font-mono, monospace);
 }
 
 .unfold-enter-active,
