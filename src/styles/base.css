@@ -49,6 +49,10 @@
      tomorrow → week and week → month (layout.css) share this one value. */
   --date-nav-row-step: 12px;
 
+  /* Current's quieter secondary text — the Date-List header's back/next
+     (layout.css) and the empty-list message (Current.vue) share it. */
+  --current-aside-font-size: 15px;
+
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);
   font-size: 16px;
   color: var(--ink);

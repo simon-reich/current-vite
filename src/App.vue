@@ -1962,11 +1962,11 @@ function onSheetHandlePointerUp(e: PointerEvent) {
            showing. -->
       <div v-if="themeStore.dateListsEnabled && route.path === '/current'" class="current-date-list-nav">
         <button type="button" class="date-list-nav-btn" v-tooltip="'previous list'" @click="goBackDateList">
-          <ChevronLeft :size="15" /> back
+          <ChevronLeft :size="14" /> back
         </button>
         <span class="date-list-nav-label">{{ viewingDateLabel }}</span>
         <button type="button" class="date-list-nav-btn" v-tooltip="'next list'" @click="goNextDateList">
-          next <ChevronRight :size="15" />
+          next <ChevronRight :size="14" />
         </button>
       </div>
     </div>

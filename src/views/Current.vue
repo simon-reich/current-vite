@@ -319,7 +319,7 @@ function editFromAllChecks(check: CheckItem) {
 .empty {
   color: var(--ink);
   opacity: 0.5;
-  font-size: 15px;
+  font-size: var(--current-aside-font-size);
   font-weight: bold;
   font-family: var(--font-playful, sans-serif);
   text-align: center;

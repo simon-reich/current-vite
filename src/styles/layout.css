@@ -271,7 +271,7 @@
   border: none;
   color: var(--ink);
   opacity: 0.6;
-  font-size: 16px;
+  font-size: var(--current-aside-font-size);
   font-weight: 600;
   font-family: var(--font-playful, sans-serif);
   cursor: pointer;
@@ -295,7 +295,7 @@
 
 .date-list-nav-label {
   justify-self: center;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
