@@ -67,13 +67,13 @@ function openLink(href: string) {
   class="linkified"
   :href="seg.href"
   draggable="false"
-  title="cmd/ctrl + click to open"
+  v-tooltip="'cmd/ctrl + click to open'"
   @click="onLinkClick($event, seg.href)"
 >{{ seg.text }}</a><button
   v-if="seg.href"
   type="button"
   class="link-open-btn"
-  title="open link"
+  v-tooltip="'open link'"
   @pointerdown.stop
   @click.stop="openLink(seg.href)"
 ><ExternalLink /></button><template v-if="!seg.href">{{ seg.text }}</template></template></template>

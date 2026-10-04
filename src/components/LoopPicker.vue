@@ -225,7 +225,7 @@ const loopNextText = computed(() => {
         <button
           type="button"
           class="loop-date-btn"
-          title="Change date"
+          v-tooltip="'change date'"
           @mousedown.prevent
           @click="showDateModal = true"
         >
@@ -297,7 +297,7 @@ const loopNextText = computed(() => {
           type="button"
           class="loop-toggle"
           :class="{ active: !!modelValue?.rescheduleFromCompletion }"
-          title="Count the next occurrence from when it's checked off, not the fixed schedule"
+          v-tooltip="'count the next occurrence from when it\'s checked off, not the fixed schedule'"
           @mousedown.prevent
           @click="toggleReschedule"
         >

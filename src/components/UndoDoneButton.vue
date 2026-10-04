@@ -17,7 +17,7 @@ function undo() {
 </script>
 
 <template>
-  <button type="button" class="icon-circle-btn undo-done-btn" title="Undo done" @click.stop="undo">
+  <button type="button" class="icon-circle-btn undo-done-btn" v-tooltip="'undo done'" @click.stop="undo">
     <Undo2 :size="10" />
   </button>
 </template>

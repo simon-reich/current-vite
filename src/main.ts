@@ -14,6 +14,7 @@ import App from './App.vue'
 import { applyTheme } from './composables/useTheme'
 import { useFontLabStore } from './stores/fontlab'
 import { seedDevData } from './dev/seed'
+import { vTooltip } from './composables/useTooltip'
 
 // Apply persisted theme before mount to avoid flash of default colors
 try {
@@ -36,4 +37,5 @@ app.use(pinia)
 useFontLabStore(pinia)
 app.use(router)
 app.use(VCalendar, {})
+app.directive('tooltip', vTooltip)
 app.mount('#vue-root')

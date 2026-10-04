@@ -79,7 +79,7 @@ function open() {
   <button
     type="button"
     class="focus-date-widget"
-    :title="modelValue !== undefined ? 'Choose which Date List to view' : 'Change the plan-ahead target date'"
+    v-tooltip="modelValue !== undefined ? 'choose which date list to view' : 'change the plan-ahead target date'"
     @click="open"
   >
     <div class="fdw-row">

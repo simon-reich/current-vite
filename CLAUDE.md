@@ -47,6 +47,10 @@ Das gesamte UI verwendet ausschließlich diese vier Werte — keine Ausnahmen:
 
 Labels, Buttons, Menüeinträge, Tooltips und Platzhaltertexte werden durchgängig kleingeschrieben (`lists`, `subs`, `tags`, `default`, `current` – nicht `Lists`, `Subs`, ...), auch wenn es sich um Eigennamen wie View-Namen handelt. Ausnahme: die Labels in den Swipe-Zonen (`TodoCard.vue`, siehe Swipe-Gesten-Sektion unten) erscheinen immer in Großbuchstaben – das passiert rein über `text-transform: uppercase` in CSS, die Strings im Code selbst bleiben Title-Case (`Done`, `Remove`, `Delete`, `Current`, ...), konsistent mit dem Rest der App. Ganze Sätze (Fließtext wie Empty-States, z.B. "Nothing planned for this day.") folgen normaler Satzgroßschreibung – die Regel gilt für UI-*Chrome*, nicht für Prosa.
 
+### Tooltips: `v-tooltip`, nie `title`
+
+Hover-Infos an Buttons/Icons laufen über die globale Direktive `v-tooltip="'text'"` (`src/composables/useTooltip.ts`, Styling `.app-tooltip` in `base.css`: Ink-Fläche, Text in `--bg`), nicht über das native `title`-Attribut – das zeichnet der Browser in eigenen Farben, nicht stylebar. Ein gemeinsames Tooltip-Element für die ganze App, nur auf Hover-Geräten; Icon-only-Buttons bekommen dabei automatisch ein `aria-label`. Texte kleingeschrieben (siehe oben).
+
 ## Tech Stack
 
 | Bereich | Entscheidung |

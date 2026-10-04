@@ -207,7 +207,7 @@ function editFromAllChecks(check: CheckItem) {
       <IconLabelButton
         :icon="Plus"
         label="add todos"
-        title="Add todos to this list in Overview"
+        title="add todos to this list in overview"
         @click="planInOverview"
       />
     </div>
@@ -218,7 +218,7 @@ function editFromAllChecks(check: CheckItem) {
           <button
             type="button"
             class="icon-circle-btn"
-            title="Add check"
+            v-tooltip="'add check'"
             @click="openAddCheck"
             @mouseenter="checksHover = 'add'"
             @mouseleave="checksHover = null"
@@ -229,7 +229,7 @@ function editFromAllChecks(check: CheckItem) {
             v-if="checksStore.activeChecks.length"
             type="button"
             class="icon-circle-btn"
-            title="Edit checks"
+            v-tooltip="'edit checks'"
             @click="openAllChecks"
             @mouseenter="checksHover = 'edit'"
             @mouseleave="checksHover = null"
@@ -251,7 +251,7 @@ function editFromAllChecks(check: CheckItem) {
           <span
             class="check-box"
             :class="{ checked: checksStore.isCompletedOn(check, checkDisplayDate), locked: viewingLockedDate }"
-            :title="viewingLockedDate ? 'This day hasn\'t arrived yet' : undefined"
+            v-tooltip="viewingLockedDate ? 'this day hasn\'t arrived yet' : undefined"
             @click.stop="onToggleCheck(check, $event)"
           >
             <Check v-if="checksStore.isCompletedOn(check, checkDisplayDate)" :size="10" />

@@ -102,7 +102,7 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <button v-if="!editing" ref="btnRef" type="button" class="tag-row-add-btn" title="New tag" @mousedown.prevent="startCreate">
+  <button v-if="!editing" ref="btnRef" type="button" class="tag-row-add-btn" v-tooltip="'new tag'" @mousedown.prevent="startCreate">
     <Plus :size="12" />
   </button>
   <span v-else class="tag-row-opt tag-row-add-editing" @mousedown.stop @click.stop>

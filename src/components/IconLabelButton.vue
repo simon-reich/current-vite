@@ -28,7 +28,7 @@ withDefaults(defineProps<{
     type="button"
     class="icon-label-btn"
     :class="{ 'icon-label-btn--compact': compact }"
-    :title="title"
+    v-tooltip="title"
   >
     <span
       class="icon-label-btn-icon"

@@ -352,7 +352,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               </div>
               <div v-if="nextOlderLogGroup" class="day-actions">
                 <span class="icon-side-label icon-side-label--right">
-                  <button type="button" class="icon-circle-btn" title="Show older entries" @click="showOlderLog">
+                  <button type="button" class="icon-circle-btn" v-tooltip="'show older entries'" @click="showOlderLog">
                     <ChevronDown :size="10" />
                   </button>
                   <span class="icon-side-label-text">show older</span>
@@ -386,12 +386,12 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                   :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
                 >
                   <span class="icon-side-label-text">add</span>
-                  <button type="button" class="icon-circle-btn" title="Plan this day in Overview" @click="planThisDay">
+                  <button type="button" class="icon-circle-btn" v-tooltip="'plan this day in overview'" @click="planThisDay">
                     <Plus :size="10" />
                   </button>
                 </span>
                 <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
-                  <button type="button" class="icon-circle-btn" title="Edit this day's list in Current" @click="editThisDayList">
+                  <button type="button" class="icon-circle-btn" v-tooltip="'edit this day\'s list in current'" @click="editThisDayList">
                     <Pencil :size="10" />
                   </button>
                   <span class="icon-side-label-text">edit</span>

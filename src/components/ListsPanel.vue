@@ -55,7 +55,7 @@ registerModalGuard({ onCancel: close })
           <span class="lists-panel-row-date">{{ entry.isToday ? 'Today' : entry.date }}</span>
           <span class="lists-panel-row-count">{{ entry.count }}</span>
         </button>
-        <button type="button" class="lists-panel-row-delete" title="Delete list" @click="deleteList(entry.date)">
+        <button type="button" class="lists-panel-row-delete" v-tooltip="'delete list'" @click="deleteList(entry.date)">
           <Trash2 :size="14" />
         </button>
       </div>

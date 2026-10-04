@@ -2847,8 +2847,8 @@ onUnmounted(() => {
           <div class="modal-box" role="dialog">
             <p class="modal-text">Delete <strong>{{ todo.title }}</strong>?</p>
             <div class="modal-actions">
-              <button class="modal-btn modal-btn--cancel" @click="cancelDelete">Cancel</button>
-              <button class="modal-btn modal-btn--delete" @click="confirmDelete">Delete</button>
+              <button class="modal-btn modal-btn--cancel" @click="cancelDelete">cancel</button>
+              <button class="modal-btn modal-btn--delete" @click="confirmDelete">delete</button>
             </div>
           </div>
         </template>
@@ -2901,7 +2901,7 @@ onUnmounted(() => {
           <template v-if="showTagMenu && !isEditing">
             <button
               class="card-btn card-btn--delete"
-              title="Delete"
+              v-tooltip="'delete'"
               @click.stop="pendingDelete = true"
             >
               <Trash2 :size="18" />
@@ -2915,7 +2915,7 @@ onUnmounted(() => {
                this button out for the Edit one mid-click so the click lands
                on nothing/the wrong button instead of accepting the edit. -->
           <template v-else-if="showTagMenu && isEditing">
-            <button class="card-btn card-btn--circle" title="Accept" @mousedown.prevent @click.stop="acceptEdit">
+            <button class="card-btn card-btn--circle" v-tooltip="'accept'" @mousedown.prevent @click.stop="acceptEdit">
               <Check :size="11" />
             </button>
           </template>
@@ -2933,7 +2933,7 @@ onUnmounted(() => {
               <button
                 v-if="!isOnSelectedFocusDate"
                 class="card-btn"
-                :title="`Add to ${formatShortDate(themeStore.selectedFocusDate)} list`"
+                v-tooltip="`add to ${formatShortDate(themeStore.selectedFocusDate)} list`"
                 @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
               >
                 <CirclePlus :size="18" />
@@ -2941,7 +2941,7 @@ onUnmounted(() => {
               <button
                 v-else
                 class="card-btn"
-                :title="`Remove from ${formatShortDate(themeStore.selectedFocusDate)} list`"
+                v-tooltip="`remove from ${formatShortDate(themeStore.selectedFocusDate)} list`"
                 @click.stop="emit('unassign-focus-date', todo.id, true)"
               >
                 <CircleMinus :size="18" />
@@ -2951,7 +2951,7 @@ onUnmounted(() => {
               <button
                 v-if="!todo.inCurrent"
                 class="card-btn"
-                title="Add to current"
+                v-tooltip="'add to current'"
                 @click.stop="emit('send-to-current', todo.id, true)"
               >
                 <CirclePlus :size="18" />
@@ -2959,7 +2959,7 @@ onUnmounted(() => {
               <button
                 v-else
                 class="card-btn"
-                title="Remove from current"
+                v-tooltip="'remove from current'"
                 @click.stop="emit('remove-from-current', todo.id, true)"
               >
                 <CircleMinus :size="18" />
@@ -2978,14 +2978,14 @@ onUnmounted(() => {
           <template v-else>
             <button
               class="card-btn card-btn--circle"
-              :title="isPriority ? 'Remove priority' : 'Set priority'"
+              v-tooltip="isPriority ? 'remove priority' : 'set priority'"
               @click.stop="togglePriority"
             >
               <Flag :size="10" :fill="isPriority ? 'currentColor' : 'none'" />
             </button>
             <button
               class="card-btn"
-              title="Move back to overview"
+              v-tooltip="'move back to overview'"
               @click.stop="emit('remove-from-current', todo.id, true)"
             >
               <CircleMinus :size="18" />
@@ -3008,7 +3008,7 @@ onUnmounted(() => {
                 type="button"
                 class="sub-box"
                 :class="{ checked: !!sub.completedAt }"
-                title="Toggle sub"
+                v-tooltip="'toggle sub'"
                 @click.stop="handleToggleSub(sub, $event)"
               >
                 <Check v-if="sub.completedAt" :size="10" />
@@ -3037,7 +3037,7 @@ onUnmounted(() => {
                 v-if="editingSubId === sub.id"
                 type="button"
                 class="sub-edit"
-                title="Save"
+                v-tooltip="'save'"
                 @mousedown.prevent
                 @click.stop="saveEditSub"
               >
@@ -3048,7 +3048,7 @@ onUnmounted(() => {
                 v-if="!sub.completedAt && uncheckedSubsCount > 1"
                 type="button"
                 class="sub-grip"
-                title="Drag to reorder"
+                v-tooltip="'drag to reorder'"
                 @pointerdown="onSubGripPointerDown(sub, $event)"
                 @click.stop
               >
@@ -3058,7 +3058,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="sub-promote"
-                title="Make own todo"
+                v-tooltip="'make own todo'"
                 @click.stop="promoteSubToTodo(sub)"
               >
                 <ArrowUpRight :size="12" />
@@ -3067,7 +3067,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="sub-delete"
-                title="Delete sub"
+                v-tooltip="'delete sub'"
                 @click.stop="handleDeleteSub(sub.id)"
               >
                 <Trash2 :size="12" />
@@ -3078,7 +3078,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="sub-hint-btn"
-                :title="doneSubsRevealed ? 'Hide done subs' : 'Show done subs'"
+                v-tooltip="doneSubsRevealed ? 'hide done subs' : 'show done subs'"
                 @click.stop="toggleDoneSubsReveal"
               >
                 <ChevronDown v-if="doneSubsRevealed" :size="17" :stroke-width="3" />
@@ -3110,7 +3110,7 @@ onUnmounted(() => {
                   v-if="newSubTitle.length"
                   type="button"
                   class="sub-input-clear"
-                  title="Clear"
+                  v-tooltip="'clear'"
                   @mousedown.prevent="clearNewSubInput"
                 >
                   <X :size="9" />
@@ -3122,7 +3122,7 @@ onUnmounted(() => {
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
           <div v-if="showMenu && mode === 'current'" class="check-row">
-            <span v-if="previewLocked" class="check-opt check-opt--locked" title="This day hasn't arrived yet">
+            <span v-if="previewLocked" class="check-opt check-opt--locked" v-tooltip="'this day hasn\'t arrived yet'">
               <Clock :size="16" /> <span>Not due yet</span>
             </span>
             <template v-else>

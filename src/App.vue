@@ -1550,7 +1550,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
               ref="subsToggleBtnRef"
               class="sort-btn desktop-subs-toggle"
-              :title="`subs: ${desktopSubsState}`"
+              v-tooltip="`subs: ${desktopSubsState}`"
               @click="toggleDesktopSubs"
             >
               <span class="mobile-subs-label">subs</span>
@@ -1571,7 +1571,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                    never offered there; every other breakpoint keeps it. -->
               <button
                 ref="sortListBtnRef"
-                :title="listView ? 'Switch to grid view' : 'Switch to list view'"
+                v-tooltip="listView ? 'switch to grid view' : 'switch to list view'"
                 class="sort-btn overview-grid-toggle-btn"
                 @click="listView = !listView"
               >
@@ -1579,7 +1579,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               </button>
               <button
                 ref="sortOrderBtnRef"
-                :title="sortKey === 'createdAt' ? 'By date – switch to A–Z' : 'A–Z – switch to date'"
+                v-tooltip="sortKey === 'createdAt' ? 'by date – switch to A–Z' : 'A–Z – switch to date'"
                 class="sort-btn sort-order-btn"
                 @click="toggleSort"
               >
@@ -1594,7 +1594,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               <button
                 v-if="themeStore.tagsEnabled"
                 class="mobile-tags-btn mobile-only"
-                title="Tags"
+                v-tooltip="'tags'"
                 @click="showMobileTags = true"
               >
                 <Tag :size="22" />
@@ -1603,7 +1603,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 v-else
                 class="mobile-tags-btn priority-toggle-btn mobile-only"
                 :class="{ active: activeTagIds.includes(PRIORITY_TAG_ID) }"
-                :title="activeTagIds.includes(PRIORITY_TAG_ID) ? 'Showing prio – tap for all' : 'Showing all – tap for prio'"
+                v-tooltip="activeTagIds.includes(PRIORITY_TAG_ID) ? 'showing prio – tap for all' : 'showing all – tap for prio'"
                 @click="toggleTag(PRIORITY_TAG_ID)"
               >
                 <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
@@ -1629,7 +1629,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <button
             v-if="route.path === '/all' || route.path === '/current'"
             class="phone-overview-add-btn mobile-only"
-            title="Add todo"
+            v-tooltip="'add todo'"
             @click="openAddSheet"
           >
             <Plus :size="20" />
@@ -1661,7 +1661,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               v-if="hasTodoDraft"
               type="button"
               class="add-input-clear"
-              title="Clear"
+              v-tooltip="'clear'"
               @mousedown.prevent="clearTodoInput"
             >
               <X :size="12" />
@@ -1677,7 +1677,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 <div v-if="newTodoSubs.length" class="add-subs-list">
                   <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
                     {{ sub }}
-                    <button type="button" class="add-sub-chip-x" title="Remove" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                    <button type="button" class="add-sub-chip-x" v-tooltip="'remove'" @mousedown.prevent="newTodoSubs.splice(i, 1)">
                       <X :size="9" />
                     </button>
                   </span>
@@ -1695,7 +1695,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                     v-if="newSubDraft.length"
                     type="button"
                     class="add-sub-chip-x add-sub-input-clear"
-                    title="Clear"
+                    v-tooltip="'clear'"
                     @mousedown.prevent="newSubDraft = ''"
                   >
                     <X :size="9" />
@@ -1806,7 +1806,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                   v-if="hasTodoDraft"
                   type="button"
                   class="add-input-clear"
-                  title="Clear"
+                  v-tooltip="'clear'"
                   @mousedown.prevent="clearTodoInput"
                 >
                   <X :size="14" />
@@ -1828,7 +1828,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                   <div v-if="newTodoSubs.length" class="add-subs-list">
                     <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
                       {{ sub }}
-                      <button type="button" class="add-sub-chip-x" title="Remove" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                      <button type="button" class="add-sub-chip-x" v-tooltip="'remove'" @mousedown.prevent="newTodoSubs.splice(i, 1)">
                         <X :size="9" />
                       </button>
                     </span>
@@ -1846,7 +1846,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                       v-if="newSubDraft.length"
                       type="button"
                       class="add-sub-chip-x add-sub-input-clear"
-                      title="Clear"
+                      v-tooltip="'clear'"
                       @mousedown.prevent="newSubDraft = ''"
                     >
                       <X :size="9" />
@@ -1910,13 +1910,13 @@ function onSheetHandlePointerUp(e: PointerEvent) {
              previously left the icons packed next to tags/sort instead
              of centered). -->
         <nav class="top-nav desktop-only">
-          <RouterLink ref="allNavRef" to="/all" class="nav-icon" title="All todos">
+          <RouterLink ref="allNavRef" to="/all" class="nav-icon" v-tooltip="'all todos'">
             <PoolIcon :size="27" />
           </RouterLink>
-          <RouterLink ref="focusNavRef" to="/current" class="nav-icon" title="current">
+          <RouterLink ref="focusNavRef" to="/current" class="nav-icon" v-tooltip="'current'">
             <LinesIcon :size="27" />
           </RouterLink>
-          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" title="Calendar">
+          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" v-tooltip="'calendar'">
             <CalendarIcon :size="27" />
           </RouterLink>
         </nav>
@@ -1933,7 +1933,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <button
               v-if="themeStore.dateListsEnabled && route.path === '/current'"
               class="tablet-focus-date-widget-slot nav-icon"
-              title="lists"
+              v-tooltip="'lists'"
               @click="listsPanelOpen = true"
             >
               <ListChecks :size="22" />
@@ -1942,7 +1942,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <button
             class="tablet-settings-btn settings-btn"
             :class="{ active: route.path === '/settings' }"
-            title="Settings"
+            v-tooltip="'settings'"
             @click="toggleSettings"
           >
             <Settings :size="26" />
@@ -1961,11 +1961,11 @@ function onSheetHandlePointerUp(e: PointerEvent) {
            content, Settings icon, ...) up/down depending on whether it's
            showing. -->
       <div v-if="themeStore.dateListsEnabled && route.path === '/current'" class="current-date-list-nav">
-        <button type="button" class="date-list-nav-btn" title="Previous list" @click="goBackDateList">
+        <button type="button" class="date-list-nav-btn" v-tooltip="'previous list'" @click="goBackDateList">
           <ChevronLeft :size="15" /> back
         </button>
         <span class="date-list-nav-label">{{ viewingDateLabel }}</span>
-        <button type="button" class="date-list-nav-btn" title="Next list" @click="goNextDateList">
+        <button type="button" class="date-list-nav-btn" v-tooltip="'next list'" @click="goNextDateList">
           next <ChevronRight :size="15" />
         </button>
       </div>
@@ -2103,7 +2103,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                 ref="tagAddBtnRef"
                 type="button"
                 class="tag-add-btn"
-                title="Add tag"
+                v-tooltip="'add tag'"
                 @click="openTagInput"
               >
                 <Plus :size="12" />
@@ -2131,7 +2131,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               }"
             >
               <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
-              <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
+              <button class="tag-x" v-tooltip="'delete'" @click="handleDeleteTag(tag.id, tag.label)">×</button>
             </div>
           </template>
         </div>
@@ -2148,7 +2148,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         ref="settingsBtnRef"
         class="settings-btn"
         :class="{ active: route.path === '/settings' }"
-        title="Settings"
+        v-tooltip="'settings'"
         @click="toggleSettings"
       >
         <Settings :size="30" />
@@ -2224,7 +2224,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             }"
           >
             <span class="tag-label" @click="toggleTag(tag.id)">{{ tag.label }}</span>
-            <button class="tag-x" title="Delete" @click="handleDeleteTag(tag.id, tag.label)">×</button>
+            <button class="tag-x" v-tooltip="'delete'" @click="handleDeleteTag(tag.id, tag.label)">×</button>
           </div>
         </div>
         <div ref="tagsBottomSpacer" class="bottom-breathing-spacer" :style="{ height: tagsPanelSpacerHeight + 'px' }" />
@@ -2262,13 +2262,13 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       </div>
 
       <div class="mobile-nav-views">
-        <RouterLink to="/all" class="nav-icon" title="All todos" @click="showMobileTags = false">
+        <RouterLink to="/all" class="nav-icon" v-tooltip="'all todos'" @click="showMobileTags = false">
           <PoolIcon :size="24" />
         </RouterLink>
-        <RouterLink to="/current" class="nav-icon" title="current" @click="showMobileTags = false">
+        <RouterLink to="/current" class="nav-icon" v-tooltip="'current'" @click="showMobileTags = false">
           <LinesIcon :size="24" />
         </RouterLink>
-        <RouterLink to="/calendar" class="nav-icon" title="Calendar" @click="showMobileTags = false">
+        <RouterLink to="/calendar" class="nav-icon" v-tooltip="'calendar'" @click="showMobileTags = false">
           <CalendarIcon :size="24" />
         </RouterLink>
       </div>
@@ -2276,7 +2276,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       <button
         class="settings-btn"
         :class="{ active: route.path === '/settings' }"
-        title="Settings"
+        v-tooltip="'settings'"
         @click="toggleSettings"
       >
         <Settings :size="24" />
@@ -2378,8 +2378,8 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <div class="modal-box" role="dialog">
       <p class="modal-text">Delete tag <strong>{{ deleteConfirm.label }}</strong>? It is still assigned to some todos.</p>
       <div class="modal-actions">
-        <button class="modal-btn modal-btn--cancel" @click="deleteConfirm = null">Cancel</button>
-        <button class="modal-btn modal-btn--delete" @click="confirmDeleteTag">Delete</button>
+        <button class="modal-btn modal-btn--cancel" @click="deleteConfirm = null">cancel</button>
+        <button class="modal-btn modal-btn--delete" @click="confirmDeleteTag">delete</button>
       </div>
     </div>
   </template>

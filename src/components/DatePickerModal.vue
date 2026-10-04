@@ -71,7 +71,7 @@ const minDate = computed(() => props.disablePast ? new Date(todayStr() + 'T00:00
     <div class="modal-box" role="dialog" @mousedown.prevent @click.stop>
       <VCalendar :attributes="dateAttributes" :min-date="minDate" expanded locale="en" :first-day-of-week="2" @dayclick="pickDate" />
       <div class="modal-actions">
-        <button class="modal-btn modal-btn--cancel" @click="close">Close</button>
+        <button class="modal-btn modal-btn--cancel" @click="close">close</button>
       </div>
     </div>
   </Teleport>
