@@ -378,7 +378,10 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                   <span class="day-item-bullet">–</span>{{ todo.title }}
                 </div>
               </div>
-              <p v-else class="day-plan-empty">no activities planned for this day yet</p>
+              <!-- Only while the day has no history either — once something
+                   is already done/worked on, "nothing planned yet" reads
+                   as if nothing happened. -->
+              <p v-else-if="!hasActivity" class="day-plan-empty">no activities planned for this day yet</p>
 
               <div class="day-actions">
                 <span
