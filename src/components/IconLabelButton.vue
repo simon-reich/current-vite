@@ -11,11 +11,17 @@ import type { Component } from 'vue'
 // floated (position:absolute) below on hover instead — used wherever two of
 // these sit close together (Calendar's day-detail Add+Edit) and a
 // sideways-growing label would shove its neighbor sideways.
+//
+// `floatLabel` keeps the normal side-unroll look, but takes the label out of
+// the flex flow — the button is then only ever as wide as its circle, so a
+// centered button's circle stays put on hover instead of drifting left as
+// the label grows (Current's centered "add todos" on an empty list).
 withDefaults(defineProps<{
   icon: Component
   label: string
   title?: string
   compact?: boolean
+  floatLabel?: boolean
   circleSize?: number
   iconSize?: number
 }>(), {
@@ -27,7 +33,7 @@ withDefaults(defineProps<{
   <button
     type="button"
     class="icon-label-btn"
-    :class="{ 'icon-label-btn--compact': compact }"
+    :class="{ 'icon-label-btn--compact': compact, 'icon-label-btn--float-label': floatLabel }"
     v-tooltip="title"
   >
     <span
@@ -42,9 +48,12 @@ withDefaults(defineProps<{
 
 <style scoped>
 .icon-label-btn {
+  /* Circle-to-label spacing — the flex gap normally, the absolute offset
+     in the --float-label variant below. */
+  --icon-label-gap: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--icon-label-gap);
   background: none;
   border: none;
   padding: 0;
@@ -90,6 +99,16 @@ withDefaults(defineProps<{
     max-width: 120px;
     opacity: 0.5;
   }
+}
+
+/* Float label: same side-unroll, out of the flex flow (see floatLabel). */
+.icon-label-btn--float-label {
+  position: relative;
+}
+
+.icon-label-btn--float-label .icon-label-btn-label {
+  position: absolute;
+  left: calc(100% + var(--icon-label-gap));
 }
 
 /* Compact: label leaves the flex flow entirely (position:absolute) so it

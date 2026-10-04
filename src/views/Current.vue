@@ -203,11 +203,16 @@ function editFromAllChecks(check: CheckItem) {
     </div>
     <p v-else class="empty">{{ viewingDate ? 'Nothing planned for this day.' : 'Nothing in current right now.' }}</p>
 
-    <div v-if="viewingDate && themeStore.dateListsEnabled" class="plan-in-overview-row">
+    <div
+      v-if="viewingDate && themeStore.dateListsEnabled"
+      class="plan-in-overview-row"
+      :class="{ 'plan-in-overview-row--centered': !displayedTodos.length }"
+    >
       <IconLabelButton
         :icon="Plus"
         label="add todos"
         title="add todos to this list in overview"
+        :float-label="!displayedTodos.length"
         @click="planInOverview"
       />
     </div>
@@ -309,23 +314,31 @@ function editFromAllChecks(check: CheckItem) {
   max-width: 800px;
 }
 
+/* Pale and set back, like Calendar's empty-state messages — a placeholder,
+   not content. */
 .empty {
   color: var(--ink);
-  font-size: 18px;
+  opacity: 0.5;
+  font-size: 15px;
   font-weight: bold;
   font-family: var(--font-playful, sans-serif);
   text-align: center;
-  margin-top: 24px;
+  margin-top: 4px;
 }
 
 /* Sits right under the viewed Date List's own todos (or its "Nothing
    planned" empty state) — a quick way into Overview with this list already
    preset as the plan-ahead target. Left-aligned flush with the todo cards
-   above it (.todo-wrap's own align-items:flex-start), not centered. */
+   above it (.todo-wrap's own align-items:flex-start); centered under the
+   (centered) empty-state text when there are no cards. */
 .plan-in-overview-row {
   display: flex;
   justify-content: flex-start;
   margin-top: 24px;
+}
+
+.plan-in-overview-row--centered {
+  justify-content: center;
 }
 
 /* Generous space instead of a visual divider — Checks read as lower-
