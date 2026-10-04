@@ -495,10 +495,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-size: 20px !important;
 }
 
-/* On desktop the day's entries share the calendar grid's own width cap
-   (.calendar-inner, 640px) — a narrower column there left long titles
-   wrapping in a thin strip with lots of empty space beside it. Tablet and
-   phone keep a tighter centered column (see the media queries below). */
+/* The day's entries share the calendar grid's own width cap
+   (.calendar-inner, 640px) on every viewport — a narrower column left long
+   titles wrapping in a thin strip with lots of empty space beside it. */
 .day-detail {
   display: flex;
   flex-direction: column;
@@ -506,12 +505,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   gap: 28px;
   width: 100%;
   margin: 0 auto;
-}
-
-@media (max-width: 1024px) {
-  .day-detail {
-    max-width: 420px;
-  }
 }
 
 .day-detail-content {
@@ -786,11 +779,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     left: 0;
     right: 0;
     pointer-events: none;
-  }
-
-  /* Even narrower on phones than the general 420px cap above. */
-  .day-detail {
-    max-width: 320px;
   }
 }
 </style>
