@@ -30,6 +30,10 @@ export const useThemeStore = defineStore('theme', () => {
   // where new "plan ahead" assignments go. Persists across reloads (see
   // plan discussion) so multi-day planning doesn't reset on every visit.
   const selectedFocusDate = ref(todayStr())
+  // Calendar view's calendar | log switch (CalendarModeToggle.vue, L key) —
+  // persisted so coming back to Calendar (C) or reloading lands on
+  // whichever of the two you left it on.
+  const calendarViewMode = ref<'calendar' | 'log'>('calendar')
   // Force every card's sub-list open without having to expand each one
   // individually — see App.vue's desktop-subs-toggle (and Current.vue's/
   // AllTodos.vue's own force-expand-subs prop on TodoCard). Binary: 'off'
@@ -148,7 +152,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, subsFullWidth, expandCurrentSubs, expandOverviewSubs, savedThemes,
-    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate,
+    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate, calendarViewMode,
     apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleSubsFullWidth, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
     toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
   }

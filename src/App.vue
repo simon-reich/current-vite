@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import LinesIcon from './components/icons/LinesIcon.vue'
@@ -197,10 +198,17 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // L — opens Overview's Focus-Date-Pille (the "plan ahead" date picker) —
-  // clicks the real button rather than reaching into the component, so
-  // this needs nothing exposed from FocusDateWidget.vue itself.
+  // L — Calendar: toggle between its calendar and log modes (C still
+  // leaves Calendar entirely, from either mode). Overview: opens the
+  // Focus-Date-Pille (the "plan ahead" date picker) — clicks the real
+  // button rather than reaching into the component, so this needs nothing
+  // exposed from FocusDateWidget.vue itself.
   if (key === 'l') {
+    if (route.path === '/calendar') {
+      e.preventDefault()
+      calendarViewMode.value = calendarViewMode.value === 'calendar' ? 'log' : 'calendar'
+      return
+    }
     if (route.path !== '/all' || !themeStore.dateListsEnabled) return
     e.preventDefault()
     focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget')?.click()
@@ -407,6 +415,12 @@ const subsHintPos = ref<{ x: number; y: number } | null>(null)
 // floats centered above the pill itself.
 const focusDateHintPos = ref<{ x: number; y: number } | null>(null)
 
+// L in Calendar (calendar | log switch) — left-aligned just above the
+// switch's first button in the desktop sidebar, same placement as the
+// Date-List nav's ↑↓ hint.
+const calendarModeHintPos = ref<{ x: number; y: number } | null>(null)
+const calendarModeToggleRef = ref<HTMLElement | null>(null)
+
 // ↑/↓ (Date-List cycling, see stepFocusDate) — a plain "↑↓" pill centered
 // above the whole Date-List sidebar (dateListSidebarRef), Overview and
 // Current alike, only shown when that sidebar actually exists.
@@ -518,6 +532,12 @@ function computeShortcutHints() {
   if (route.path === '/all' && themeStore.dateListsEnabled) {
     const pillRect = focusDateWidgetSlotRef.value?.querySelector('.focus-date-widget')?.getBoundingClientRect()
     if (pillRect) focusDateHintPos.value = { x: pillRect.left + pillRect.width / 2, y: pillRect.top - 13 }
+  }
+
+  calendarModeHintPos.value = null
+  if (route.path === '/calendar') {
+    const firstRect = calendarModeToggleRef.value?.querySelector('.calendar-mode-btn')?.getBoundingClientRect()
+    if (firstRect) calendarModeHintPos.value = { x: firstRect.left, y: firstRect.top - 13 }
   }
 
   dateListNavHintPos.value = null
@@ -1184,9 +1204,10 @@ provide('listsPanelOpen', listsPanelOpen)
 const viewingDate = ref<string | null>(themeStore.dateListsEnabled ? todayStr() : null)
 provide('viewingDate', viewingDate)
 
-// Calendar view's calendar | log switch (see CalendarModeToggle.vue) — owned
-// here because its desktop buttons sit in this file's left sidebar.
-const calendarViewMode = ref<'calendar' | 'log'>('calendar')
+// Calendar view's calendar | log switch (see CalendarModeToggle.vue) —
+// provided from here because its desktop buttons sit in this file's left
+// sidebar; the state itself lives (persisted) in the theme store.
+const { calendarViewMode } = storeToRefs(themeStore)
 provide('calendarViewMode', calendarViewMode)
 
 // Toggling the setting live (Settings view) has to flip viewingDate the
@@ -2039,7 +2060,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     <!-- ══ DESKTOP: Sidebar body — Calendar's calendar | log switch ══ -->
     <aside v-if="route.path === '/calendar'" class="sidebar desktop-only">
       <div class="sidebar-scroll">
-        <div class="tag-list">
+        <div ref="calendarModeToggleRef" class="tag-list">
           <CalendarModeToggle />
         </div>
       </div>
@@ -2345,6 +2366,14 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       v-if="focusDateHintPos"
       class="shortcut-hint"
       :style="{ left: focusDateHintPos.x + 'px', top: focusDateHintPos.y + 'px' }"
+    >L</div>
+
+    <!-- L in Calendar — left-aligned just above the calendar | log switch,
+         see calendarModeHintPos. -->
+    <div
+      v-if="calendarModeHintPos"
+      class="shortcut-hint shortcut-hint--above-left"
+      :style="{ left: calendarModeHintPos.x + 'px', top: calendarModeHintPos.y + 'px' }"
     >L</div>
 
     <!-- ↑/↓ (Date-List cycling) — left-aligned just above the "today"
