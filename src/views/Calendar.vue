@@ -687,7 +687,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
    sidebar, tablet in App.vue's header row instead. */
 .view-toggle {
   display: none;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 @media (max-width: 700px) {
