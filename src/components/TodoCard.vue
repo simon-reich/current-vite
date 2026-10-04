@@ -3458,7 +3458,7 @@ onUnmounted(() => {
   max-width: 600px;
   border-radius: var(--radius);
   border: 2px solid var(--ink);
-  box-shadow: 5px 5px 0 var(--ink);
+  box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
   overflow: hidden;
   transition: border-color 0.12s, box-shadow 0.12s;
 }
@@ -3499,7 +3499,7 @@ onUnmounted(() => {
      one color that always contrasts against ink. */
   --sub-shadow: var(--bg);
   border-color: var(--ink);
-  box-shadow: 5px 5px 0 var(--priority-shadow);
+  box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
   background: var(--ink);
   color: var(--bg);
 }
@@ -3651,7 +3651,7 @@ onUnmounted(() => {
   /* Unlike the fill/border, the shadow follows the Mono/Dark drop-shadow
      setting (--priority-shadow) — same as priority cards — instead of
      always being plain ink. */
-  box-shadow: 5px 5px 0 var(--priority-shadow);
+  box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
   opacity: 0.35;
   border-radius: var(--radius);
   z-index: -1;

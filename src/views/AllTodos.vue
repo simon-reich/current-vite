@@ -8,6 +8,7 @@ import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { spawnSentToCurrentToast, spawnPlannedForDateToast, spawnUnplannedForDateToast } from '../composables/useToast'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
+import { useFocusDateNav } from '../composables/useFocusDateNav'
 
 const store = useTodosStore()
 const themeStore = useThemeStore()
@@ -72,6 +73,15 @@ function nextOccurrenceKey(t: Todo): number {
 // moment it joins any one of them. Date Lists off collapses back to the
 // original single-Current-pool app exactly: sending something to Current
 // is the only "list" that exists, so it should still visibly leave Overview.
+// Todos on the Date List currently picked in the focus-date pill — planned
+// there (focusDates) or a Date todo due that day, same live definition as
+// the list's own preview (todosForFocusDate). Read off existing data only,
+// nothing extra stored. Empty without Date Lists, so the sort below is
+// unchanged then.
+const onSelectedListIds = computed(() => themeStore.dateListsEnabled
+  ? new Set(store.todosForFocusDate(themeStore.selectedFocusDate).map(t => t.id))
+  : new Set<string>())
+
 const filteredTodos = computed(() => {
   let result = themeStore.dateListsEnabled ? [...store.activeTodos] : store.activeTodos.filter(t => !t.inCurrent)
   if (effectiveFilterTagIds.value.length > 0) {
@@ -89,12 +99,33 @@ const filteredTodos = computed(() => {
   if (loopFilterMode.value === 'only') {
     return [...result].sort((a, b) => nextOccurrenceKey(a) - nextOccurrenceKey(b))
   }
+  const onList = onSelectedListIds.value
   return [...result].sort((a, b) =>
-    sortKey.value === 'title'
+    // Todos on the selected Date List first, the rest after — each group
+    // keeps the normal date/A–Z order below.
+    Number(onList.has(b.id)) - Number(onList.has(a.id)) ||
+    (sortKey.value === 'title'
       ? alphaSortKey(a.title).localeCompare(alphaSortKey(b.title), 'de', { numeric: true })
-      : lastTouched(b).localeCompare(lastTouched(a))
+      : lastTouched(b).localeCompare(lastTouched(a)))
   )
 })
+
+// Index of the first todo *not* on the selected Date List — where the
+// visual break goes. Only when both groups are non-empty (and the sort
+// actually put the list's todos first, i.e. not in the Date filter's
+// "only" mode); -1 = no break.
+const selectedListBoundary = computed(() => {
+  if (loopFilterMode.value === 'only') return -1
+  const onList = onSelectedListIds.value
+  const i = filteredTodos.value.findIndex(t => !onList.has(t.id))
+  return i > 0 ? i : -1
+})
+
+// Caption on the divider: the selected list's date, worded exactly like
+// its entry in the sidebar's Date-List nav (today / tomorrow / 04|10
+// sunday), so scrolling past it reads the same as the nav.
+const { formatPresetDate } = useFocusDateNav()
+const selectedListLabel = computed(() => formatPresetDate(themeStore.selectedFocusDate))
 
 const fontMap = computed(() => assignFonts(filteredTodos.value.map(t => t.id)))
 const siblingIds = computed(() => filteredTodos.value.map(t => t.id))
@@ -135,9 +166,17 @@ function unassignFocusDate(id: string, obvious?: boolean) {
 <template>
   <div class="all-todos" :class="{ 'list-view': listView }">
     <div v-if="filteredTodos.length" class="todo-wrap" :class="{ 'list-view': listView }">
+      <template v-for="(todo, index) in filteredTodos" :key="`${todo.id}-${renderGen}`">
+      <!-- Sets the selected Date List's todos (sorted first, see
+           onSelectedListIds) apart from the rest as their own little pool.
+           Lives inside the same .todo-wrap rather than splitting the list
+           in two, so useListFlip still animates cards across the boundary;
+           full-width, so in grid mode it also forces a row break. -->
+      <div v-if="index === selectedListBoundary" class="selected-list-break">
+        <span class="selected-list-break-label">{{ selectedListLabel }}</span>
+        <div class="selected-list-break-line" aria-hidden="true" />
+      </div>
       <TodoCard
-        v-for="(todo, index) in filteredTodos"
-        :key="`${todo.id}-${renderGen}`"
         :data-flip-id="todo.id"
         :todo="todo"
         :font="fontMap.get(todo.id)"
@@ -152,6 +191,7 @@ function unassignFocusDate(id: string, obvious?: boolean) {
         @remove-from-current="store.removeFromCurrent($event)"
         @delete="store.deleteTodo($event)"
       />
+      </template>
     </div>
     <p v-else class="empty">
       {{ (themeStore.dateListsEnabled ? store.activeTodos.length : store.activeTodos.filter(t => !t.inCurrent).length) === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
@@ -174,6 +214,43 @@ function unassignFocusDate(id: string, obvious?: boolean) {
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
+}
+
+/* Thin pale divider between the selected Date List's pool and the rest,
+   captioned (left, just above the line) with that list's date. The line
+   sits visually midway: the space below it matches the space above it
+   *including* the caption (its own line-height + gap), minus the drop
+   shadow the cards above cast down into that space (--card-shadow-offset)
+   — so bottom = top + 1lh + gap - shadow. Font size/line-height live on
+   the wrapper itself so 1lh here is the caption's own line box. Full
+   width forces a new row in grid mode (width, not flex-basis — the latter
+   would mean height in list/column mode). */
+.selected-list-break {
+  --break-space: 16px;
+  --break-caption-gap: 6px;
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--break-caption-gap);
+  margin: var(--break-space) 0 calc(var(--break-space) + 1lh + var(--break-caption-gap) - var(--card-shadow-offset));
+  font-family: var(--font-mono, monospace);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.selected-list-break-label {
+  font-weight: 700;
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+.selected-list-break-line {
+  align-self: stretch;
+  height: 2px;
+  background: var(--ink);
+  opacity: 0.35;
 }
 
 .todo-wrap.list-view {
