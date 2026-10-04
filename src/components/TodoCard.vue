@@ -2267,13 +2267,13 @@ const zones = computed<SwipeZone[]>(() => {
     // its own to reuse a second zone for once Date Lists are on, so the
     // 'date' zone this used to sit next to is gone entirely.
     const label = themeStore.dateListsEnabled
-      ? (isOnSelectedFocusDate.value ? 'Remove' : `List ${formatShortDate(themeStore.selectedFocusDate)}`)
+      ? (isOnSelectedFocusDate.value ? 'Remove' : formatShortDate(themeStore.selectedFocusDate))
       : (props.todo.inCurrent ? 'Remove' : 'Current')
     list.push(buildZone('focus', label, rect, true))
   } else {
     if (!props.previewLocked) {
       list.push(buildZone('focus', 'Done', rect, false))
-      list.push(buildZone('date', 'For today', rect, false))
+      list.push(buildZone('date', 'Done for today', rect, false))
     }
     list.push(buildZone('delete', 'Remove', rect, false))
   }
@@ -3355,7 +3355,7 @@ onUnmounted(() => {
   color: var(--bg);
   font-size: 22px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.06em;
   white-space: nowrap;
   transition: font-size 0.15s;
@@ -3431,7 +3431,7 @@ onUnmounted(() => {
   fill: var(--ink);
   font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.04em;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -3439,6 +3439,14 @@ onUnmounted(() => {
 
 .swipe-zone-tri.armed .swipe-zone-label {
   fill: var(--bg);
+}
+
+/* Smaller on phone — the triangles are smaller there too, and longer
+   labels ("done for today") need to stay inside them. */
+@media (max-width: 700px) {
+  .swipe-zone-label {
+    font-size: 11px;
+  }
 }
 
 .todo-card {
