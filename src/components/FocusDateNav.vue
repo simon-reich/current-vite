@@ -19,7 +19,9 @@ import { useFocusDateNav } from '../composables/useFocusDateNav'
 // from its Focus-Date-Pille, see FocusDateWidget.vue/FocusDatePanel.vue)
 // passes its viewingDate through this way, so the same markup can drive
 // either target without a second copy of it.
-const props = defineProps<{ modelValue?: string }>()
+// Optional `weekdayFirst`: "sunday 04|10" instead of "04|10 sunday" — for
+// right-aligned placements (tablet's FocusDatePanel), so the dates line up.
+const props = defineProps<{ modelValue?: string; weekdayFirst?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [dateStr: string] }>()
 const themeStore = useThemeStore()
 const store = useTodosStore()
@@ -58,7 +60,7 @@ const activeDate = computed<string>({
       class="tag-chip date-nav-upcoming-chip"
       :class="{ active: activeDate === dateStr, dimmed: !store.hasFocusDateList(dateStr) }"
     >
-      <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
+      <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatPresetDate(dateStr, weekdayFirst) }}</span>
     </div>
 
     <template v-for="group in upcomingFocusDateGroups" :key="group.label">
@@ -69,7 +71,7 @@ const activeDate = computed<string>({
         class="tag-chip date-nav-upcoming-chip"
         :class="{ active: activeDate === dateStr }"
       >
-        <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
+        <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatUpcomingDate(dateStr, weekdayFirst) }}</span>
       </div>
     </template>
   </div>

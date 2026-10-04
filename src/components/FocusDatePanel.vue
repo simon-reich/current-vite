@@ -217,7 +217,9 @@ watch(() => props.open, (isOpen) => {
              .fdp-panel's own flex/scroll, exactly as before. -->
         <div ref="fdpListRef" class="fdp-list-box" :class="{ 'fdp-list-box--right': !(showCalendar ?? true) }" @scroll="onFdpListScroll">
           <ScrollDivider class="fdp-list-scroll-divider" :visible="fdpListScrolled" />
-          <FocusDateNav v-model="activeDate" />
+          <!-- Tablet's list is right-aligned (see the media query below) —
+               weekday first there, so the dates line up on the right. -->
+          <FocusDateNav v-model="activeDate" :weekday-first="!isPhoneWidth" />
         </div>
       </div>
     </Transition>
@@ -326,6 +328,24 @@ watch(() => props.open, (isOpen) => {
 
 .fdp-list-scroll-divider {
   display: none;
+}
+
+/* Tablet: the side panel slides in from the right edge, so the Date-List
+   nav's rows hug that edge too instead of the left — same flip the
+   desktop right-hand sidebar does for its own rows (.sidebar-right
+   .tag-list in layout.css). Section labels follow along, being plain
+   flex items of the same .tag-list. */
+@media (min-width: 701px) and (max-width: 1024px) {
+  .fdp-panel :deep(.tag-list) {
+    align-items: flex-end;
+  }
+
+  /* today/tomorrow are fixed-width boxes (.date-nav-btn) with left-aligned
+     text — flip that too, so their text ends on the same right edge as
+     the date chips below. */
+  .fdp-panel :deep(.date-nav-btn) {
+    text-align: right;
+  }
 }
 
 /* Phone: three separate floating widgets on the shared translucent

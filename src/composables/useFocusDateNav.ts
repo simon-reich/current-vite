@@ -76,19 +76,23 @@ export function useFocusDateNav() {
   // month-before-day order), then the spelled-out lowercase weekday, no
   // year (Date Lists only ever cover the near future in practice, see
   // rolloverExpiredFocusDates clearing out stale ones).
-  function formatUpcomingDate(dateStr: string): string {
+  // `weekdayFirst` ("tuesday 23|09") is for right-aligned lists (tablet's
+  // side panel): the fixed-width date then lines up on the right edge
+  // instead of the ragged weekday names.
+  function formatUpcomingDate(dateStr: string, weekdayFirst = false): string {
     const [y, m, d] = dateStr.split('-').map(Number)
     const weekday = WEEKDAY_FULL_LABELS[new Date(y, m - 1, d).getDay()]
-    return `${String(d).padStart(2, '0')}|${String(m).padStart(2, '0')} ${weekday}`
+    const date = `${String(d).padStart(2, '0')}|${String(m).padStart(2, '0')}`
+    return weekdayFirst ? `${weekday} ${date}` : `${date} ${weekday}`
   }
 
   // Same as formatUpcomingDate, but special-cases today/tomorrow the same
   // way the dedicated buttons already read — used for the preset week's
   // day-3..7 slots, which don't get their own hardcoded button.
-  function formatPresetDate(dateStr: string): string {
+  function formatPresetDate(dateStr: string, weekdayFirst = false): string {
     if (dateStr === today.value) return 'today'
     if (dateStr === tomorrow.value) return 'tomorrow'
-    return formatUpcomingDate(dateStr)
+    return formatUpcomingDate(dateStr, weekdayFirst)
   }
 
   return { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, upcomingFocusDateGroups, formatUpcomingDate, formatPresetDate }
