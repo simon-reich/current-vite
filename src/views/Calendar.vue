@@ -3,12 +3,12 @@ import { ref, computed, onMounted, nextTick, watch, inject } from 'vue'
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil } from '@lucide/vue'
+import { Plus, Pencil, ChevronDown } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
-import { todayStr } from '../composables/useToday'
+import { todayStr, addDaysStr } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
@@ -78,28 +78,23 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown')  { e.preventDefault(); shiftDate(7) }
 }
 
+// One plain dot for any activity on a day — a Todo done/worked on or a
+// Check ticked alike, no separate dot per kind.
 const activeDates = computed(() => {
   const days = new Set<string>()
   store.todos.forEach(t => {
     if (t.completedAt) days.add(t.completedAt.slice(0, 10))
     t.workLog.forEach(ts => days.add(ts.slice(0, 10)))
   })
-  return [...days].map(d => new Date(d + 'T12:00:00'))
-})
-
-// Its own dot (see attributes below), kept visually distinct from Todo
-// activity — a day can carry both at once, and they track different
-// things (a Check ticked vs. a Todo done/worked on).
-const checksActiveDates = computed(() => {
-  if (!themeStore.checksEnabled) return []
-  const days = new Set<string>()
-  checksStore.checks.forEach(c => c.completedDates.forEach(d => days.add(d)))
+  if (themeStore.checksEnabled) {
+    checksStore.checks.forEach(c => c.completedDates.forEach(d => days.add(d)))
+  }
   return [...days].map(d => new Date(d + 'T12:00:00'))
 })
 
 // Future days already carrying a planned Date List (see stores/todos.ts's
-// futureFocusDates) — its own dot type, dimmer than the solid "done/
-// worked" one above since nothing has actually happened on these days yet.
+// futureFocusDates) — its own dot type, outlined instead of the solid
+// activity one above since nothing has actually happened on these days yet.
 const plannedActiveDates = computed(() => {
   if (!themeStore.dateListsEnabled) return []
   return store.futureFocusDates.map(d => new Date(d + 'T12:00:00'))
@@ -141,11 +136,10 @@ const attributes = computed(() => {
   if (activeDates.value.length) {
     attrs.push({ key: 'active', dot: { style: { backgroundColor: 'var(--ink)' } }, dates: activeDates.value })
   }
-  if (checksActiveDates.value.length) {
-    attrs.push({ key: 'checksActive', dot: { style: { backgroundColor: 'var(--ink)', opacity: 0.4 } }, dates: checksActiveDates.value })
-  }
   if (plannedActiveDates.value.length) {
-    attrs.push({ key: 'plannedActive', dot: { style: { backgroundColor: 'var(--ink)', opacity: 0.2 } }, dates: plannedActiveDates.value })
+    // Outlined instead of filled — same size as the activity dot
+    // (border-box), nothing has happened on these days yet.
+    attrs.push({ key: 'plannedActive', dot: { style: { backgroundColor: 'transparent', border: '1px solid var(--ink)', boxSizing: 'border-box' } }, dates: plannedActiveDates.value })
   }
   return attrs
 })
@@ -183,6 +177,28 @@ const logGroups = computed(() => {
   }
   return groups
 })
+
+// The log only shows the last LOG_WINDOW_DAYS days (today included) at
+// first; "show older" widens that window in LOG_WINDOW_DAYS steps — far
+// enough to always reach the next day that actually has entries, so a
+// click never turns up nothing. Display-only: nothing is persisted, and
+// switching to the log again starts back at one window.
+const LOG_WINDOW_DAYS = 14
+const logWindows = ref(1)
+watch(viewMode, (mode) => { if (mode === 'log') logWindows.value = 1 })
+
+const logCutoff = computed(() => addDaysStr(todayStr(), 1 - LOG_WINDOW_DAYS * logWindows.value))
+const visibleLogGroups = computed(() => logGroups.value.filter(g => g.dateStr >= logCutoff.value))
+// Newest group still hidden (groups are newest first), if any.
+const nextOlderLogGroup = computed(() => logGroups.value.find(g => g.dateStr < logCutoff.value))
+
+function showOlderLog() {
+  const next = nextOlderLogGroup.value
+  if (!next) return
+  const today = new Date(todayStr() + 'T12:00:00')
+  const daysBack = Math.round((today.getTime() - new Date(next.dateStr + 'T12:00:00').getTime()) / 86_400_000)
+  logWindows.value = Math.ceil((daysBack + 1) / LOG_WINDOW_DAYS)
+}
 
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
 const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedDate.value) : [])
@@ -318,7 +334,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         >
           <div v-if="viewMode === 'log'" key="log" class="day-detail-content">
             <template v-if="logGroups.length">
-              <div v-for="group in logGroups" :key="group.dateStr" class="log-group">
+              <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
+              <div v-for="group in visibleLogGroups" :key="group.dateStr" class="log-group">
                 <p class="log-day-label">{{ group.label }}</p>
                 <div class="day-items">
                   <div v-for="todo in group.todos" :key="todo.id" class="day-item">
@@ -327,6 +344,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                     <UndoDoneButton :todo-id="todo.id" />
                   </div>
                 </div>
+              </div>
+              <div v-if="nextOlderLogGroup" class="day-actions">
+                <span class="icon-side-label icon-side-label--right">
+                  <button type="button" class="icon-circle-btn" title="Show older entries" @click="showOlderLog">
+                    <ChevronDown :size="10" />
+                  </button>
+                  <span class="icon-side-label-text">show older</span>
+                </span>
               </div>
             </template>
             <p v-else class="no-activity">Nothing completed yet.</p>
@@ -350,7 +375,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               </div>
               <p v-else class="day-plan-empty">no activities planned for this day yet</p>
 
-              <div class="day-plan-actions">
+              <div class="day-actions">
                 <span
                   class="icon-side-label"
                   :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
@@ -538,14 +563,15 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   text-align: center;
 }
 
-/* Sits centered under the planned list (or its empty state). Icon buttons
+/* Sits centered under the planned list (or its empty state), and under the
+   log for its "show older" icon. Icon buttons
    themselves are .icon-circle-btn, shared with Current.vue's Checks
    add/edit icons via base.css, no local redefinition. Each icon's own
    label unrolls sideways on hover — add's to its left, edit's to its
    right — via base.css's .icon-side-label, absolutely positioned so an
    unrolling label never affects layout: the two icons stay exactly where
    they are, only the label grows into the empty space beside them. */
-.day-plan-actions {
+.day-actions {
   display: flex;
   align-items: center;
   justify-content: center;
