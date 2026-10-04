@@ -232,8 +232,12 @@
 
 /* ══ App font stack ══
    For styling the app UI itself (not per-todo item fonts) — settled on
-   Anonymous Pro (mono: inputs/tags/buttons/values) + Caveat (playful:
-   everything else). */
+   Anonymous Pro (mono: inputs/tags/buttons/values) + Plus Jakarta Sans
+   (playful: everything else). The other playful/text faces below are
+   candidates for --font-playful, switchable via the (currently hidden)
+   font lab, see useAppFonts.ts.
+   They're variable fonts, so font-weight declares the file's real wght
+   range instead of a single weight. */
 
 @font-face {
   font-family: 'Anonymous Pro';
@@ -269,5 +273,65 @@
   src: url('./fonts/app/playful/Caveat-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Edu QLD Hand';
+  src: url('./fonts/app/playful/EduQLDHand-Regular.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Text candidates */
+
+@font-face {
+  font-family: 'Bitter';
+  src: url('./fonts/app/text/Bitter-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Bitter';
+  src: url('./fonts/app/text/Bitter-Italic.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lexend';
+  src: url('./fonts/app/text/Lexend-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('./fonts/app/text/PlusJakartaSans-Regular.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('./fonts/app/text/PlusJakartaSans-Italic.ttf') format('truetype');
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Raleway';
+  src: url('./fonts/app/text/Raleway-Regular.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Raleway';
+  src: url('./fonts/app/text/Raleway-Italic.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
   font-display: swap;
 }

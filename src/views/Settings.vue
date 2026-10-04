@@ -4,11 +4,14 @@ import { motion } from 'motion-v'
 import { X } from '@lucide/vue'
 import { useStorage } from '../composables/useStorage'
 import { useThemeStore } from '../stores/theme'
+import { useFontLabStore } from '../stores/fontlab'
+import { FONT_LAB_ENABLED, PLAYFUL_FONTS } from '../composables/useAppFonts'
 import { activeModal } from '../composables/useModalGuard'
 import ColorPicker from '../components/ColorPicker.vue'
 
 const { exportData, importData, exportThemes, importThemes, exportEverything, importEverything } = useStorage()
 const themeStore = useThemeStore()
+const fontLabStore = useFontLabStore()
 
 async function handleImport() {
   const confirmed = window.confirm('Import will replace all current data. Continue?')
@@ -96,7 +99,7 @@ watch(deleteThemeConfirm, (open) => {
         />
       </div>
 
-      <div v-if="themeStore.savedThemes.length" class="themes-list">
+      <div v-if="themeStore.savedThemes.length" class="chip-list themes-list">
         <button
           v-for="t in themeStore.savedThemes"
           :key="t.id"
@@ -207,6 +210,21 @@ watch(deleteThemeConfirm, (open) => {
         </div>
       </section>
     </div>
+
+    <!-- Font lab: try out --font-playful candidates live (see stores/fontlab.ts) -->
+    <section v-if="FONT_LAB_ENABLED" class="section">
+      <h2 class="section-title">font</h2>
+      <div class="chip-list">
+        <button
+          v-for="font in PLAYFUL_FONTS"
+          :key="font"
+          class="btn-outline font-chip"
+          :class="{ active: fontLabStore.playfulFont === font }"
+          :style="{ fontFamily: `'${font}', sans-serif` }"
+          @click="fontLabStore.playfulFont = font"
+        >{{ font.toLowerCase() }}</button>
+      </div>
+    </section>
 
     <!-- Data -->
     <section class="section">
@@ -328,13 +346,18 @@ watch(deleteThemeConfirm, (open) => {
 .name-input:focus { border-color: var(--ink-dark); }
 .name-input::placeholder { color: var(--ink); }
 
-.themes-list {
+/* Wrapping, centered row of chips — shared by the saved-themes list and
+   the font lab. */
+.chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
+}
+
+.themes-list {
   margin-top: 18px;
   margin-bottom: 18px;
-  justify-content: center;
 }
 
 .daily-shuffle-row {
@@ -439,6 +462,12 @@ watch(deleteThemeConfirm, (open) => {
   padding: 7px 12px 7px 10px;
   font-size: 14px;
   font-weight: 600;
+}
+
+/* Chips render in their own font, so the label previews it — just a bit
+   bigger than the default so handwriting faces stay legible. */
+.font-chip {
+  font-size: 18px;
 }
 
 .theme-chip.active .chip-delete {

@@ -12,7 +12,7 @@ import './styles/tablet.css'
 import './styles/mobile.css'
 import App from './App.vue'
 import { applyTheme } from './composables/useTheme'
-import { applyAppFonts } from './composables/useAppFonts'
+import { useFontLabStore } from './stores/fontlab'
 import { seedDevData } from './dev/seed'
 
 // Apply persisted theme before mount to avoid flash of default colors
@@ -24,9 +24,6 @@ try {
   }
 } catch { /* ignore */ }
 
-// Fonts settled on Caveat (playful) + Anonymous Pro (mono) — no picker needed.
-applyAppFonts('Caveat', 'Anonymous Pro')
-
 if (import.meta.env.DEV) seedDevData()
 
 const pinia = createPinia()
@@ -34,6 +31,9 @@ pinia.use(piniaPluginPersistedstate)
 
 const app = createApp(App)
 app.use(pinia)
+// Instantiated up front (not only once Settings opens) so the persisted
+// font-lab choice is applied before mount.
+useFontLabStore(pinia)
 app.use(router)
 app.use(VCalendar, {})
 app.mount('#vue-root')
