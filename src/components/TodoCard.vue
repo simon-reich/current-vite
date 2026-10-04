@@ -2227,7 +2227,16 @@ function zonePath(zone: SwipeZone, radius: number): string {
 // Label sits on the triangle's centroid — a third of the way along each
 // leg from the corner.
 function zoneLabelPos(zone: SwipeZone): [number, number] {
-  return [zone.cornerX + zone.w / 3, zone.cornerY + zone.h / 3]
+  const x = zone.cornerX + zone.w / 3
+  // The two top-corner slots differ in size, so their centroids land at
+  // different heights — the 'date' label (top left) borrows the 'focus'
+  // label's (top right) height whenever both are shown, so the two top
+  // labels read as one level row instead of a stagger.
+  if (zone.key === 'date') {
+    const focus = zones.value.find(z => z.key === 'focus')
+    if (focus) return [x, focus.cornerY + focus.h / 3]
+  }
+  return [x, zone.cornerY + zone.h / 3]
 }
 
 // The three position slots (focus/date/delete) are reused as-is for
