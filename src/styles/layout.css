@@ -85,6 +85,18 @@
   width: 100px;
 }
 
+/* Row wrapper for that switch wherever it isn't inside the sidebar's own
+   .tag-list (tablet header, phone's in-view copy in Calendar.vue). */
+.calendar-mode-toggle {
+  display: flex;
+  gap: 7px;
+}
+
+/* Tablet-only instance in the header (see tablet.css). */
+.tablet-calendar-mode-toggle {
+  display: none;
+}
+
   .sidebar .tag-x {
     font-size: 12px;
   }

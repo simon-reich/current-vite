@@ -1611,6 +1611,15 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             </template>
           </div>
 
+          <!-- Tablet Calendar — the calendar | log switch takes the same
+               left slot of the second header row that Overview's icons and
+               Current's subs-toggle use. Hidden outside tablet (desktop has
+               it in the left sidebar, phone hides .main-head on Calendar
+               entirely and keeps Calendar.vue's own copy). -->
+          <div v-if="route.path === '/calendar'" class="calendar-mode-toggle tablet-calendar-mode-toggle">
+            <CalendarModeToggle />
+          </div>
+
           <!-- Phone Overview + Current — a rectangular Plus (opens the
                add-todo sheet, see .add-sheet below), sitting before the
                date pill (see .tablet-input-focus-date-widget-slot's own

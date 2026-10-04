@@ -287,8 +287,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 <template>
   <div ref="viewRef" class="calendar-view" tabindex="0" @keydown="onKeydown">
-    <!-- Below desktop width only — desktop has it in App.vue's left sidebar. -->
-    <div class="view-toggle">
+    <!-- Phone only — desktop has it in App.vue's left sidebar, tablet in App.vue's header. -->
+    <div class="view-toggle calendar-mode-toggle">
       <CalendarModeToggle />
     </div>
 
@@ -683,15 +683,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-family: var(--font-playful, sans-serif);
 }
 
-/* calendar | log switch for tablet/phone — desktop shows it in App.vue's
-   left sidebar instead. */
+/* calendar | log switch for phone — desktop shows it in App.vue's left
+   sidebar, tablet in App.vue's header row instead. */
 .view-toggle {
   display: none;
   justify-content: center;
-  gap: 7px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 700px) {
   .view-toggle {
     display: flex;
   }
