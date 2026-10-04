@@ -809,19 +809,20 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     margin-bottom: 18px;
   }
 
-  /* Smaller type on phone than the desktop/tablet sizes above. */
+  /* Smaller grid on phone than on tablet (see the tablet block below) and
+     desktop (base sizes above). */
   .cal :deep(.vc-title) {
-    font-size: 20px !important;
+    font-size: 17px !important;
   }
 
   .cal :deep(.vc-weekday) {
-    font-size: 14px !important;
+    font-size: 12px !important;
   }
 
   .cal :deep(.vc-day-content) {
-    width: 32px !important;
-    height: 32px !important;
-    font-size: 16px !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
   }
 
   /* Day headline — uppercase, so the longest one ("WEDNESDAY, SEPTEMBER
@@ -845,6 +846,22 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
   .day-sub-item {
     font-size: 13px;
+  }
+}
+/* Tablet: a step down from desktop's grid, a step up from phone's. */
+@media (min-width: 701px) and (max-width: 1024px) {
+  .cal :deep(.vc-title) {
+    font-size: 20px !important;
+  }
+
+  .cal :deep(.vc-weekday) {
+    font-size: 14px !important;
+  }
+
+  .cal :deep(.vc-day-content) {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
   }
 }
 </style>
