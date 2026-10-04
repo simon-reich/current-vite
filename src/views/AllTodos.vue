@@ -217,7 +217,7 @@ function unassignFocusDate(id: string, obvious?: boolean) {
 }
 
 /* Thin pale divider between the selected Date List's pool and the rest,
-   captioned (left, just above the line) with that list's date. The line
+   captioned (centered, just above the line) with that list's date. The line
    sits visually midway: the space below it matches the space above it
    *including* the caption (its own line-height + gap), minus the drop
    shadow the cards above cast down into that space (--card-shadow-offset)
@@ -232,7 +232,7 @@ function unassignFocusDate(id: string, obvious?: boolean) {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--break-caption-gap);
   margin: var(--break-space) 0 calc(var(--break-space) + 1lh + var(--break-caption-gap) - var(--card-shadow-offset));
   font-family: var(--font-mono, monospace);
