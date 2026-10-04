@@ -738,8 +738,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   flex-shrink: 0;
 }
 
-/* Divider lines only make visual sense on mobile — desktop hides both. */
-.day-scroll-divider,
+/* Top divider (entries scrolled under the calendar) on every viewport.
+   The bottom one only makes sense on phone, above its fixed bottom nav —
+   hidden everywhere else. */
+.day-scroll-divider {
+  flex-shrink: 0;
+}
+
 .day-scroll-divider-bottom {
   display: none;
 }
@@ -759,11 +764,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 @media (max-width: 700px) {
-  .day-scroll-divider {
-    display: block;
-    flex-shrink: 0;
-  }
-
   .day-scroll-divider-bottom {
     display: block;
     position: fixed;
