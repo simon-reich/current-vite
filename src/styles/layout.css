@@ -802,8 +802,8 @@
      same offset instead of stopping short of it — margin-bottom sidesteps
      that entirely by reserving space at the bottom of the (already
      viewport-bottom-flush) track instead, landing this box's own bottom
-     edge at the 96vh mark regardless of where its top happens to be. */
-  margin-bottom: 4vh;
+     edge at the 98vh mark regardless of where its top happens to be. */
+  margin-bottom: 2vh;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -1236,8 +1236,66 @@
    here. */
 .tablet-focus-date-widget-slot,
 .tablet-input-focus-date-widget-slot,
-.tablet-settings-btn {
+.tablet-settings-btn,
+.date-step-btn {
   display: none;
+}
+
+/* Round prev/next buttons either side of the date pill (tablet Overview,
+   shown in tablet.css) — same 2px ink border and hard downward shadow as
+   the pill itself (FocusDateWidget.vue), hover darkens both the same way. */
+.date-step-btn {
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  /* Follows Settings' corner style: --radius is 6px (rounded) or 0
+     (square) — scaled up, the rounded case overshoots into a full circle,
+     the square one stays 0, no extra class or JS needed. */
+  border-radius: calc(var(--radius) * 100);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 var(--card-shadow-offset) 0 var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+@media (hover: hover) {
+  .date-step-btn:hover {
+    border-color: var(--ink-dark);
+    color: var(--ink-dark);
+    box-shadow: 0 var(--card-shadow-offset) 0 var(--ink-dark);
+  }
+}
+
+/* Prev on today — nothing earlier to go to. Dimmed via opacity like the
+   rest of the app's disabled states, shadow kept so it still reads as the
+   same button. */
+.date-step-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .date-step-btn:disabled:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+    box-shadow: 0 var(--card-shadow-offset) 0 var(--ink);
+  }
+}
+
+/* Lucide's Play triangle sits slightly left-heavy in its box — nudge it
+   toward its point so it reads centered in the circle; the prev one is
+   the same icon mirrored. */
+.date-step-icon {
+  transform: translateX(1px);
+}
+
+.date-step-icon--prev {
+  transform: scaleX(-1) translateX(1px);
 }
 
 /* Compact inner sizing for the pill wherever it's shown inline next to

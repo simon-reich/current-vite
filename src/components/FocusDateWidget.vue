@@ -132,7 +132,7 @@ function open() {
   color: var(--ink);
   border: 2px solid var(--ink);
   border-radius: 14px;
-  box-shadow: 0 5px 0 var(--ink);
+  box-shadow: 0 var(--card-shadow-offset) 0 var(--ink);
   cursor: pointer;
   font-family: var(--font-mono, monospace);
   overflow: hidden;
@@ -141,7 +141,7 @@ function open() {
 
 .focus-date-widget:hover {
   border-color: var(--ink-dark);
-  box-shadow: 0 5px 0 var(--ink-dark);
+  box-shadow: 0 var(--card-shadow-offset) 0 var(--ink-dark);
 }
 
 .fdw-row {

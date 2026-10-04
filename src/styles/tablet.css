@@ -156,6 +156,11 @@
     display: flex;
     flex-shrink: 0;
     align-items: center;
+    gap: 8px;
+  }
+
+  .date-step-btn {
+    display: flex;
   }
 
   #app.is-current .tablet-input-focus-date-widget-slot {

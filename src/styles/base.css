@@ -57,9 +57,10 @@
      reserves for it, so that column is exactly as wide as the button. */
   --icon-circle-btn-size: 17px;
 
-  /* Todo cards' hard drop-shadow offset (right + down) — TodoCard.vue's
-     card shadows and anything that has to clear them (Overview's Date
-     List pool frame) read this one value. */
+  /* The app's hard drop-shadow depth — todo cards (right + down), the
+     date pill and its prev/next buttons (down only), and anything that
+     has to clear a card's shadow (Overview's Date List divider) read
+     this one value. */
   --card-shadow-offset: 5px;
 
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);

@@ -2,7 +2,7 @@
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight } from '@lucide/vue'
+import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight, Play } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import LinesIcon from './components/icons/LinesIcon.vue'
 import CalendarIcon from './components/icons/CalendarIcon.vue'
@@ -18,7 +18,7 @@ import { activeModal } from './composables/useModalGuard'
 import { todoDraftRequest } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast, spawnSentToCurrentToast, spawnTodoAddedToast } from './composables/useToast'
-import { todayStr, tomorrowStr } from './composables/useToday'
+import { todayStr, tomorrowStr, addDaysStr } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
@@ -1282,6 +1282,16 @@ function stepFocusDate(delta: 1 | -1) {
   if (next) themeStore.setSelectedFocusDate(next)
 }
 
+// Tablet Overview's prev/next buttons beside the date pill: plain calendar
+// days, one at a time — not the Date-List cycle stepFocusDate walks (that
+// skips ahead to whichever list exists next, which read as jumping
+// around). Landing on a day with no list yet is the same as picking that
+// day in the pill itself. Never before today (setSelectedFocusDate clamps,
+// and the prev button is disabled there anyway).
+function stepFocusDay(delta: 1 | -1) {
+  themeStore.setSelectedFocusDate(addDaysStr(themeStore.selectedFocusDate, delta))
+}
+
 // Overview and Current share one "currently focused Date List" concept —
 // tapping back and forth between them (Tab, nav icons, ...) carries
 // whichever date was selected across instead of losing your place: leaving
@@ -1760,12 +1770,34 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                (mobile-bottom-nav below) entirely; Overview's own instance
                passes neither, unchanged "plan ahead" pill behavior. -->
           <div v-if="themeStore.dateListsEnabled && (route.path === '/all' || route.path === '/current')" class="tablet-input-focus-date-widget-slot">
+            <!-- Tablet Overview only (see .date-step-btn in tablet.css):
+                 one calendar day back/forward either side of the pill
+                 (stepFocusDay), not through the Date-List cycle. -->
+            <button
+              v-if="route.path === '/all'"
+              type="button"
+              class="date-step-btn"
+              v-tooltip="'previous day'"
+              :disabled="themeStore.selectedFocusDate <= todayStr()"
+              @click="stepFocusDay(-1)"
+            >
+              <Play :size="12" fill="currentColor" class="date-step-icon date-step-icon--prev" />
+            </button>
             <FocusDateWidget
               panel
               :show-calendar="route.path !== '/current'"
               :model-value="route.path === '/current' ? (viewingDate ?? todayStr()) : undefined"
               @update:model-value="viewingDate = $event"
             />
+            <button
+              v-if="route.path === '/all'"
+              type="button"
+              class="date-step-btn"
+              v-tooltip="'next day'"
+              @click="stepFocusDay(1)"
+            >
+              <Play :size="12" fill="currentColor" class="date-step-icon" />
+            </button>
           </div>
         </div>
 
