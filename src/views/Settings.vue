@@ -242,8 +242,8 @@ watch(deleteThemeConfirm, (open) => {
         <button class="btn-outline" @click="importThemes">import themes</button>
       </div>
       <div class="btn-row">
-        <button class="btn-outline" @click="exportEverything">export everything all at once</button>
-        <button class="btn-outline" @click="handleImportEverything">import everything all at once</button>
+        <button class="btn-outline" @click="exportEverything">export everything</button>
+        <button class="btn-outline" @click="handleImportEverything">import everything</button>
       </div>
     </section>
 
