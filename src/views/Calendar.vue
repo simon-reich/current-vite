@@ -530,6 +530,10 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
      size below. */
   --day-item-font-size: 20px;
   --day-item-icon-gap: 10px;
+  /* Quieter secondary text in the day detail — the empty-state messages
+     (.day-plan-empty/.no-activity) and the planned entries share it.
+     Phone shrinks it along with the entries (see below). */
+  --day-aside-font-size: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -564,7 +568,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 /* Same look as .no-activity below — it replaces that message whenever Date
    Lists are on, so it should read the same, not like a smaller aside. */
 .day-plan-empty {
-  font-size: 18px;
+  font-size: var(--day-aside-font-size);
   font-weight: bold;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
@@ -600,6 +604,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 .day-item--planned {
   opacity: 0.7;
+}
+
+/* Same size as the empty-state messages (--day-aside-font-size) — doubled
+   class so it beats .day-item's own font-size, which comes later in this
+   file at the same specificity. */
+.day-item.day-item--planned {
+  font-size: var(--day-aside-font-size);
 }
 
 /* Own flex item (like .icon above) rather than inline text — a wrapped
@@ -706,7 +717,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 .no-activity {
-  font-size: 18px;
+  font-size: var(--day-aside-font-size);
   font-weight: bold;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
@@ -865,11 +876,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
      than the entries they replace. */
   .day-detail {
     --day-item-font-size: 16px;
-  }
-
-  .day-plan-empty,
-  .no-activity {
-    font-size: var(--day-item-font-size);
+    --day-aside-font-size: 16px;
   }
 
   .day-sub-item {
