@@ -3,7 +3,7 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { Undo2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
 import { runLoopSchedule } from '../composables/useLoopSchedule'
-import { activeModal } from '../composables/useModalGuard'
+import { activeModal, releaseModalGuard } from '../composables/useModalGuard'
 
 // Undo for a Done todo — shared by the Calendar's day detail and its log
 // view, so both offer the exact same action. Sends the todo back to the
@@ -30,11 +30,9 @@ function undo() {
 const guard = { onCancel: cancel, onConfirm: undo }
 watch(confirming, (open) => {
   if (open) activeModal.value = guard
-  else if (activeModal.value === guard) activeModal.value = null
+  else releaseModalGuard(guard)
 })
-onUnmounted(() => {
-  if (activeModal.value === guard) activeModal.value = null
-})
+onUnmounted(() => releaseModalGuard(guard))
 </script>
 
 <template>

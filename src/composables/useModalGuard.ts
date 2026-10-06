@@ -26,7 +26,14 @@ export const activeModal = ref<ModalGuard | null>(null)
 // it opened rather than just clearing to null — see its own comment.
 export function registerModalGuard(guard: ModalGuard) {
   activeModal.value = guard
-  onUnmounted(() => {
-    if (activeModal.value?.onCancel === guard.onCancel) activeModal.value = null
-  })
+  onUnmounted(() => releaseModalGuard(guard))
+}
+
+// Clears `guard` if it's still the active one. Compares by onCancel, never
+// by the guard object itself: activeModal is a ref, so activeModal.value
+// is a reactive proxy of the stored object and `=== guard` is always
+// false — the guard would never be released and every shortcut would stay
+// swallowed. Functions aren't proxied, so onCancel identity is reliable.
+export function releaseModalGuard(guard: ModalGuard) {
+  if (activeModal.value?.onCancel === guard.onCancel) activeModal.value = null
 }

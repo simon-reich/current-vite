@@ -3,7 +3,7 @@ import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { useTodosStore } from '../stores/todos'
 import { todayStr } from '../composables/useToday'
-import { activeModal } from '../composables/useModalGuard'
+import { activeModal, releaseModalGuard } from '../composables/useModalGuard'
 import FocusDateNav from './FocusDateNav.vue'
 import ScrollDivider from './ScrollDivider.vue'
 
@@ -164,9 +164,10 @@ onUnmounted(() => window.removeEventListener('resize', updateIsPhoneWidth))
 // registered/cleared as `open` itself changes rather than on mount/unmount
 // — this component stays mounted the whole time the pill exists, only
 // `open` toggles.
+const guard = { onCancel: close, onConfirm: close }
 watch(() => props.open, (isOpen) => {
-  if (isOpen) activeModal.value = { onCancel: close, onConfirm: close }
-  else if (activeModal.value?.onCancel === close) activeModal.value = null
+  if (isOpen) activeModal.value = guard
+  else releaseModalGuard(guard)
 }, { immediate: true })
 </script>
 
