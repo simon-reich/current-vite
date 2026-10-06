@@ -267,7 +267,7 @@ Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.v
 - **A** – All-Filter (löscht jeden aktiven Tag-/Prio-/Date-Filter auf einmal). Nur Overview.
 - **P** – Prio-Filter togglen. Nur Overview.
 - **D** – Date-Filter durchzyklen (default → hide → only → default, startet auf "hide"). Nur Overview, kein Todo offen. Ist ein Todo offen, bedeutet **D** stattdessen Delete (Overview) bzw. Remove from Current (Current) – siehe TodoCard.vue's onCardKeydown. Kein echter Konflikt: genau wie bei ↑↓ (Karten-Cycling) vs. diesem ganzen Einzeltasten-Block sind beide Zustände gegenseitig ausschließend.
-- **X** – Settings togglen, kehrt zum vorher aktiven Haupt-View zurück (nicht hart auf Overview verdrahtet).
+- **X** – Settings togglen, kehrt zur vorher offenen View zurück (nicht hart auf Overview verdrahtet) – Calendar eingeschlossen, dort im zuletzt genutzten Modus (`calendar`/`log`), siehe `settingsReturnPath` in App.vue.
 - **Escape** – schließt/blurt immer das, was gerade offen/fokussiert ist (Add-Todo-Input, Tag-Input, offene Karte, Swipe-Delete-Bestätigung).
 
 Alle Einzeltasten-Shortcuts (O/S/L/G/N/T/A/P/X) greifen nicht, während in einem Textfeld getippt wird, während eine Karte offen ist, oder mit gedrückter Modifier-Taste (Cmd/Ctrl/Alt).

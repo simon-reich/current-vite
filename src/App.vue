@@ -67,6 +67,13 @@ let currentViewIdx = viewOrder.indexOf(route.path)
 // to wherever you really came from instead of hardcoding Overview.
 let lastMainViewPath = viewOrder.includes(route.path) ? route.path : '/all'
 
+// Where leaving Settings returns to — like lastMainViewPath, but Calendar
+// counts too, so a Calendar → Settings → back round-trip lands on Calendar
+// again (in whichever calendar/log mode it was, persisted in the theme
+// store). Calendar's own toggle keeps using lastMainViewPath.
+const settingsReturnPaths = [...viewOrder, '/calendar']
+let settingsReturnPath = settingsReturnPaths.includes(route.path) ? route.path : lastMainViewPath
+
 // Whatever view we're leaving, a card left open (or mid-edit) there should
 // never survive the switch — coming back later should never show something
 // still open or half-typed. Covers every way of navigating, not just Tab
@@ -76,6 +83,7 @@ watch(() => route.path, (path, oldPath) => {
   const idx = viewOrder.indexOf(path)
   if (idx !== -1) currentViewIdx = idx
   if (viewOrder.includes(path)) lastMainViewPath = path
+  if (settingsReturnPaths.includes(path)) settingsReturnPath = path
   // Arriving at Overview resets its own filters (tags/prio/date) — unless
   // it's a Settings round-trip, which reads as a quick detour rather than
   // actually leaving Overview (same exemption as the add-todo draft below).
@@ -1158,12 +1166,13 @@ function toggleDesktopSubs() {
 }
 
 // ── Settings toggle ──
-// Returns to whichever of the three main views was actually open before —
-// not hardcoded to Overview — so the X shortcut (and the Settings button
-// itself) always lands back where you came from.
+// Returns to whichever view was actually open before (Overview, Current or
+// Calendar — see settingsReturnPath) — not hardcoded to Overview — so the
+// X shortcut (and the Settings button itself) always lands back where you
+// came from.
 function toggleSettings() {
   showMobileTags.value = false
-  if (route.path === '/settings') router.push(lastMainViewPath)
+  if (route.path === '/settings') router.push(settingsReturnPath)
   else router.push('/settings')
 }
 
