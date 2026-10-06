@@ -447,7 +447,7 @@ function resolveCelebrationConfig(key: CelebrationKey): CelebrationConfig {
 // <script setup> below. Shows the given (already-assigned, see
 // ALL_CELEBRATIONS' own comment) celebration's very first frame, frozen
 // (not playing) and pale via opacity (not a separate color — see
-// CLAUDE.md's four-color rule), while the Done/Done-for-today choice is
+// CLAUDE.md's four-color rule), while the Done/Done-for-now choice is
 // still open, so the real celebration on actually completing doesn't come
 // out of nowhere. Only one can ever be showing at a time (openCheckMenuId
 // is a single shared ref app-wide).
@@ -549,7 +549,7 @@ const activeCardApi = vueRef<ActiveCardApi | null>(null)
 // A Current card whose tag/date editor is open (see openEditFromCurrent)
 // counts as "open the editor" too, not "open the check-menu" — otherwise
 // cycling out of a Current edit landed back on the check-menu's
-// Done/Done-for-today row instead.
+// Done/Done-for-now row instead.
 export function cycleOpenCard(direction: 1 | -1) {
   const api = activeCardApi.value
   if (!api) return
@@ -609,12 +609,12 @@ const props = defineProps<{
   gridMode?: boolean
   /** Current's own "expand all subs" toggle (see Current.vue) — forces the
    *  sub-list open even while the card itself is closed, without also
-   *  opening the Done/Done-for-today menu. 'half' shows only unchecked
+   *  opening the Done/Done-for-now menu. 'half' shows only unchecked
    *  subs — already-done ones are only ever revealed per-card, via the "N
    *  done" hint next to that card's own sub-list (see toggleDoneSubsReveal). */
   forceExpandSubs?: 'half' | 'off'
   /** Current's "Lists" panel previewing a future Date List (see
-   *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-today are
+   *  ListsPanel.vue) — same mode="today" card, but Done/Done-for-now are
    *  locked out until that date is actually today; removing from the list
    *  still works normally. */
   previewLocked?: boolean
@@ -736,7 +736,7 @@ const emit = defineEmits<{
   'send-to-focus-date': [id: string]
   'unassign-focus-date': [id: string, obvious?: boolean]
   'complete': [id: string]
-  'done-for-today': [id: string]
+  'done-for-now': [id: string]
   'delete': [id: string]
 }>()
 
@@ -752,7 +752,7 @@ const isCardOpen = computed(() => props.mode === 'current' ? (showMenu.value || 
 
 // showTagMenu covers both Overview's tag/date editor and Current's own
 // title-edit, which reuses openTagMenuId too (see openEditFromCurrent) —
-// either of those, or Current's Done/Done-for-today menu, means some editor
+// either of those, or Current's Done/Done-for-now menu, means some editor
 // surface of the card is genuinely open right now.
 const cardActuallyOpen = computed(() => showTagMenu.value || (props.mode === 'current' && showMenu.value))
 
@@ -1305,7 +1305,7 @@ function scheduleHalfHide(subId: string) {
   }, store.SUB_SINK_DELAY_MS))
 }
 
-// Toggling the last open sub complete auto-opens the Done/Done-for-today
+// Toggling the last open sub complete auto-opens the Done/Done-for-now
 // menu (Current only) — a nudge to actually close the todo out, without
 // forcing it: the todo stays put if nothing's clicked. Only fires on the
 // transition into "all done", not on every click once already all done.
@@ -1332,13 +1332,13 @@ function handleDeleteSub(subId: string) {
   store.deleteSub(props.todo.id, subId)
 }
 
-// Current's check-row (Done for today / Done): defaults to "Done for today"
+// Current's check-row (Done for now / Done): defaults to "Done for now"
 // each time it opens fresh — Left/Right toggle it, Enter confirms whichever
 // is focused (see onCardKeydown below), so the pair is fully keyboard-
 // operable without a mouse.
-const focusedCheckOption = ref<'today' | 'done'>('today')
+const focusedCheckOption = ref<'now' | 'done'>('now')
 watch(showMenu, (open) => {
-  if (open) focusedCheckOption.value = 'today'
+  if (open) focusedCheckOption.value = 'now'
 })
 
 // After a mouse drag (unlike touch), the browser still synthesizes a plain
@@ -1359,7 +1359,7 @@ function toggleCheckMenu() {
   // it fell through to the willOpen branch below and swapped straight into
   // the check-menu instead, so the very next Enter (meant to just finish
   // the edit) landed on the check-menu's own Enter handling and marked the
-  // todo done/done-for-today instead of simply closing the card.
+  // todo done/done-for-now instead of simply closing the card.
   if (showTagMenu.value) {
     if (isEditing.value) saveEdit()
     openTagMenuId.value = null
@@ -1400,7 +1400,7 @@ function closeOnOutside(e: MouseEvent) {
 // for today"), but wrong for a genuine schedule edit. Explicitly changing
 // the schedule so it's due right now is a deliberate action, not the daily
 // sweep, and should win even if this same todo happened to touch Current
-// earlier today (sent, then removed; done for today; whatever left a stale
+// earlier today (sent, then removed; done for now; whatever left a stale
 // focusAddedAt behind) — otherwise the todo silently stays parked in the
 // pool with no sign anything's wrong, since the picker itself has no way
 // to know about that history. Gated on commitDraftTags() actually having
@@ -1478,7 +1478,7 @@ function onCardKeydown(e: KeyboardEvent) {
   if (isEditing.value) return
   if (showMenu.value && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
     e.preventDefault()
-    focusedCheckOption.value = focusedCheckOption.value === 'today' ? 'done' : 'today'
+    focusedCheckOption.value = focusedCheckOption.value === 'now' ? 'done' : 'now'
     return
   }
   // Space starts editing, in either mode (cardActuallyOpen covers both —
@@ -1522,7 +1522,7 @@ function onCardKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape' && e.key !== 'Enter') return
   e.preventDefault()
   if (e.key === 'Enter' && showMenu.value && !props.previewLocked) {
-    if (focusedCheckOption.value === 'today') handleDoneForToday(props.todo.id)
+    if (focusedCheckOption.value === 'now') handleDoneForNow(props.todo.id)
     else handleComplete(props.todo.id)
     return
   }
@@ -1636,7 +1636,7 @@ function openForEdit(caretPos?: number | null) {
 }
 
 // Current's double-click equivalent: opens the same tag/date editor Overview
-// uses, on top of a 'current'-mode card — closes the Done/Done-for-today
+// uses, on top of a 'current'-mode card — closes the Done/Done-for-now
 // check-menu first if that's what was open. Picking a new date here still
 // leaves the todo in Current throughout: commitDraftTags (see draftTags
 // above) only ever writes tags/loopInterval, never inCurrent.
@@ -1798,10 +1798,10 @@ function handleComplete(id: string) {
   emit('complete', id)
 }
 
-function handleDoneForToday(id: string) {
+function handleDoneForNow(id: string) {
   if (themeStore.celebrationsEnabled) celebrateBackground(props.todo.celebration ?? drawCelebrationKey())
   openCheckMenuId.value = null
-  emit('done-for-today', id)
+  emit('done-for-now', id)
 }
 
 // ── Swipe ──────────────────────────────────────────────
@@ -2241,7 +2241,7 @@ function zoneLabelPos(zone: SwipeZone): [number, number] {
 
 // The three position slots (focus/date/delete) are reused as-is for
 // Current's own swipe (mode 'current') — same geometry, different actions:
-// the 'focus' slot becomes Done-for-today, the 'date' slot becomes Done,
+// the 'focus' slot becomes Done-for-now, the 'date' slot becomes Done,
 // the 'delete' slot becomes Remove. Keeps one single hand-tuned layout
 // instead of a second one to keep in sync, and means Current and Overview
 // feel like the same gesture throughout the app rather than two
@@ -2252,7 +2252,7 @@ function zoneLabelPos(zone: SwipeZone): [number, number] {
 // — see that computed's own comment.
 //
 // Current (mode 'current'): all three always apply, except previewLocked
-// (browsing a future Date List via ListsPanel.vue) — Done/Done-for-today
+// (browsing a future Date List via ListsPanel.vue) — Done/Done-for-now
 // stay locked out there same as the check-row buttons do, leaving only
 // Remove.
 const zones = computed<SwipeZone[]>(() => {
@@ -2624,7 +2624,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
 
   if (SWIPE_MODE === 'zones' && props.mode === 'current') {
     // Same three slots as Overview (see zones computed) — 'focus' is
-    // Done, 'date' is Done-for-today, 'delete' is Remove. Remove is
+    // Done, 'date' is Done-for-now, 'delete' is Remove. Remove is
     // non-destructive (the todo just goes back to the pool), unlike
     // Overview's Delete, so no confirmation here, same as the threshold
     // model's own swipe-left-to-remove.
@@ -2635,7 +2635,7 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
       emit('remove-from-current', props.todo.id)
     } else if (hit === 'date') {
       springBackToCenter()
-      handleDoneForToday(props.todo.id)
+      handleDoneForNow(props.todo.id)
     } else if (hit === 'focus') {
       springBackToCenter()
       handleComplete(props.todo.id)
@@ -3137,8 +3137,8 @@ onUnmounted(() => {
             <template v-else>
               <button
                 class="check-opt"
-                :class="{ 'is-focused': focusedCheckOption === 'today' }"
-                @click.stop="handleDoneForToday(todo.id)"
+                :class="{ 'is-focused': focusedCheckOption === 'now' }"
+                @click.stop="handleDoneForNow(todo.id)"
               >
                 <Clock :size="16" /> <span>Done for now</span>
               </button>

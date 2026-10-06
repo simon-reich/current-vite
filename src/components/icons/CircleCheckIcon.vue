@@ -2,7 +2,7 @@
 // Lucide's CircleCheck, plus a `double` variant Lucide has no icon for:
 // the same circle around two parallel ticks staggered diagonally.
 // One component for both so the single and double tick always share the
-// exact same circle/stroke. Used for Done (double) vs. Done-for-today
+// exact same circle/stroke. Used for Done (double) vs. Done-for-now
 // (single) in the Calendar's day detail and log. `filled` inverts it — ink
 // circle, tick in the background color (priority entries).
 withDefaults(defineProps<{ size?: number | string; double?: boolean; filled?: boolean }>(), { size: 24, double: false, filled: false })

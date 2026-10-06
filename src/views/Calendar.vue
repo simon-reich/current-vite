@@ -212,7 +212,7 @@ const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedD
 // different kind of event than completing/working a Todo.
 const checksOnDay = computed(() => selectedDate.value && themeStore.checksEnabled ? checksStore.completedOn(selectedDate.value) : [])
 // Subs completed this day, per parent todo — a todo can show up here even
-// on a day it was never itself Done/Done-for-today (see dayEntries below),
+// on a day it was never itself Done/Done-for-now (see dayEntries below),
 // which is exactly why subs-only progress still lands on the calendar.
 const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? store.subsCompletedOn(selectedDate.value) : [])
 
@@ -268,7 +268,7 @@ const isPastDate = computed(() => !!selectedDate.value && selectedDate.value < t
 // below. What was actually finished vs. just touched today is still worth
 // showing per item, it's just not the more interesting question for a
 // retrospective glance at the day. A todo that only had subs ticked today
-// (never itself Done/Done-for-today) still counts as "worked" here — Done-
+// (never itself Done/Done-for-now) still counts as "worked" here — Done-
 // for-today is about closing a todo back into the pool for later, not the
 // only way of showing you touched it; ticking subs across several days is
 // the same kind of progress and should read the same way in the calendar.

@@ -139,9 +139,9 @@ export function nextLoopOccurrence(interval: LoopInterval, today: Date = new Dat
 }
 
 // Already handled today (sent to Current today, whether that stuck — via
-// "Done for today" it can be inCurrent:false again by now — or not) — set
+// "Done for now" it can be inCurrent:false again by now — or not) — set
 // on every sendToCurrent(), manual or automatic. Reusing it instead of a
-// dedicated field means "Done for today" earlier today correctly keeps
+// dedicated field means "Done for now" earlier today correctly keeps
 // this loop todo out of Current for the rest of today, not just until the
 // next scheduled check re-adds it.
 function processedToday(todo: Todo): boolean {

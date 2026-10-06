@@ -66,7 +66,7 @@ const displayedTodos = computed(() => {
 })
 
 // Only today's own Date List (if viewing one) behaves like real Current —
-// any other day is still in the future, so Done/Done-for-today stay
+// any other day is still in the future, so Done/Done-for-now stay
 // locked (see TodoCard.vue's previewLocked) until it actually arrives.
 const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
 
@@ -99,7 +99,7 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 // not removeFromCurrent, to not collide with the store action of that name
 // this calls in the default (non-Date-List) branch.
 //
-// Branches on viewingDate, not viewingLockedDate (same as doneForToday
+// Branches on viewingDate, not viewingLockedDate (same as doneForNow
 // below) — displayedTodos itself is driven by todosForFocusDate whenever
 // any Date List is being viewed, today's included, so removing a card from
 // *that* list has to unassign the focus date regardless of whether today
@@ -114,11 +114,11 @@ function removeCard(id: string, obvious?: boolean) {
 }
 
 // Current and a Date List are independent lists (see stores/todos.ts) — a
-// card's "done for today" here has to affect whichever one is actually
+// card's "done for now" here has to affect whichever one is actually
 // being viewed, not always Current's own inCurrent-based version.
-function doneForToday(id: string) {
-  if (viewingDate.value) store.doneForTodayOnDate(id, viewingDate.value)
-  else store.doneForToday(id)
+function doneForNow(id: string) {
+  if (viewingDate.value) store.doneForNowOnDate(id, viewingDate.value)
+  else store.doneForNow(id)
 }
 
 // ── Checks ──
@@ -128,7 +128,7 @@ function doneForToday(id: string) {
 // A Date List preview is a full preview of that day, Checks included, not
 // just Todos — see CLAUDE.md's Date Lists section. checkDisplayDate powers
 // both which checks show (checksDueOn) and which date isCompletedOn reads
-// off; viewingLockedDate (already used for Todos' Done/Done-for-today)
+// off; viewingLockedDate (already used for Todos' Done/Done-for-now)
 // reused as-is to lock ticking a Check on a day that hasn't arrived yet.
 const checkDisplayDate = computed(() => viewingDate.value ?? todayStr())
 const displayedChecks = computed(() => viewingDate.value ? checksStore.checksDueOn(viewingDate.value) : checksStore.todayChecks)
@@ -197,7 +197,7 @@ function editFromAllChecks(check: CheckItem) {
         mode="current"
         @remove-from-current="removeCard"
         @complete="store.completeTodo($event)"
-        @done-for-today="doneForToday"
+        @done-for-now="doneForNow"
         @delete="store.deleteTodo($event)"
       />
     </div>
@@ -433,7 +433,7 @@ function editFromAllChecks(check: CheckItem) {
   background: var(--ink);
 }
 
-/* Same "not due yet" lock as TodoCard's Done/Done-for-today row for a
+/* Same "not due yet" lock as TodoCard's Done/Done-for-now row for a
    future Date List preview — pointer-events:none instead of a disabled
    attribute (this is a span, not a button), so the click falls through to
    the surrounding .check-pill and still opens the edit modal. */

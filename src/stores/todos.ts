@@ -61,7 +61,7 @@ export interface Todo {
   createdAt: string
   /** Whether this todo is on Current — a day-agnostic, persistent list the
    *  user curates by hand (see CLAUDE.md's Pool concept). Named `inCurrent`,
-   *  not `inToday`: despite "Done for today" being how you clear an item off
+   *  not `inToday`: despite "Done for now" being how you clear an item off
    *  it, membership itself has no date attached and never resets. */
   inCurrent: boolean
   /** Optional sub-todos — live and die with this todo, no independent
@@ -117,7 +117,7 @@ export const useTodosStore = defineStore('todos', () => {
   const tags = ref<Tag[]>([])
 
   // One-time migration for the brief window this app had a separate
-  // append-only `history` log (one row per Done/Done-for-today event,
+  // append-only `history` log (one row per Done/Done-for-now event,
   // never touched by deleteTodo) instead of the deletedAt approach below.
   // Any todo it logged that's since been hard-deleted and is gone from
   // `todos` now would otherwise vanish from the calendar for good — so
@@ -249,7 +249,7 @@ export const useTodosStore = defineStore('todos', () => {
   // Subs completed on a given calendar day, grouped by their parent todo —
   // Calendar.vue's day-detail merges this into its entry list so progress on
   // a todo's subs shows up even on a day the todo itself was never Done or
-  // Done-for-today. Same "reads all todos, deletedAt stubs included" shape
+  // Done-for-now. Same "reads all todos, deletedAt stubs included" shape
   // as completedOn/workedOn above, for the same reason.
   function subsCompletedOn(dateStr: string): { todo: Todo; subs: Sub[] }[] {
     return todos.value
@@ -468,14 +468,14 @@ export const useTodosStore = defineStore('todos', () => {
     return !!todo.loopInterval && todo.tags.includes(LOOP_TAG_ID)
   }
 
-  // Current's own "done for today" — inCurrent + workLog, and always also
+  // Current's own "done for now" — inCurrent + workLog, and always also
   // clears today's focusDate if this todo happens to be on that list too.
   // Deliberately one-directional: Current is the broader, day-agnostic
-  // list, so "done for today" there settles today's occurrence everywhere.
-  // doneForTodayOnDate below does NOT mirror this for a plain todo — only
+  // list, so "done for now" there settles today's occurrence everywhere.
+  // doneForNowOnDate below does NOT mirror this for a plain todo — only
   // for a Date Todo, where both memberships are the same occurrence (see
   // isDateTodo) rather than two independent choices.
-  function doneForToday(id: string) {
+  function doneForNow(id: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
       todo.workLog.push(new Date().toISOString())
@@ -485,14 +485,14 @@ export const useTodosStore = defineStore('todos', () => {
     }
   }
 
-  // The Date List equivalent of doneForToday — unassigns just this one
+  // The Date List equivalent of doneForNow — unassigns just this one
   // date (a todo can be planned on several Date Lists at once). Unlike
-  // doneForToday, this direction stays one-way for a plain todo (leaves
+  // doneForNow, this direction stays one-way for a plain todo (leaves
   // `inCurrent` untouched — the narrower Today-list view shouldn't reach
   // back and clear the broader Current list); only for a Date Todo checked
   // off on *today's* list does it also clear `inCurrent` (same occurrence,
-  // see isDateTodo/doneForToday).
-  function doneForTodayOnDate(id: string, dateStr: string) {
+  // see isDateTodo/doneForNow).
+  function doneForNowOnDate(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
       todo.workLog.push(new Date().toISOString())
@@ -504,7 +504,7 @@ export const useTodosStore = defineStore('todos', () => {
 
   // Opt-in per-todo (see LoopInterval.rescheduleFromCompletion) — the next
   // occurrence counts from this check-off instead of the original fixed
-  // schedule. Shared by both doneForToday variants above.
+  // schedule. Shared by both doneForNow variants above.
   function applyLoopReschedule(todo: Todo) {
     if (todo.loopInterval?.rescheduleFromCompletion && (todo.loopInterval.mode ?? 'loop') === 'loop') {
       todo.loopInterval.startDate = todayStr()
@@ -703,7 +703,7 @@ export const useTodosStore = defineStore('todos', () => {
     activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
     completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
     // actions
-    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForToday, doneForTodayOnDate,
+    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForNow, doneForNowOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
     assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,

@@ -692,7 +692,7 @@ watch(openCheckMenuId, (id) => {
   // top of the last instead of replacing it.
   hideCelebrationTeaser()
   // A future Date List's check-menu shows "Not due yet" instead of the
-  // Done/Done-for-today buttons (previewLocked in TodoCard.vue) — nothing
+  // Done/Done-for-now buttons (previewLocked in TodoCard.vue) — nothing
   // can actually be completed there, so the teaser has nothing to preview.
   if (route.path === '/current' && viewingDate.value && viewingDate.value !== todayStr()) return
   const todo = id ? store.todos.find(t => t.id === id) : undefined
