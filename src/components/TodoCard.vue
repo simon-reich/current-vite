@@ -2273,7 +2273,7 @@ const zones = computed<SwipeZone[]>(() => {
   } else {
     if (!props.previewLocked) {
       list.push(buildZone('focus', 'Done', rect, false))
-      list.push(buildZone('date', 'Done for today', rect, false))
+      list.push(buildZone('date', 'Done for now', rect, false))
     }
     list.push(buildZone('delete', 'Remove', rect, false))
   }
@@ -3140,7 +3140,7 @@ onUnmounted(() => {
                 :class="{ 'is-focused': focusedCheckOption === 'today' }"
                 @click.stop="handleDoneForToday(todo.id)"
               >
-                <Clock :size="16" /> <span>Done for today</span>
+                <Clock :size="16" /> <span>Done for now</span>
               </button>
               <button
                 class="check-opt"
@@ -3442,7 +3442,7 @@ onUnmounted(() => {
 }
 
 /* Smaller on phone — the triangles are smaller there too, and longer
-   labels ("done for today") need to stay inside them. */
+   labels ("done for now") need to stay inside them. */
 @media (max-width: 700px) {
   .swipe-zone-label {
     font-size: 11px;
