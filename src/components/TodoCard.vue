@@ -1510,9 +1510,17 @@ function onCardKeydown(e: KeyboardEvent) {
   // split already used for D (Delete vs. Date-filter cycle) — App.vue's
   // Calendar shortcut only fires when no card is open, so the two never
   // actually compete.
+  // The card itself flies off to the list (top of Overview with Date Lists,
+  // out of Overview without) — focus moves on to the next card in the pool
+  // instead of riding along with it (previous one if it was the last).
   if (e.key.toLowerCase() === 'c' && showTagMenu.value && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
     commitDraftTags()
+    if (!isOnList.value) {
+      const ids = props.siblingIds ?? []
+      const idx = ids.indexOf(props.todo.id)
+      openTagMenuId.value = idx === -1 ? null : (ids[idx + 1] ?? ids[idx - 1] ?? null)
+    }
     addToList()
     return
   }
