@@ -36,7 +36,7 @@ export function spawnToast(label: string, left: string, top: string, dupTag = fa
 
 // Shared by every trigger that moves a card between Overview and Current (a
 // due loop todo added while away from Current, Enter/"+"/swipe on an
-// Overview card, D/CircleMinus/swipe-left on a Current card, ...) — measures
+// Overview card, D/CircleMinus/remove zone on a Current card, ...) — measures
 // the card's own on-screen position right before it's moved so the toast
 // visibly rises from wherever the card actually was, instead of a generic
 // center-screen bubble with no spatial link to what just happened.

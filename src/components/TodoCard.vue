@@ -631,9 +631,6 @@ const enterDelay = props.gridMode
 const enterInitial = props.gridMode
   ? { opacity: 0, y: 0, scale: 0.75 }
   : { opacity: 0, y: 16, scale: 0.9 }
-// Shared with regrowAtOrigin's own manual replay of this same bounce below
-// — same bounce, two different triggers (Vue mount vs. an imperative
-// motion-value animation), so the spring itself lives in one place.
 const ENTER_SPRING = { type: 'spring', stiffness: 700, damping: 24, mass: 0.6 } as const
 
 const store = useTodosStore()
@@ -1495,8 +1492,8 @@ function onCardKeydown(e: KeyboardEvent) {
     return
   }
   // D — delete in Overview (opens the same confirm modal the Trash icon/
-  // swipe-left do, not an instant delete), remove-from-Current in Current
-  // (mirrors the CircleMinus button/swipe-left there — no confirmation,
+  // delete zone do, not an instant delete), remove-from-Current in Current
+  // (mirrors the CircleMinus button/remove zone there — no confirmation,
   // since it's just moving the todo back to Overview, not discarding it).
   if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault()
@@ -1906,11 +1903,11 @@ const hoverScale = computed(() => {
 const x = useMotionValue(0)
 const y = useMotionValue(0)
 const rotate = useTransform(x, [-200, 200], [-8, 8])
-// Only animated for the swipe-right-confirmed fly-out (see flyOutRight) —
+// Only animated for the fly-out after a zone drop (see flyOutRight) —
 // stays at 1 the rest of the time, so binding it in :style below is a
 // no-op until then.
 const cardOpacity = useMotionValue(1)
-// Only animated by regrowAtOrigin's "grow back into place" bounce — see its
+// Only animated by springBackToCenter's explicit settle back to 1 — see its
 // own comment. Stays at 1 the rest of the time, same as cardOpacity above.
 const cardScale = useMotionValue(1)
 // Raw mirrors of physical position (used for the elevated z-index / lifted
@@ -1922,65 +1919,8 @@ const cardScale = useMotionValue(1)
 const swipeX = ref(0)
 const swipeY = ref(0)
 
-// A clean 3-state machine along the horizontal axis: Hold (armedDir 0),
-// armed-right (1), armed-left (-1). `refX` is the reference point for
-// whichever state is currently active, and `swipeRelX` is the live offset
-// from it. It's a *fixed* point for the duration of a state — it only ever
-// moves at the exact moment of falling back into Hold, where it re-baselines
-// to wherever that happened. From there, reaching either armed state again
-// needs the full arm distance (see armDistance()) once more, in either
-// direction — Hold is a real, equally-sized zone of its own, not just a
-// wedge you pass through.
-//
-// `extremeX` tracks the furthest point reached in the current excursion —
-// release is measured back from *that peak*, not from refX/the original
-// grip start. Without this, dragging out far past the arm threshold before
-// pulling back meant the release check (relative to the far-away start)
-// barely moved before crossing, needing an enormous pull-back — while a
-// swipe that armed right at the threshold released after only a small one.
-const swipeRelX = ref(0)
-let refX = 0
-let extremeX = 0
-
-// Distance from Hold's reference point needed to arm a direction — same
-// both ways, so delete and move/complete need identical travel. This is
-// also the width of the Hold zone you land back in after releasing an
-// armed state, so it needs real, comfortably perceivable room — too tight
-// and a normal-speed swipe blows straight through it in a frame or two.
-// Desktop drags (mouse, generally larger/faster pointer travel across a
-// bigger screen) need noticeably more room than a touch swipe does for
-// Hold to stay comfortably reachable — same breakpoint as
-// scrollCardIntoView's desktop check.
-//
-// The very first arm attempt of a gesture (straight from the grip's start)
-// wants a shorter distance than every subsequent Hold-to-armed transition
-// (after at least one release has already happened) — 340px felt right for
-// swinging between an already-armed Current and Delete, but far too much for
-// the very first pull off of Hold. `everArmed` (set in onDrag/onDragStart)
-// tracks which of the two applies.
-let everArmed = false
-
-function armDistance() {
-  if (window.innerWidth <= 1024) return 130
-  return everArmed ? 340 : 180
-}
-// How far back from the current excursion's peak counts as "given up on
-// this direction" — deliberately small relative to armDistance(), so once
-// armed it stays armed through minor jitter, but a real, deliberate
-// pull-back drops it back to a fresh Hold zone. Always measured from the
-// peak, so it's the same small pull-back regardless of how far past the
-// threshold the swipe went.
-function releaseMargin() {
-  return window.innerWidth > 1024 ? 120 : 45
-}
-
-// The one authoritative "what would happen on release" state — the reveal
-// indicator and the actual onDragEnd decision both read this directly, so
-// what you see is always exactly what fires.
-const armedDir = ref<-1 | 0 | 1>(0)
-
-// Horizontal distance (from the grip's start, not the relative measurement
-// above) before the vertical follow kicks in — small enough to feel
+// Horizontal distance from the grip's start before the vertical follow
+// kicks in — small enough to feel
 // instant, but enough to stay clear of Motion's own direction-lock tolerance
 // (so we never turn on a y-follow for what was actually a scroll).
 const DRAG_ENGAGE_THRESHOLD = 10
@@ -1997,66 +1937,9 @@ useMotionValueEvent(y, 'change', (latest) => {
   swipeY.value = latest
 })
 
-// One haptic tick exactly when the armed state changes (arms or disarms) —
-// not on every threshold-adjacent wobble.
-watch(armedDir, (dir, prev) => {
-  if (dir !== prev) navigator.vibrate?.(dir === 0 ? 8 : 12)
-})
-
 // Disabled while a menu/edit UI underneath is in use, so drag gestures don't
 // fight with taps on checkboxes/buttons revealed by the open card.
 const canDrag = computed(() => !isEditing.value && !showTagMenu.value && !showMenu.value)
-
-// What-would-happen indicator, shown centered over the whole page (via
-// Teleport) instead of pinned to the card — it now needs to stay legible and
-// on top of everything no matter where a free-form drag has carried the card.
-// Tied directly to `armedDir` (the same authoritative state onDragEnd reads)
-// rather than its own separate preview threshold: an earlier version showed
-// a preview once past ~32px, computed independently from the 24px margin
-// that moves the reference point — on an ordinary, non-glacial swipe, a
-// single drag frame easily covers more than the ~8px gap between those two,
-// so the neutral state got skipped over almost every time. Showing "Hold"
-// for the entire pre-arm range (0–45px, not just a wedge of it) sidesteps
-// that entirely and gives a genuinely large, robust neutral zone.
-const swipeAction = computed(() => {
-  if (armedDir.value === 1) {
-    return props.mode === 'all'
-      ? { label: props.todo.inCurrent ? 'Remove' : 'Current' }
-      : { label: 'Complete' }
-  }
-  if (armedDir.value === -1) {
-    return props.mode === 'all' ? { label: 'Delete' } : { label: 'Remove' }
-  }
-  return { label: 'Hold' }
-})
-const swipeArmed = computed(() => armedDir.value !== 0)
-
-// Threshold model only (SWIPE_MODE === 'zones' is what's actually active —
-// see its own comment below); left in its pre-Date-Lists-repurpose shape
-// since it never renders while zones mode is on. Overview's swipe-right
-// used to split into two drop zones whenever Date Lists were on, "Remove
-// [from Current]" vs. planning onto a Date List. Swipe-left/Delete never
-// split either way.
-const showSwipeZoneSplit = computed(() =>
-  props.mode === 'all' && themeStore.dateListsEnabled
-)
-
-// Which of the two zones a rightward swipe currently targets — top (date)
-// vs. bottom (focus). Driven by the drag's own relative vertical offset
-// from where the gesture started (info.offset.y), the same "relative, not
-// absolute" approach armedDir itself already uses for the horizontal
-// arm/release thresholds — an absolute-position version (comparing
-// info.point.y, which is page- not viewport-relative, against a
-// backdropRect cached once at drag start) tracked the pointer inconsistently
-// once the gesture moved. A small deadzone (rather than a bare sign check)
-// stops it flickering right at the midpoint. Read by onDragEnd, same
-// "whatever's on screen when the finger lifts is what fires" contract as
-// armedDir itself.
-const armedZone = ref<'date' | 'focus'>('focus')
-// Two distinct thresholds (not one shared boundary) — real hysteresis, so
-// hovering exactly at the switch point can't flicker back and forth.
-const ZONE_ENTER_DATE_OFFSET = -24
-const ZONE_EXIT_DATE_OFFSET = -8
 
 // Same "today"/"tomorrow" special-casing as the Current sidebar's Date-List
 // nav (see App.vue) — a raw D/M reads as just another date otherwise, even
@@ -2124,19 +2007,9 @@ function moveToNextDay() {
   emit('move-to-next-day', props.todo.id)
 }
 
-// ── Swipe interaction mode ──────────────────────────────────────────
-// 'zones': the drop-in-a-corner-triangle model below (date/delete/focus,
-// see zoneHit/onDrag/onDragEnd's early-return branches) — absolute-
-// position hit-testing against fixed corner triangles, no arm/release
-// thresholds at all. 'threshold': the original horizontal-swipe-distance
-// arming model above (armedDir/armDistance/releaseMargin), left fully
-// intact rather than deleted. Flip this one constant to switch between
-// them instantly. Only affects Overview (mode 'all') — Current's own
-// swipe-left/right (remove/open the Done menu) always uses the threshold
-// model regardless, since the zone concept was specifically about
-// Overview's three-way date/delete/focus choice.
-const SWIPE_MODE: 'zones' | 'threshold' = 'zones'
-
+// ── Swipe zones ──────────────────────────────────────────────────────
+// Drop-in-a-corner-triangle model (see zoneHit/onDrag/onDragEnd) —
+// absolute-position hit-testing against fixed corner triangles.
 type ZoneSlot = 'focus' | 'date' | 'delete'
 type ZoneCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
@@ -2294,9 +2167,8 @@ function zoneLabelPos(zone: SwipeZone): [number, number] {
 // feel like the same gesture throughout the app rather than two
 // different ones that happen to look similar.
 //
-// Overview (mode 'all'): date offered whenever Date Lists are on (mirrors
-// showSwipeZoneSplit above), whether or not the card is already in Current
-// — see that computed's own comment.
+// Overview (mode 'all'): only 'focus' (add to/remove from the list, see
+// isOnList) and 'delete' — no 'date' slot.
 //
 // Current (mode 'current'): all three always apply, except previewLocked
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-now
@@ -2337,8 +2209,8 @@ const zoneCornerRadius = ref(0)
 // drag offset (x/y) to know where the card currently is.
 let gripCardRect: ContactRect | null = null
 
-// The one authoritative "what would happen on release" state for zones
-// mode — same role armedDir/armedZone play for the threshold model.
+// The one authoritative "what would happen on release" state — the zones
+// overlay and onDragEnd both read this, so what you see is what fires.
 const zoneHit = ref<ZoneSlot | null>(null)
 
 watch(zoneHit, (hit, prev) => {
@@ -2346,7 +2218,7 @@ watch(zoneHit, (hit, prev) => {
 })
 
 // Planning a todo onto a Date List doesn't move it anywhere (it stays put
-// in Overview — see onDragEnd's swipedRight branch above) — this brief
+// in Overview — see onDragEnd's focus-zone branch below) — this brief
 // pulse plus the toast (see AllTodos.vue's sendToFocusDate) are the only
 // on-card feedback that anything happened at all, since nothing else
 // about the card visually changes.
@@ -2373,7 +2245,7 @@ function animateOutPuff(): Promise<void> {
   ).finished.then(() => {})
 }
 
-// Sends the card flying off to the right on a confirmed swipe-right — but
+// Sends the card flying off to the right on a confirmed focus-zone drop — but
 // continuing on from wherever the drag actually released it (x/y aren't
 // reset first), instead of the old version's snap-back-to-center-then-fly,
 // which visibly jumped the card back to its start position for a frame
@@ -2387,47 +2259,13 @@ function flyOutRight(): Promise<void> {
   ]).then(() => {})
 }
 
-// Mirrors flyOutRight for throwing a card back out of Current (swipe-left,
+// Mirrors flyOutRight for throwing a card back out of Current (remove zone,
 // "Remove") — same continue-from-the-release-point logic, just leftward.
 function flyOutLeft(): Promise<void> {
   const targetX = (x.get() < 0 ? x.get() : 0) - window.innerWidth * 1.5
   return Promise.all([
     animate(x, targetX, { duration: 0.24, ease: 'easeIn' }).finished,
     animate(cardOpacity, 0, { duration: 0.24, ease: 'easeIn' }).finished,
-  ]).then(() => {})
-}
-
-// A swipe-to-Current that (Date Lists on) never actually removes this card
-// from Overview shouldn't fly off to the side like flyOutRight — that
-// reads as "leaving", which it isn't. Just fades out fast right where the
-// card already sits (x/y untouched, unlike flyOutRight) — reads as
-// vanishing, not being thrown anywhere. Deliberately doesn't touch scale
-// (cardScale) here: `:while-drag`'s own scale is still settling back down
-// right at this exact moment (drag just ended), and driving cardScale from
-// both that and this at once is what produced an erratic, oversized flash
-// in an earlier version of this fix. Only regrowAtOrigin below (which
-// runs later, once this has already finished) touches scale, once that
-// settling is long done. Always pair with it once the actual state change
-// has been emitted.
-function vanishInPlace(): Promise<void> {
-  return animate(cardOpacity, 0, { duration: 0.15, ease: 'easeIn' }).finished
-}
-
-// Follows flyOutRight for a swipe-to-Current that (Date Lists on) never
-// actually removes this card from Overview — instead of sliding back in
-// from off-screen (springBackToCenter, which reads as "that didn't work"),
-// the card teleports invisibly back to its own spot (x/y snapped straight
-// to 0, no animation — cardOpacity is already 0 from flyOutRight, so this
-// isn't seen) and then grows into existence right there, replaying the
-// same mount-time bounce a brand new card gets (see enterInitial/
-// ENTER_SPRING) — reads as "this todo is still here too", not a reversal.
-function regrowAtOrigin(): Promise<void> {
-  x.set(0)
-  y.set(0)
-  cardScale.set(0.7)
-  return Promise.all([
-    animate(cardOpacity, 1, ENTER_SPRING).finished,
-    animate(cardScale, 1, ENTER_SPRING).finished,
   ]).then(() => {})
 }
 
@@ -2497,7 +2335,7 @@ function armGripSafetyNet() {
 // of sync with a list that's scrolling underneath it.
 const isGripped = ref(false)
 const fixedOrigin = ref<{ top: number; left: number; width: number } | null>(null)
-// Bounds of the dimming backdrop (see swipe-backdrop below) — matches the
+// Bounds of the dimming backdrop (see .swipe-zones-dim below) — matches the
 // scroll-locked list container itself, so it only covers the todos and
 // never bleeds over the top bar / bottom nav.
 const backdropRect = ref<{ top: number; left: number; width: number; height: number } | null>(null)
@@ -2508,14 +2346,8 @@ function onDragStart() {
   lockScroll()
   armGripSafetyNet()
   isGripped.value = true
-  refX = 0
-  extremeX = 0
-  armedDir.value = 0
-  swipeRelX.value = 0
-  armedZone.value = 'focus'
   zoneHit.value = null
   zoneCornerRadius.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 0
-  everArmed = false
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
   gripCardRect = rect ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } : null
@@ -2543,72 +2375,31 @@ function onDragStart() {
 }
 
 function onDrag(event: PointerEvent, info: PanInfo) {
-  if (SWIPE_MODE === 'zones') {
-    // Same engage-then-follow gating as the threshold model's own y.set
-    // below — keeps a mostly-vertical touch free to scroll the list
-    // natively instead of being claimed the instant any drag starts.
-    if (Math.abs(info.offset.x) > DRAG_ENGAGE_THRESHOLD) y.set(info.offset.y)
-    // clientX/clientY (viewport-relative), not info.point (page-relative,
-    // includes scroll offset) — the exact mismatch that made the old
-    // armedZone tracking drift once the list had scrolled (see its own
-    // comment above). backdropRect is viewport-relative too (getBoundingClientRect),
-    // so both sides of this comparison now agree.
-    // Contact box (see ZONE_CONTACT_SCALE) on the card's current position —
-    // its grab-time rect shifted by the drag offset (the slight drag
-    // rotation is ignored, a few px at most). A card grabbed while already
-    // inside a zone counts as in it right away — dropping it there fires
-    // that action, by design.
-    let contact: ContactRect = { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }
-    if (gripCardRect) {
-      const cardLeft = gripCardRect.left + x.get()
-      const cardTop = gripCardRect.top + y.get()
-      const cardW = gripCardRect.right - gripCardRect.left
-      const cardH = gripCardRect.bottom - gripCardRect.top
-      const boxW = Math.min(cardW * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.width)
-      const boxH = Math.min(cardH * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.height)
-      const left = Math.min(Math.max(event.clientX - boxW / 2, cardLeft), cardLeft + cardW - boxW)
-      const top = Math.min(Math.max(event.clientY - boxH / 2, cardTop), cardTop + cardH - boxH)
-      contact = { left, top, right: left + boxW, bottom: top + boxH }
-    }
-    zoneHit.value = deepestZoneHit(zones.value, contact)
-    return
+  // Engage-then-follow gating — keeps a mostly-vertical touch free to
+  // scroll the list natively instead of being claimed the instant any
+  // drag starts.
+  if (Math.abs(info.offset.x) > DRAG_ENGAGE_THRESHOLD) y.set(info.offset.y)
+  // clientX/clientY (viewport-relative), not info.point (page-relative,
+  // includes scroll offset) — backdropRect is viewport-relative too
+  // (getBoundingClientRect), so both sides of this comparison agree.
+  // Contact box (see ZONE_CONTACT_SCALE) on the card's current position —
+  // its grab-time rect shifted by the drag offset (the slight drag
+  // rotation is ignored, a few px at most). A card grabbed while already
+  // inside a zone counts as in it right away — dropping it there fires
+  // that action, by design.
+  let contact: ContactRect = { left: event.clientX, top: event.clientY, right: event.clientX, bottom: event.clientY }
+  if (gripCardRect) {
+    const cardLeft = gripCardRect.left + x.get()
+    const cardTop = gripCardRect.top + y.get()
+    const cardW = gripCardRect.right - gripCardRect.left
+    const cardH = gripCardRect.bottom - gripCardRect.top
+    const boxW = Math.min(cardW * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.width)
+    const boxH = Math.min(cardH * ZONE_CONTACT_SCALE, ZONE_CONTACT_MAX.height)
+    const left = Math.min(Math.max(event.clientX - boxW / 2, cardLeft), cardLeft + cardW - boxW)
+    const top = Math.min(Math.max(event.clientY - boxH / 2, cardTop), cardTop + cardH - boxH)
+    contact = { left, top, right: left + boxW, bottom: top + boxH }
   }
-
-  const rawX = info.offset.x
-  const rel = rawX - refX
-  if (Math.abs(rel) > Math.abs(extremeX - refX)) extremeX = rawX
-  const arm = armDistance()
-  const margin = releaseMargin()
-
-  if (armedDir.value === 0) {
-    if (rel > arm) { armedDir.value = 1; everArmed = true }
-    else if (rel < -arm) { armedDir.value = -1; everArmed = true }
-  } else {
-    const peakRel = extremeX - refX
-    const released =
-      (armedDir.value === 1 && rel < peakRel - margin) ||
-      (armedDir.value === -1 && rel > peakRel + margin)
-    if (released) {
-      // Falls back to Hold — wherever that happens becomes the fresh
-      // reference point, so reaching either armed state again needs the
-      // full arm distance from here, not a discount for distance already
-      // covered before this release.
-      refX = rawX
-      extremeX = rawX
-      armedDir.value = 0
-    }
-  }
-
-  swipeRelX.value = rawX - refX
-
-  if (Math.abs(rawX) > DRAG_ENGAGE_THRESHOLD) {
-    y.set(info.offset.y)
-  }
-
-  if (showSwipeZoneSplit.value) {
-    if (armedZone.value === 'focus' && info.offset.y < ZONE_ENTER_DATE_OFFSET) armedZone.value = 'date'
-    else if (armedZone.value === 'date' && info.offset.y > ZONE_EXIT_DATE_OFFSET) armedZone.value = 'focus'
-  }
+  zoneHit.value = deepestZoneHit(zones.value, contact)
 }
 
 // Also settles scale back to 1 explicitly: `:while-drag`'s own 1.05 is
@@ -2621,9 +2412,8 @@ function springBackToCenter() {
   animate(cardScale, 1, SPRING_BACK)
 }
 
-// Reads the same `armedDir` the indicator itself displays — whatever it was
-// showing on screen the instant the finger lifts is exactly what fires,
-// vertical movement never factors in, and it never fires mid-gesture.
+// Reads the same `zoneHit` the overlay itself displays — whatever it was
+// showing the instant the finger lifts is exactly what fires.
 async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
   // justDragged itself was already set in onDragStart — clearing it here
   // is just a delayed safety net in case no click ever follows at all
@@ -2635,24 +2425,21 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
   unlockScroll()
   isGripped.value = false
 
-  if (SWIPE_MODE === 'zones' && props.mode === 'all') {
+  if (props.mode === 'all') {
     const hit = zoneHit.value
     zoneHit.value = null
     if (hit === 'delete') {
-      // Same as the threshold model's own delete path — snap back first
-      // (no fly/puff yet), confirm, only then animate.
+      // Snap back first (no fly/puff yet), confirm, only then animate —
+      // delete is permanent and easy to trigger by accident.
       x.set(0)
       y.set(0)
       pendingDelete.value = true
     } else if (hit === 'focus') {
-      // Date Lists on: this slot plans/unplans onto the selected date
-      // instead of Current (see isOnSelectedFocusDate/zones above) — the
-      // todo never leaves Overview either way (filteredTodos shows
-      // everything regardless of focusDates), so it's the same
-      // stays-in-place pulse the CalendarPlus button/date zone always used,
-      // not the Current-toggle's vanish/regrow. Date Lists off is the old
-      // single-Current-pool app: the todo genuinely leaves this list, so it
-      // really does fly out.
+      // Date Lists on: the todo never leaves Overview (it just moves
+      // into/out of the selected list's group), so the card springs back
+      // and pulses instead of flying off. Date Lists off is the old
+      // single-Current-pool app: the todo genuinely leaves this list, so
+      // it really does fly out.
       if (themeStore.dateListsEnabled) {
         springBackToCenter()
         // addToList pulses on its own; removing gets the same pulse here.
@@ -2668,84 +2455,21 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
     return
   }
 
-  if (SWIPE_MODE === 'zones' && props.mode === 'current') {
-    // Same three slots as Overview (see zones computed) — 'focus' is
-    // Done, 'date' is Done-for-now, 'delete' is Remove. Remove is
-    // non-destructive (the todo just goes back to the pool), unlike
-    // Overview's Delete, so no confirmation here, same as the threshold
-    // model's own swipe-left-to-remove.
-    const hit = zoneHit.value
-    zoneHit.value = null
-    if (hit === 'delete') {
-      await flyOutLeft()
-      removeFromList()
-    } else if (hit === 'date') {
-      springBackToCenter()
-      handleDoneForNow(props.todo.id)
-    } else if (hit === 'focus') {
-      springBackToCenter()
-      handleComplete(props.todo.id)
-    } else {
-      springBackToCenter()
-    }
-    return
-  }
-
-  const swipedLeft = armedDir.value === -1
-  const swipedRight = armedDir.value === 1
-  refX = 0
-  extremeX = 0
-  armedDir.value = 0
-  swipeRelX.value = 0
-
-  if (swipedLeft) {
-    if (props.mode === 'all') {
-      x.set(0)
-      y.set(0)
-      // Delete is permanent and the swipe to trigger it is quick — easy to
-      // cross by accident. Confirm first, same as deleting a tag; the puff
-      // animation only plays once that's actually confirmed.
-      pendingDelete.value = true
-    } else {
-      await flyOutLeft()
-      removeFromList()
-    }
-  } else if (swipedRight) {
-    if (props.mode === 'all') {
-      // Planning onto a Date List never removes the card from Overview
-      // (see stores/todos.ts's assignFocusDate) — flying it out like the
-      // send-to-current branch below (which, Date Lists off, really does
-      // leave this list) left a permanently blank gap: the array never
-      // actually loses this todo, so nothing ever re-triggers an entrance
-      // to replace the flown-out motion values. Spring back in place
-      // instead and let the caller's toast + this card's own "just
-      // planned" pulse (see plannedPulse) carry the "yes, that worked"
-      // feedback.
-      if (showSwipeZoneSplit.value && armedZone.value === 'date') {
-        springBackToCenter()
-        triggerPlannedPulse()
-        emit('send-to-focus-date', props.todo.id)
-      } else if (themeStore.dateListsEnabled) {
-        // Same Date-Lists-on/off split as the zones model's own 'focus'
-        // branch above — vanishInPlace + regrowAtOrigin instead of flying
-        // out to a "leaving" spot this todo never actually leaves.
-        await vanishInPlace()
-        if (!props.todo.inCurrent) emit('send-to-current', props.todo.id)
-        else emit('remove-from-current', props.todo.id)
-        regrowAtOrigin()
-      } else {
-        await flyOutRight()
-        toggleList()
-      }
-    } else {
-      // Same as toggleCheckMenu: opening a check-menu (here via swipe)
-      // has to close any other card's open tag/date editor too, or a
-      // swipe on a different Current card while one was mid-edit left both
-      // open at once.
-      if (openTagMenuId.value) openTagMenuId.value = null
-      openCheckMenuId.value = props.todo.id
-      springBackToCenter()
-    }
+  // Same three slots as Overview (see zones computed) — 'focus' is
+  // Done, 'date' is Done-for-now, 'delete' is Remove. Remove is
+  // non-destructive (the todo just goes back to the pool), unlike
+  // Overview's Delete, so no confirmation here.
+  const hit = zoneHit.value
+  zoneHit.value = null
+  if (hit === 'delete') {
+    await flyOutLeft()
+    removeFromList()
+  } else if (hit === 'date') {
+    springBackToCenter()
+    handleDoneForNow(props.todo.id)
+  } else if (hit === 'focus') {
+    springBackToCenter()
+    handleComplete(props.todo.id)
   } else {
     springBackToCenter()
   }
@@ -2833,43 +2557,14 @@ onUnmounted(() => {
       :class="{ open: showMenu || showTagMenu, loop: previewIsLoop, 'just-planned': justPlanned }"
       :style="{ '--hover-scale': hoverScale }"
     >
-      <!-- Threshold model's own backdrop/indicator — see SWIPE_MODE above.
-           Left fully intact, just inert while SWIPE_MODE is 'zones'
-           (applies to both Overview and Current now). -->
-      <Teleport to="body">
-        <Transition name="swipe-indicator">
-          <div
-            v-if="isGripped && backdropRect && SWIPE_MODE !== 'zones'"
-            class="swipe-backdrop"
-            :class="{ split: showSwipeZoneSplit && armedDir !== -1 }"
-            :style="{ top: backdropRect.top + 'px', left: backdropRect.left + 'px', width: backdropRect.width + 'px', height: backdropRect.height + 'px' }"
-          >
-            <template v-if="showSwipeZoneSplit && armedDir !== -1">
-              <div class="swipe-zone">
-                <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'date' }" />
-                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'date' }">List {{ formatShortDate(themeStore.selectedFocusDate) }}</span>
-              </div>
-              <div class="swipe-zone">
-                <div class="swipe-backdrop-fill" :class="{ visible: armedDir === 1 && armedZone === 'focus' }" />
-                <span class="swipe-indicator" :class="{ armed: armedDir === 1 && armedZone === 'focus' }">Current</span>
-              </div>
-            </template>
-            <template v-else>
-              <div class="swipe-backdrop-fill" :class="{ visible: swipeArmed }" />
-              <span class="swipe-indicator" :class="{ armed: swipeArmed }">{{ swipeAction.label }}</span>
-            </template>
-          </div>
-        </Transition>
-      </Teleport>
-
-      <!-- Zones model — see SWIPE_MODE above. One viewport-sized SVG in the
+      <!-- Swipe zones overlay. One viewport-sized SVG in the
            same coordinate space onDrag's hit-testing uses (event.clientX/
            clientY), teleported to body so no ancestor's overflow/stacking
            context can clip it — every triangle's path, label position and
            hit area all come from the same zones geometry. -->
       <Teleport to="body">
-        <Transition name="swipe-indicator">
-          <div v-if="isGripped && SWIPE_MODE === 'zones'" class="swipe-zones-layer">
+        <Transition name="swipe-zones-fade">
+          <div v-if="isGripped" class="swipe-zones-layer">
             <div
               v-if="backdropRect"
               class="swipe-zones-dim"
@@ -3306,94 +3001,17 @@ onUnmounted(() => {
   animation: planned-pulse 0.4s ease-out;
 }
 
-/* What-would-happen layer (see swipeAction/swipeArmed) — teleported to body,
-   same weight/opacity as the delete-confirmation backdrop (.modal-backdrop),
-   deliberately unchanged regardless of armed state (only the label's own
-   size distinguishes previewing from armed — see .swipe-indicator.armed).
-   Sized and positioned to match the scroll-locked list container itself
-   (backdropRect, measured in onDragStart), so it covers only the todos —
-   never the top bar or bottom nav. Slots in between the rest of the list
-   (which it dims, like a modal would) and the actively-gripped card itself,
-   which stays on top of it at all times (z-index: 9999, see the wrapper's
-   fixedOrigin style) — so the card you're holding always reads as lifted
-   above everything, including this layer, while every other todo reads as
-   behind it. The fill and the label are siblings rather than the label
-   being a dimmed child, so the text itself stays fully legible. */
-.swipe-backdrop {
-  position: fixed;
-  z-index: 5000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-/* Split mode (Overview, plan-ahead swipe — see showSwipeZoneSplit): two
-   equal-height drop zones stacked instead of one centered label, each
-   with its own independently-armable fill/label pair. */
-.swipe-backdrop.split {
-  flex-direction: column;
-}
-
-.swipe-zone {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.swipe-zone + .swipe-zone {
-  border-top: 2px solid var(--bg);
-}
-
-.swipe-backdrop-fill {
-  position: absolute;
-  inset: 0;
-  background: var(--ink);
-  opacity: 0;
-  /* Simple two-state fade tied directly to armedDir (via .visible) rather
-     than the continuous swipe distance — that version's target opacity
-     jumped the instant a release re-baselines the reference point (swipeRelX
-     snaps to 0 right as you land in Hold), which no transition duration
-     could smooth into the graceful fade this is going for. Hold itself
-     always reads as fully off; only entering/leaving an armed state fades. */
-  transition: opacity 0.3s ease-out;
-}
-
-.swipe-backdrop-fill.visible {
-  opacity: 0.35;
-}
-
-.swipe-indicator {
-  position: relative;
-  color: var(--bg);
-  font-size: 22px;
-  font-weight: 700;
-  text-transform: lowercase;
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-  transition: font-size 0.15s;
-}
-
-.swipe-indicator.armed {
-  font-size: 28px;
-}
-
-.swipe-indicator-enter-active,
-.swipe-indicator-leave-active {
+/* ── Swipe zones (see zones/zoneHit) ── */
+.swipe-zones-fade-enter-active,
+.swipe-zones-fade-leave-active {
   transition: opacity 0.1s ease;
 }
 
-.swipe-indicator-enter-from,
-.swipe-indicator-leave-to {
+.swipe-zones-fade-enter-from,
+.swipe-zones-fade-leave-to {
   opacity: 0;
 }
 
-/* ── Zones model (see SWIPE_MODE) ── */
 .swipe-zones-layer {
   position: fixed;
   inset: 0;
@@ -3401,12 +3019,10 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* Same weight/opacity as the threshold model's own backdrop fill (see
-   .swipe-backdrop-fill.visible) — but constant rather than toggled by an
-   armed state, so the rest of the app recedes as soon as a card is
-   gripped, not only once a specific zone is hit. The dragged card
-   itself stays on top of this (z-index:9999, see the wrapper's
-   fixedOrigin style), same as before. */
+/* Constant while a card is gripped, not toggled per zone — the rest of
+   the app recedes as soon as a card is gripped, not only once a specific
+   zone is hit. The dragged card itself stays on top of this (z-index:
+   9999, see the wrapper's fixedOrigin style). */
 .swipe-zones-dim {
   position: fixed;
   background: var(--ink);
