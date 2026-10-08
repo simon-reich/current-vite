@@ -2044,9 +2044,9 @@ type ZoneSize = Record<ViewportTier, [number, number]>
 // 'all', per tier) — the slots are shared with Current, but Overview has
 // just two zones and room for a bigger one.
 const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner; overview?: Partial<ZoneSize> } & ZoneSize> = {
-  focus:  { corner: 'top-right',   phone: [0.39, 0.28], tablet: [0.37, 0.30], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
-  date:   { corner: 'top-left',    phone: [0.46, 0.39], tablet: [0.51, 0.52], desktop: [0.37, 0.64] },
-  delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.23, 0.29], overview: { desktop: [0.27, 0.33] } },
+  focus:  { corner: 'top-right',   phone: [0.41, 0.31], tablet: [0.37, 0.30], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
+  date:   { corner: 'top-left',    phone: [0.50, 0.44], tablet: [0.51, 0.52], desktop: [0.42, 0.52] },
+  delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.36, 0.33] },
 }
 
 // Gap between each triangle and the edge of backdropRect — about half on
@@ -2118,45 +2118,10 @@ function zoneVertices(zone: SwipeZone): [number, number][] {
   ]
 }
 
-// SVG path for the triangle, each corner rounded by `radius` — the app's
-// own --radius (Settings' rounded/square, read at drag start, see
-// zoneCornerRadius), so 0 keeps it sharp. The curve starts/ends `radius`
-// along each edge from the vertex (capped so two neighbouring roundings
-// never overlap on a short edge) with the vertex as its control point.
-function zonePath(zone: SwipeZone, radius: number): string {
-  const pts = zoneVertices(zone)
-  if (radius <= 0) return `M${pts.map(p => p.join(',')).join('L')}Z`
-  const along = (from: [number, number], to: [number, number]): [number, number] => {
-    const dx = to[0] - from[0]
-    const dy = to[1] - from[1]
-    const len = Math.hypot(dx, dy)
-    const d = Math.min(radius, len / 2)
-    return [from[0] + (dx / len) * d, from[1] + (dy / len) * d]
-  }
-  let d = ''
-  pts.forEach((p, i) => {
-    const prev = pts[(i + pts.length - 1) % pts.length]
-    const next = pts[(i + 1) % pts.length]
-    const a = along(p, prev)
-    const b = along(p, next)
-    d += `${i === 0 ? 'M' : 'L'}${a[0]},${a[1]}Q${p[0]},${p[1]} ${b[0]},${b[1]}`
-  })
-  return d + 'Z'
-}
-
-// Label sits on the triangle's centroid — a third of the way along each
-// leg from the corner.
-function zoneLabelPos(zone: SwipeZone): [number, number] {
-  const x = zone.cornerX + zone.w / 3
-  // The two top-corner slots differ in size, so their centroids land at
-  // different heights — the 'date' label (top left) borrows the 'focus'
-  // label's (top right) height whenever both are shown, so the two top
-  // labels read as one level row instead of a stagger.
-  if (zone.key === 'date') {
-    const focus = zones.value.find(z => z.key === 'focus')
-    if (focus) return [x, focus.cornerY + focus.h / 3]
-  }
-  return [x, zone.cornerY + zone.h / 3]
+// SVG path for the triangle — always sharp-cornered, deliberately not
+// tied to Settings' rounded/square (--radius).
+function zonePath(zone: SwipeZone): string {
+  return `M${zoneVertices(zone).map(p => p.join(',')).join('L')}Z`
 }
 
 // The three position slots (focus/date/delete) are reused as-is for
@@ -2174,36 +2139,152 @@ function zoneLabelPos(zone: SwipeZone): [number, number] {
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-now
 // stay locked out there same as the check-row buttons do, leaving only
 // Remove.
+// Every label a zone can show, per view and slot — the one place these
+// strings live. zones picks the current one; zoneLabelLayout sizes against
+// all of them, so the label size is identical in both views and doesn't
+// change with the state of the card being dragged.
+const ZONE_LABELS = {
+  all: { focus: ['Add to list', 'Remove from list'], delete: ['Delete'] },
+  current: { focus: ['Done.'], date: ['Done for now'], delete: ['Remove'] },
+} as const
+
 const zones = computed<SwipeZone[]>(() => {
   const rect = backdropRect.value
   if (!rect) return []
   const list: SwipeZone[] = []
 
   if (props.mode === 'all') {
-    list.push(buildZone('delete', 'Delete', rect, true))
+    list.push(buildZone('delete', ZONE_LABELS.all.delete[0], rect, true))
     // Date Lists on: this slot plans/unplans onto the selected date instead
     // of Current (see isOnSelectedFocusDate above) — Current has no UI of
     // its own to reuse a second zone for once Date Lists are on, so the
     // 'date' zone this used to sit next to is gone entirely.
-    const label = isOnList.value
-      ? 'Remove'
-      : (themeStore.dateListsEnabled ? formatShortDate(themeStore.selectedFocusDate) : 'Current')
-    list.push(buildZone('focus', label, rect, true))
+    list.push(buildZone('focus', ZONE_LABELS.all.focus[isOnList.value ? 1 : 0], rect, true))
   } else {
     if (!props.previewLocked) {
-      list.push(buildZone('focus', 'Done', rect, false))
-      list.push(buildZone('date', 'Done for now', rect, false))
+      list.push(buildZone('focus', ZONE_LABELS.current.focus[0], rect, false))
+      list.push(buildZone('date', ZONE_LABELS.current.date[0], rect, false))
     }
-    list.push(buildZone('delete', 'Remove', rect, false))
+    list.push(buildZone('delete', ZONE_LABELS.current.delete[0], rect, false))
   }
 
   return list
 })
 
-// The app's own corner radius (Settings' rounded/square → --radius, see
-// useTheme.ts), read once per drag so the triangles round their corners the
-// same way cards do without restating the value here.
-const zoneCornerRadius = ref(0)
+// Every (slot, label) combination of both views, built against the same
+// backdrop — what the shared label size is fitted to.
+const allZoneLabelVariants = computed<SwipeZone[]>(() => {
+  const rect = backdropRect.value
+  if (!rect) return []
+  const variants: SwipeZone[] = []
+  for (const [view, slots] of Object.entries(ZONE_LABELS)) {
+    for (const [key, labels] of Object.entries(slots)) {
+      for (const label of labels) variants.push(buildZone(key as ZoneSlot, label, rect, view === 'all'))
+    }
+  }
+  return variants
+})
+
+// Zone labels: one word per line, anchored in each triangle's right-angle
+// corner — left corners left-aligned, right corners right-aligned, top
+// corners stacking downward, bottom corners upward (the last word sits in
+// the corner). One shared font size for every label of both views (see
+// allZoneLabelVariants): the largest size at which every line of every
+// possible label still fits inside its triangle, so the tightest
+// triangle/longest word sets it everywhere — Overview and Current alike.
+//
+// Fit test per line: the line's outer corner (farthest from both legs) has
+// to lie on or inside the slanted edge, i.e. x/W + y/H <= 1, with x =
+// padX + text width and y = padY + (lines between it and the corner + 1) *
+// line height. Everything scales with the font size, so it solves to a
+// closed-form max size per line (see below) — widths are measured once at
+// 100px via canvas in the labels' own font.
+const ZONE_LABEL_PAD_X = 0.15 // em, air to the side edge — deliberately tight
+const ZONE_LABEL_PAD_Y = 0.8 // em, air to the top/bottom edge
+const ZONE_LABEL_LINE = 1 // em, line height
+const ZONE_LABEL_ASCENT = 0.8 // em, assumed ink above the baseline if canvas measuring is unavailable
+const ZONE_LABEL_MAX = 96 // px, cap for very large triangles
+// Share of the largest fitting size actually used — 1 fills the tightest
+// triangle edge to edge; below 1 leaves the labels a bit smaller.
+const ZONE_LABEL_SCALE = 0.85
+// Extra width per line for the heavy-type stroke (--zone-type-stroke, both
+// sides) — keeps the measurement honest.
+const ZONE_LABEL_STROKE_EM = 0.07
+let zoneMeasureCtx: CanvasRenderingContext2D | null = null
+// Width plus the word's actual ink above/below the baseline (all in em,
+// stroke included) — the corner line is pulled flush to the edge by its
+// real glyph bounds, not the line box: "now" is only x-height tall, so a
+// fixed ascent left a visibly bigger gap above it than above "done".
+function measureZoneWordEm(word: string): { width: number; ascent: number; descent: number } {
+  zoneMeasureCtx ??= document.createElement('canvas').getContext('2d')
+  if (!zoneMeasureCtx) return { width: word.length * 0.6, ascent: ZONE_LABEL_ASCENT, descent: ZONE_LABEL_LINE - ZONE_LABEL_ASCENT }
+  zoneMeasureCtx.font = `900 100px ${getComputedStyle(document.body).fontFamily}`
+  const m = zoneMeasureCtx.measureText(word)
+  const halfStroke = ZONE_LABEL_STROKE_EM / 2
+  return {
+    width: m.width / 100 + ZONE_LABEL_STROKE_EM,
+    ascent: m.actualBoundingBoxAscent / 100 + halfStroke,
+    descent: Math.max(0, m.actualBoundingBoxDescent / 100) + halfStroke,
+  }
+}
+
+interface ZoneLabelLine { text: string; x: number; y: number }
+const zoneLabelLayout = computed(() => {
+  const words = (zone: SwipeZone) => zone.label.toLowerCase().split(' ')
+  // Distance (in lines) of line i from the zone's corner.
+  const fromCorner = (zone: SwipeZone, i: number, n: number) => zone.h > 0 ? i : n - 1 - i
+  // Largest size at which this zone's label still fits its own triangle.
+  const fitSize = (zone: SwipeZone) => {
+    const W = Math.abs(zone.w)
+    const H = Math.abs(zone.h)
+    const list = words(zone)
+    return Math.min(...list.map((word, i) => {
+      const k = fromCorner(zone, i, list.length)
+      return W / (measureZoneWordEm(word).width + ZONE_LABEL_PAD_X + W * (ZONE_LABEL_PAD_Y + (k + 1) * ZONE_LABEL_LINE) / H)
+    }))
+  }
+  const fontSize = Math.min(ZONE_LABEL_MAX, ...allZoneLabelVariants.value.map(fitSize)) * ZONE_LABEL_SCALE
+  const lines: Partial<Record<ZoneSlot, ZoneLabelLine[]>> = {}
+  const anchor: Partial<Record<ZoneSlot, 'start' | 'end'>> = {}
+  const padX = ZONE_LABEL_PAD_X * fontSize
+  const padY = ZONE_LABEL_PAD_Y * fontSize
+  const lh = ZONE_LABEL_LINE * fontSize
+  for (const zone of zones.value) {
+    const list = words(zone)
+    const x = zone.cornerX + Math.sign(zone.w) * padX
+    anchor[zone.key] = zone.w > 0 ? 'start' : 'end'
+    // Baseline of the line touching the corner edge, placed by that word's
+    // real ink bounds; the others follow at a regular line height.
+    const top = zone.h > 0
+    const cornerWord = measureZoneWordEm(top ? list[0] : list[list.length - 1])
+    const cornerBaseline = top
+      ? zone.cornerY + padY + cornerWord.ascent * fontSize
+      : zone.cornerY - padY - cornerWord.descent * fontSize
+    lines[zone.key] = list.map((text, i) => {
+      const k = fromCorner(zone, i, list.length)
+      return { text, x, y: cornerBaseline + (top ? k : -k) * lh }
+    })
+  }
+  return { fontSize, lines, anchor }
+})
+
+// Overview with Date Lists on: which list the 'focus' zone acts on, shown
+// big and dead center while a card is gripped — the zone itself just says
+// "add to list".
+const zoneTargetLabel = computed(() => {
+  const rect = backdropRect.value
+  if (!rect || props.mode !== 'all' || !themeStore.dateListsEnabled) return null
+  return {
+    text: formatShortDate(themeStore.selectedFocusDate),
+    style: {
+      left: `${rect.left + rect.width / 2}px`,
+      top: `${rect.top + rect.height / 2}px`,
+      transform: 'translate(-50%, -50%)',
+    },
+  }
+})
+
+
 
 // The card's own viewport rect at grab time — onDrag shifts it by the
 // drag offset (x/y) to know where the card currently is.
@@ -2347,7 +2428,6 @@ function onDragStart() {
   armGripSafetyNet()
   isGripped.value = true
   zoneHit.value = null
-  zoneCornerRadius.value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--radius')) || 0
   const rect = wrapRef.value?.getBoundingClientRect()
   if (rect) fixedOrigin.value = { top: rect.top, left: rect.left, width: rect.width }
   gripCardRect = rect ? { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } : null
@@ -2578,14 +2658,22 @@ onUnmounted(() => {
                 :class="{ armed: zoneHit === zone.key }"
                 :style="{ transformOrigin: `${zone.cornerX}px ${zone.cornerY}px` }"
               >
-                <path class="swipe-zone-shape" :d="zonePath(zone, zoneCornerRadius)" />
+                <path class="swipe-zone-shape" :d="zonePath(zone)" />
                 <text
                   class="swipe-zone-label"
-                  :x="zoneLabelPos(zone)[0]"
-                  :y="zoneLabelPos(zone)[1]"
-                >{{ zone.label }}</text>
+                  :font-size="zoneLabelLayout.fontSize"
+                  :text-anchor="zoneLabelLayout.anchor[zone.key]"
+                >
+                  <tspan
+                    v-for="(line, i) in zoneLabelLayout.lines[zone.key]"
+                    :key="i"
+                    :x="line.x"
+                    :y="line.y"
+                  >{{ line.text }}</tspan>
+                </text>
               </g>
             </svg>
+            <span v-if="zoneTargetLabel" class="swipe-zones-target" :style="zoneTargetLabel.style">{{ zoneTargetLabel.text }}</span>
           </div>
         </Transition>
       </Teleport>
@@ -3017,6 +3105,13 @@ onUnmounted(() => {
   inset: 0;
   z-index: 5000;
   pointer-events: none;
+  /* Heavy display type shared by the zone labels and the big target date
+     (.swipe-zones-target). The UI font is user-picked and often only
+     ships up to bold, so the weight alone wouldn't thicken it — a stroke
+     in the text's own color adds weight for every font. Keep the weight
+     in sync with measureZoneWordEm's canvas font. */
+  --zone-type-weight: 900;
+  --zone-type-stroke: 0.035em;
 }
 
 /* Constant while a card is gripped, not toggled per zone — the rest of
@@ -3062,24 +3157,40 @@ onUnmounted(() => {
 }
 
 .swipe-zone-label {
-  fill: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: lowercase;
-  letter-spacing: 0.04em;
-  text-anchor: middle;
-  dominant-baseline: middle;
+  /* Size, anchor and line positions come from zoneLabelLayout (attributes
+     on the <text>/<tspan>s) — no font-size here, CSS would override them. */
+  color: var(--ink);
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: var(--zone-type-stroke);
+  paint-order: stroke fill;
+  font-weight: var(--zone-type-weight);
 }
 
 .swipe-zone-tri.armed .swipe-zone-label {
-  fill: var(--bg);
+  color: var(--bg);
 }
 
-/* Smaller on phone — the triangles are smaller there too, and longer
-   labels ("done for now") need to stay inside them. */
+/* The selected Date List's name (see zoneTargetLabel), big in the free
+   center — reads against the ink dim like the triangles'
+   own armed state does (bg on ink). Same heavy type as the zone labels
+   (see .swipe-zones-layer). */
+.swipe-zones-target {
+  position: fixed;
+  color: var(--bg);
+  font-size: 128px;
+  font-weight: var(--zone-type-weight);
+  -webkit-text-stroke: var(--zone-type-stroke) currentColor;
+  paint-order: stroke fill;
+  line-height: 0.8;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 @media (max-width: 700px) {
-  .swipe-zone-label {
-    font-size: 11px;
+  .swipe-zones-target {
+    font-size: 72px;
   }
 }
 
