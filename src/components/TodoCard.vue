@@ -585,7 +585,7 @@ import { activeModal } from '../composables/useModalGuard'
 import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
-import { todayStr, tomorrowStr, addDaysStr } from '../composables/useToday'
+import { todayStr, tomorrowStr, addDaysStr, WEEKDAY_FULL_LABELS } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
 import TagInlineCreate from './TagInlineCreate.vue'
@@ -2270,12 +2270,23 @@ const zoneLabelLayout = computed(() => {
 
 // Overview with Date Lists on: which list the 'focus' zone acts on, shown
 // big and dead center while a card is gripped — the zone itself just says
-// "add to list".
+// "add to list". A plain DD/MM date gets its weekday right above it, sized
+// to the date's own width (measured like the zone labels) — today/tomorrow
+// already say which day it is.
+const ZONE_TARGET_TRACKING = 0.02 // em, matches .swipe-zones-target's letter-spacing
 const zoneTargetLabel = computed(() => {
   const rect = backdropRect.value
   if (!rect || props.mode !== 'all' || !themeStore.dateListsEnabled) return null
+  const dateStr = themeStore.selectedFocusDate
+  const text = formatShortDate(dateStr)
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const isNamed = dateStr === todayStr() || dateStr === tomorrowStr()
+  const weekday = isNamed ? null : WEEKDAY_FULL_LABELS[new Date(y, m - 1, d).getDay()]
+  const widthEm = (word: string) => measureZoneWordEm(word).width + word.length * ZONE_TARGET_TRACKING
   return {
-    text: formatShortDate(themeStore.selectedFocusDate),
+    text,
+    weekday,
+    weekdaySize: weekday ? `${widthEm(text) / widthEm(weekday)}em` : undefined,
     style: {
       left: `${rect.left + rect.width / 2}px`,
       top: `${rect.top + rect.height / 2}px`,
@@ -2673,7 +2684,10 @@ onUnmounted(() => {
                 </text>
               </g>
             </svg>
-            <span v-if="zoneTargetLabel" class="swipe-zones-target" :style="zoneTargetLabel.style">{{ zoneTargetLabel.text }}</span>
+            <div v-if="zoneTargetLabel" class="swipe-zones-target" :style="zoneTargetLabel.style">
+              <span v-if="zoneTargetLabel.weekday" class="swipe-zones-target-weekday" :style="{ fontSize: zoneTargetLabel.weekdaySize }">{{ zoneTargetLabel.weekday }}</span>
+              <span>{{ zoneTargetLabel.text }}</span>
+            </div>
           </div>
         </Transition>
       </Teleport>
@@ -3186,6 +3200,15 @@ onUnmounted(() => {
   text-transform: lowercase;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Weekday above a DD/MM date — font-size (em of the date) set inline by
+   zoneTargetLabel so it spans the date's width. */
+.swipe-zones-target-weekday {
+  margin-bottom: 0.35em;
 }
 
 @media (max-width: 700px) {
