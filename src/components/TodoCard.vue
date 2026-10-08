@@ -1924,6 +1924,10 @@ const swipeY = ref(0)
 // instant, but enough to stay clear of Motion's own direction-lock tolerance
 // (so we never turn on a y-follow for what was actually a scroll).
 const DRAG_ENGAGE_THRESHOLD = 10
+// Latched per grip: once past the threshold the card keeps following
+// vertically even when it swings back near its start column — otherwise
+// it stalls on its own row (and the pointer drifts over other cards).
+let dragEngaged = false
 const SPRING_BACK = { type: 'spring', stiffness: 500, damping: 32 } as const
 
 // Lifted above every sibling card and the sticky header/bottom-nav for as
@@ -2434,6 +2438,7 @@ const backdropRect = ref<{ top: number; left: number; width: number; height: num
 
 function onDragStart() {
   justDragged = true
+  dragEngaged = false
   releaseGripFallback() // in case a previous gesture didn't clean up
   lockScroll()
   armGripSafetyNet()
@@ -2469,7 +2474,8 @@ function onDrag(event: PointerEvent, info: PanInfo) {
   // Engage-then-follow gating — keeps a mostly-vertical touch free to
   // scroll the list natively instead of being claimed the instant any
   // drag starts.
-  if (Math.abs(info.offset.x) > DRAG_ENGAGE_THRESHOLD) y.set(info.offset.y)
+  if (Math.abs(info.offset.x) > DRAG_ENGAGE_THRESHOLD) dragEngaged = true
+  if (dragEngaged) y.set(info.offset.y)
   // clientX/clientY (viewport-relative), not info.point (page-relative,
   // includes scroll offset) — backdropRect is viewport-relative too
   // (getBoundingClientRect), so both sides of this comparison agree.
