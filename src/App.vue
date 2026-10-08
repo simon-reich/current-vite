@@ -1457,6 +1457,16 @@ watch(() => route.path, () => {
 // decisive swipe-up on its own handle (see onSheetHandlePointerDown
 // below).
 const addSheetOpen = ref(false)
+// The dim behind the panel only appears once the panel has fully slid
+// down (transitionend below) — fading both in at once flickered. Gone
+// immediately on close.
+const addSheetBackdropShown = ref(false)
+watch(addSheetOpen, (open) => { if (!open) addSheetBackdropShown.value = false })
+function onAddSheetTransitionEnd(e: TransitionEvent) {
+  if (e.target === e.currentTarget && e.propertyName === 'transform' && addSheetOpen.value) {
+    addSheetBackdropShown.value = true
+  }
+}
 const isAddSheetRoute = computed(() => route.path === '/all' || route.path === '/current')
 
 // Experiment: focus first (the mobile input is already in the DOM,
@@ -1835,7 +1845,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         <Teleport to="body" :disabled="!(isPhoneWidth && isAddSheetRoute)">
           <div
             v-if="isAddSheetRoute"
-            v-show="addSheetOpen"
+            v-show="addSheetBackdropShown"
             class="add-sheet-backdrop mobile-only"
             @click="closeAddSheet"
           />
@@ -1845,6 +1855,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             class="add-sheet mobile-only"
             :class="{ open: addSheetOpen }"
             :style="{ height: visibleViewportHeight + 'px' }"
+            @transitionend="onAddSheetTransitionEnd"
           >
             <!-- Fixed — never part of any scrollable area, the title
                  stays in view no matter how much subs/tags content there
