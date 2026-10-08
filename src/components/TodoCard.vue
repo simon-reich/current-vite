@@ -2684,7 +2684,13 @@ onUnmounted(() => {
                 </text>
               </g>
             </svg>
-            <div v-if="zoneTargetLabel" class="swipe-zones-target" :style="zoneTargetLabel.style">
+          </div>
+        </Transition>
+        <!-- Own layer above the dragged card (z-index 9999), so the card
+             slides underneath the target date instead of covering it. -->
+        <Transition name="swipe-zones-fade">
+          <div v-if="isGripped && zoneTargetLabel" class="swipe-zones-front">
+            <div class="swipe-zones-target" :style="zoneTargetLabel.style">
               <span v-if="zoneTargetLabel.weekday" class="swipe-zones-target-weekday" :style="{ fontSize: zoneTargetLabel.weekdaySize }">{{ zoneTargetLabel.weekday }}</span>
               <span>{{ zoneTargetLabel.text }}</span>
             </div>
@@ -3114,7 +3120,8 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-.swipe-zones-layer {
+.swipe-zones-layer,
+.swipe-zones-front {
   position: fixed;
   inset: 0;
   z-index: 5000;
@@ -3126,6 +3133,12 @@ onUnmounted(() => {
      in sync with measureZoneWordEm's canvas font. */
   --zone-type-weight: 900;
   --zone-type-stroke: 0.035em;
+}
+
+/* Above the dragged card (z-index 9999, see the wrapper's fixedOrigin
+   style) — the target date stays readable while the card passes under it. */
+.swipe-zones-front {
+  z-index: 10000;
 }
 
 /* Constant while a card is gripped, not toggled per zone — the rest of
