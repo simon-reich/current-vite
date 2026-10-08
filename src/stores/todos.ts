@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
-import { todayStr } from '../composables/useToday'
+import { todayStr, addDaysStr } from '../composables/useToday'
 import { uuid } from '../composables/useId'
 import { useThemeStore } from './theme'
 
@@ -557,6 +557,21 @@ export const useTodosStore = defineStore('todos', () => {
     }
   }
 
+  // "Not today after all, tomorrow" — moves this todo from one Date List
+  // straight onto the following day's, in one step instead of a remove
+  // plus a separate re-plan. Unassigning first reuses unassignFocusDate's
+  // exclusion handling, so a due Date Todo really leaves dateStr instead
+  // of being recomputed right back onto it. Same Date-Todo/inCurrent
+  // coupling as doneForNowOnDate: moving today's occurrence away also
+  // takes it out of Current.
+  function moveFocusDateToNextDay(id: string, dateStr: string) {
+    const todo = todos.value.find(t => t.id === id)
+    if (!todo) return
+    unassignFocusDate(id, dateStr)
+    assignFocusDate(id, addDaysStr(dateStr, 1))
+    if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
+  }
+
   function deleteFocusDateList(dateStr: string) {
     todos.value.forEach(t => {
       if (t.focusDates?.includes(dateStr)) unassignFocusDate(t.id, dateStr)
@@ -706,7 +721,7 @@ export const useTodosStore = defineStore('todos', () => {
     addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForNow, doneForNowOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
-    assignFocusDate, unassignFocusDate, deleteFocusDateList, rolloverExpiredFocusDates,
+    assignFocusDate, unassignFocusDate, moveFocusDateToNextDay, deleteFocusDateList, rolloverExpiredFocusDates,
     importData,
   }
 }, {

@@ -198,6 +198,7 @@ function editFromAllChecks(check: CheckItem) {
         @remove-from-current="removeCard"
         @complete="store.completeTodo($event)"
         @done-for-now="doneForNow"
+        @move-to-next-day="viewingDate && store.moveFocusDateToNextDay($event, viewingDate)"
         @delete="store.deleteTodo($event)"
       />
     </div>

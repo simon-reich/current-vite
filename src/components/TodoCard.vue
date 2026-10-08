@@ -575,8 +575,8 @@ export function closeActiveCard() {
 </script>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { CirclePlus, CircleMinus, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown, ArrowUpRight } from '@lucide/vue'
+import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, inject, type Ref } from 'vue'
+import { CirclePlus, CircleMinus, CircleArrowRight, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown, ArrowUpRight } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, type Tag, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -585,7 +585,7 @@ import { activeModal } from '../composables/useModalGuard'
 import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
-import { todayStr, tomorrowStr } from '../composables/useToday'
+import { todayStr, tomorrowStr, addDaysStr } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
 import TagInlineCreate from './TagInlineCreate.vue'
@@ -735,6 +735,7 @@ const emit = defineEmits<{
   'remove-from-current': [id: string, obvious?: boolean]
   'send-to-focus-date': [id: string]
   'unassign-focus-date': [id: string, obvious?: boolean]
+  'move-to-next-day': [id: string]
   'complete': [id: string]
   'done-for-now': [id: string]
   'delete': [id: string]
@@ -2077,6 +2078,32 @@ function formatShortDate(dateStr: string): string {
 // todo.inCurrent toggle it replaced.
 const isOnSelectedFocusDate = computed(() => props.todo.focusDates?.includes(themeStore.selectedFocusDate) ?? false)
 
+// The Date List this card is currently shown as a member of, if any —
+// Overview: the Focus Date widget's selection (only once this todo is
+// actually on it), Current: the list being viewed (App.vue's viewingDate,
+// injected the same way Current.vue reads it). Drives the closed card's
+// list actions (priority / move to next day / remove), which both views
+// share — see the template's card-actions block.
+const viewingDate = inject<Ref<string | null>>('viewingDate', ref(null))
+const listDate = computed<string | null>(() => {
+  if (!themeStore.dateListsEnabled) return null
+  if (props.mode === 'all') return isOnSelectedFocusDate.value ? themeStore.selectedFocusDate : null
+  return viewingDate.value
+})
+const nextListDate = computed(() => listDate.value ? addDaysStr(listDate.value, 1) : null)
+
+// Labels + actions of those list actions.
+const priorityActionLabel = computed(() => isPriority.value ? 'remove priority' : 'set priority')
+const nextDayActionLabel = computed(() => nextListDate.value ? `move to ${formatShortDate(nextListDate.value)} list` : '')
+const removeActionLabel = computed(() => listDate.value ? `remove from ${formatShortDate(listDate.value)} list` : 'move back to overview')
+function moveToNextDay() {
+  emit('move-to-next-day', props.todo.id)
+}
+function removeFromList() {
+  if (props.mode === 'all') emit('unassign-focus-date', props.todo.id, true)
+  else emit('remove-from-current', props.todo.id, true)
+}
+
 // ── Swipe interaction mode ──────────────────────────────────────────
 // 'zones': the drop-in-a-corner-triangle model below (date/delete/focus,
 // see zoneHit/onDrag/onDragEnd's early-return branches) — absolute-
@@ -2930,32 +2957,27 @@ onUnmounted(() => {
           </template>
 
           <!-- When card is closed (all mode): show original action icons
-               (delete moved into the open state, see above) -->
-          <template v-else-if="mode === 'all'">
-            <!-- Date Lists on: this single icon plans/unplans onto the
-                 Focus Date widget's currently selected date — Current has
-                 no UI of its own once Date Lists are on (see CLAUDE.md's
-                 Date Lists section), so there's no separate CalendarPlus
-                 button next to it any more either. Date Lists off: the
-                 original Current add/remove toggle, unchanged. -->
-            <template v-if="themeStore.dateListsEnabled">
-              <button
-                v-if="!isOnSelectedFocusDate"
-                class="card-btn"
-                v-tooltip="`add to ${formatShortDate(themeStore.selectedFocusDate)} list`"
-                @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
-              >
-                <CirclePlus :size="18" />
-              </button>
-              <button
-                v-else
-                class="card-btn"
-                v-tooltip="`remove from ${formatShortDate(themeStore.selectedFocusDate)} list`"
-                @click.stop="emit('unassign-focus-date', todo.id, true)"
-              >
-                <CircleMinus :size="18" />
-              </button>
-            </template>
+               (delete moved into the open state, see above). A todo that's
+               already on the selected Date List gets the same list actions
+               as Current instead (v-else below) — Overview and Current
+               share that one block rather than two copies of it. -->
+          <template v-else-if="mode === 'all' && !listDate">
+            <!-- Date Lists on: this single icon plans onto the Focus Date
+                 widget's currently selected date — Current has no UI of
+                 its own once Date Lists are on (see CLAUDE.md's Date Lists
+                 section), so there's no separate CalendarPlus button next
+                 to it any more either. Unplanning lives in the shared list
+                 actions below, since listDate is set once it's on there.
+                 Date Lists off: the original Current add/remove toggle,
+                 unchanged. -->
+            <button
+              v-if="themeStore.dateListsEnabled"
+              class="card-btn"
+              v-tooltip="`add to ${formatShortDate(themeStore.selectedFocusDate)} list`"
+              @click.stop="triggerPlannedPulse(); emit('send-to-focus-date', todo.id)"
+            >
+              <CirclePlus :size="18" />
+            </button>
             <template v-else>
               <button
                 v-if="!todo.inCurrent"
@@ -2976,26 +2998,36 @@ onUnmounted(() => {
             </template>
           </template>
 
-          <!-- Today mode: quick priority toggle + remove from today. No
-               separate "active" tint here: the whole card already goes
-               ink-colored once priority is on (see .priority above), so
-               layering ink-dark on top of that would just read as low
-               contrast rather than a clearer state. Stays visible even once
-               the card is open — clicking the title text now starts editing
-               directly (handleTitleClick), so this slot no longer needs to
-               swap to an Edit trigger. -->
+          <!-- List actions: Current's cards, and Overview's cards that are
+               on the selected Date List — quick priority toggle, move to
+               the next day's list (Date Lists only), remove from the list.
+               No separate "active" tint on the flag: the whole card
+               already goes ink-colored once priority is on (see .priority
+               above), so layering ink-dark on top of that would just read
+               as low contrast rather than a clearer state. Stays visible
+               even once a Current card is open — clicking the title text
+               starts editing directly (handleTitleClick), so this slot
+               doesn't need to swap to an Edit trigger. -->
           <template v-else>
             <button
               class="card-btn card-btn--circle"
-              v-tooltip="isPriority ? 'remove priority' : 'set priority'"
+              v-tooltip="priorityActionLabel"
               @click.stop="togglePriority"
             >
               <Flag :size="10" :fill="isPriority ? 'currentColor' : 'none'" />
             </button>
             <button
+              v-if="nextListDate"
               class="card-btn"
-              v-tooltip="'move back to overview'"
-              @click.stop="emit('remove-from-current', todo.id, true)"
+              v-tooltip="nextDayActionLabel"
+              @click.stop="moveToNextDay"
+            >
+              <CircleArrowRight :size="18" />
+            </button>
+            <button
+              class="card-btn"
+              v-tooltip="removeActionLabel"
+              @click.stop="removeFromList"
             >
               <CircleMinus :size="18" />
             </button>
@@ -4068,14 +4100,6 @@ onUnmounted(() => {
   .todo-card-main {
     padding: 8px 12px;
     gap: 8px;
-  }
-
-  .card-btn {
-    display: none;
-  }
-
-  .card-btn--circle {
-    display: flex;
   }
 
   .sub-row {

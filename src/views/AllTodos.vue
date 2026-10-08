@@ -188,6 +188,7 @@ function unassignFocusDate(id: string, obvious?: boolean) {
         @send-to-current="sendToCurrent"
         @send-to-focus-date="sendToFocusDate"
         @unassign-focus-date="unassignFocusDate"
+        @move-to-next-day="store.moveFocusDateToNextDay($event, themeStore.selectedFocusDate)"
         @remove-from-current="store.removeFromCurrent($event)"
         @delete="store.deleteTodo($event)"
       />
