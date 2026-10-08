@@ -413,16 +413,6 @@ const calendarHintParts: HintPart[] = [
   { text: '↑↓', kind: 'key' }, { text: '(week)', kind: 'label' },
 ]
 
-// S (subs-toggle, Overview and Current alike, see subsToggleBtnRef) — same
-// "measure the real target" approach as calendarHintPos above, since it
-// lives in the tablet-left-cluster rather than the shared header line the
-// rest of the plain-pill hints share.
-const subsHintPos = ref<{ x: number; y: number } | null>(null)
-
-// L (Overview's Focus-Date-Pille, see focusDateWidgetSlotRef) — same idea,
-// floats centered above the pill itself.
-const focusDateHintPos = ref<{ x: number; y: number } | null>(null)
-
 // L in Calendar (calendar | log switch) — left-aligned just above the
 // switch's first button in the desktop sidebar, same placement as the
 // Date-List nav's ↑↓ hint.
@@ -463,12 +453,12 @@ function computeShortcutHints() {
   const targets: { key: string; el: HTMLElement | null }[] = [
     { key: 'C', el: calendarNavRef.value?.$el ?? null },
     { key: 'G', el: route.path === '/all' ? sortListBtnRef.value : null },
-    // S's own target (the subs-toggle) is measured separately below
-    // (subsHintPos) rather than folded in here — it doesn't sit in the
-    // header row like every other target in this list, so sharing their
-    // one computed line (see below) would float its hint at the header's
-    // height with the toggle's x, nowhere near the toggle itself.
     { key: 'O', el: route.path === '/all' ? sortOrderBtnRef.value : null },
+    // S (subs-toggle) and L (Overview's Focus-Date-Pille) sit in the same
+    // first row on desktop (the only width the hints show at), so they
+    // share the one line too.
+    { key: 'S', el: themeStore.subsEnabled && (route.path === '/all' || route.path === '/current') ? subsToggleBtnRef.value : null },
+    { key: 'L', el: route.path === '/all' && themeStore.dateListsEnabled ? focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget') ?? null : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
@@ -528,18 +518,6 @@ function computeShortcutHints() {
   if (route.path === '/calendar') {
     const calRect = document.querySelector('.calendar-view .cal')?.getBoundingClientRect()
     if (calRect) calendarHintPos.value = { x: calRect.left + calRect.width / 2, y: calRect.top - 13 }
-  }
-
-  subsHintPos.value = null
-  if (themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')) {
-    const subsRect = subsToggleBtnRef.value?.getBoundingClientRect()
-    if (subsRect) subsHintPos.value = { x: subsRect.left + subsRect.width / 2, y: subsRect.top - 13 }
-  }
-
-  focusDateHintPos.value = null
-  if (route.path === '/all' && themeStore.dateListsEnabled) {
-    const pillRect = focusDateWidgetSlotRef.value?.querySelector('.focus-date-widget')?.getBoundingClientRect()
-    if (pillRect) focusDateHintPos.value = { x: pillRect.left + pillRect.width / 2, y: pillRect.top - 13 }
   }
 
   calendarModeHintPos.value = null
@@ -2403,22 +2381,6 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         :class="`shortcut-hint-${part.kind}`"
       >{{ part.text }}</span>
     </div>
-
-    <!-- S (subs-toggle) — a plain pill like the header shortcuts, just
-         floated over its own measured target instead of the shared header
-         line (see subsHintPos). -->
-    <div
-      v-if="subsHintPos"
-      class="shortcut-hint"
-      :style="{ left: subsHintPos.x + 'px', top: subsHintPos.y + 'px' }"
-    >S</div>
-
-    <!-- L (Overview's Focus-Date-Pille) — same idea, see focusDateHintPos. -->
-    <div
-      v-if="focusDateHintPos"
-      class="shortcut-hint"
-      :style="{ left: focusDateHintPos.x + 'px', top: focusDateHintPos.y + 'px' }"
-    >L</div>
 
     <!-- L in Calendar — left-aligned just above the calendar | log switch,
          see calendarModeHintPos. -->
