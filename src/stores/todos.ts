@@ -212,12 +212,25 @@ export const useTodosStore = defineStore('todos', () => {
   // automatically without this list needing to be touched. Mirrors how
   // checksStore.checksDueOn does the same for Checks — see CLAUDE.md's
   // Date Lists section.
+  // A `once` todo stays due every day from its date on until it's done (see
+  // isLoopDueToday) — but a preview only shows it on the one day it's
+  // actually up: its own date, or today once that has passed. Left undone,
+  // it simply slides on to the next day instead of cluttering every future
+  // list at once.
   function todosForFocusDate(dateStr: string): Todo[] {
+    const isDueOn = (t: Todo) => {
+      const interval = t.loopInterval!
+      if ((interval.mode ?? 'loop') === 'once') {
+        const start = (interval.startDate || t.createdAt).slice(0, 10)
+        const today = todayStr()
+        return dateStr === (start > today ? start : today)
+      }
+      return isLoopDueToday(interval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))
+    }
     return todos.value.filter(t =>
       !t.completedAt && !t.deletedAt &&
       (t.focusDates?.includes(dateStr) ||
-        (t.loopInterval && !t.excludedFocusDates?.includes(dateStr) &&
-          isLoopDueToday(t.loopInterval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))))
+        (t.loopInterval && !t.excludedFocusDates?.includes(dateStr) && isDueOn(t)))
     )
   }
 
