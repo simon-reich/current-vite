@@ -513,7 +513,7 @@ export function celebrateBackground(key: CelebrationKey) {
   // else bgFireworks()
 }
 
-import { ref as vueRef } from 'vue'
+import { ref as vueRef, nextTick as vueNextTick } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 // Shared across all instances – only one menu open at a time. Exported so
 // App.vue's single ↑↓ handler can tell whether a card is currently open
@@ -562,6 +562,20 @@ export function cycleOpenCard(direction: 1 | -1) {
   if (api.isEditing()) api.saveEdit()
   if (api.mode === 'current' && !wasTagMenuOpen) openCheckMenuId.value = nextId
   else openTagMenuId.value = nextId
+  revealCard(nextId)
+}
+
+// Keyboard-driven focus jumps (↑↓ cycling, C moving on to the next card)
+// keep the newly opened card on screen — only scrolls when it isn't fully
+// visible already ('nearest'). Waits a frame so the card's opened (taller)
+// layout is what gets measured.
+export function revealCard(id: string | null) {
+  if (!id) return
+  vueNextTick(() => requestAnimationFrame(() => {
+    document.querySelector(`.todo-card[data-todo-id="${id}"]`)
+      ?.closest('.todo-card-wrap')
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }))
 }
 
 // Called by App.vue on every view change, so a card left open (or mid-edit)
@@ -1520,6 +1534,7 @@ function onCardKeydown(e: KeyboardEvent) {
       const ids = props.siblingIds ?? []
       const idx = ids.indexOf(props.todo.id)
       openTagMenuId.value = idx === -1 ? null : (ids[idx + 1] ?? ids[idx - 1] ?? null)
+      revealCard(openTagMenuId.value)
     }
     addToList()
     return
@@ -3062,8 +3077,10 @@ onUnmounted(() => {
   align-items: stretch;
   /* Leaves a sliver of breathing room above the card when scrollIntoView
      (see scrollCardIntoView) snaps its top edge to the viewport — flush
-     against the edge read as jarring. */
+     against the edge read as jarring. Same at the bottom for revealCard's
+     keyboard cycling. */
   scroll-margin-top: 16px;
+  scroll-margin-bottom: 16px;
 }
 
 /* Lifts the gripped card above every sibling card (which would otherwise
