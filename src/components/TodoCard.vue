@@ -2829,7 +2829,7 @@ onUnmounted(() => {
           <template v-else>
             <button
               class="card-btn card-btn--circle"
-              v-tooltip="isPriority ? 'remove priority' : 'set priority'"
+              v-tooltip="isPriority ? 'unset priority' : 'set priority'"
               @click.stop="togglePriority"
             >
               <Flag :size="10" :fill="isPriority ? 'currentColor' : 'none'" />

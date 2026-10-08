@@ -1578,7 +1578,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               v-if="themeStore.subsEnabled && (route.path === '/all' || route.path === '/current')"
               ref="subsToggleBtnRef"
               class="sort-btn desktop-subs-toggle"
-              v-tooltip="`subs: ${desktopSubsState}`"
+              v-tooltip="desktopSubsState === 'half' ? 'hide subs' : 'show subs'"
               @click="toggleDesktopSubs"
             >
               <span class="mobile-subs-label">subs</span>
@@ -1964,10 +1964,10 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <RouterLink ref="allNavRef" to="/all" class="nav-icon" v-tooltip="'all todos'">
             <PoolIcon :size="27" />
           </RouterLink>
-          <RouterLink ref="focusNavRef" to="/current" class="nav-icon" v-tooltip="'current'">
+          <RouterLink ref="focusNavRef" to="/current" class="nav-icon" v-tooltip="'current todos'">
             <LinesIcon :size="27" />
           </RouterLink>
-          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" v-tooltip="'calendar'">
+          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" v-tooltip="'calendar and log'">
             <CalendarIcon :size="27" />
           </RouterLink>
         </nav>
@@ -2316,10 +2316,10 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         <RouterLink to="/all" class="nav-icon" v-tooltip="'all todos'" @click="showMobileTags = false">
           <PoolIcon :size="24" />
         </RouterLink>
-        <RouterLink to="/current" class="nav-icon" v-tooltip="'current'" @click="showMobileTags = false">
+        <RouterLink to="/current" class="nav-icon" v-tooltip="'current todos'" @click="showMobileTags = false">
           <LinesIcon :size="24" />
         </RouterLink>
-        <RouterLink to="/calendar" class="nav-icon" v-tooltip="'calendar'" @click="showMobileTags = false">
+        <RouterLink to="/calendar" class="nav-icon" v-tooltip="'calendar and log'" @click="showMobileTags = false">
           <CalendarIcon :size="24" />
         </RouterLink>
       </div>
