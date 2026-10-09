@@ -949,7 +949,7 @@ function onTodoFocus() {
   expandAddInput()
 }
 
-// Experiment (desktop + tablet): while typing a todo, the add-input grows
+// Desktop + tablet: while typing a todo, the add-input grows
 // over the icons beside it to the full header row, so a longer title stays
 // readable. Negative margins of exactly the space left/right of it (row =
 // .tablet-input-row on tablet, .main-head-inner on desktop where that row
