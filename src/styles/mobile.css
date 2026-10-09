@@ -464,6 +464,16 @@
     background: var(--bg);
   }
 
+  /* The usual 0.35 dim (layout.css's .tag-chip.dimmed/.all-btn.dimmed/
+     .loop-filter-default) reads too faint on the dimmed backdrop — one
+     shared, lighter value for everything in this panel: still paler than
+     a selected filter, just legible. */
+  .mobile-tag-list .tag-chip.dimmed,
+  .mobile-tags-head .all-btn.dimmed,
+  .mobile-tags-head .all-btn.loop-filter-default {
+    opacity: 0.6;
+  }
+
   .mobile-tags-head .tag-new-input {
     flex: 1;
   }

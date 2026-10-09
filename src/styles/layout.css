@@ -947,8 +947,11 @@
 
 /* Inverted fill (ink background, bg-colored text) — a clearer "this is the
    active filter" signal than just the border, matching how selected tag
-   chips read elsewhere. */
-.all-btn.active {
+   chips read elsewhere. The mobile tag panel's chips share it: they sit on
+   the dimmed backdrop with no fill of their own, so a selected one would
+   otherwise stay see-through (see mobile.css's .mobile-tag-list). */
+.all-btn.active,
+.mobile-tag-list .tag-chip.active {
   background: var(--ink);
   color: var(--bg);
 }
