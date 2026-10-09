@@ -648,6 +648,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  addInputRowObserver?.disconnect()
   window.visualViewport?.removeEventListener('resize', onViewportResize)
   document.removeEventListener('keydown', onGlobalKeydown)
   document.removeEventListener('keyup', onGlobalKeyup)
@@ -945,7 +946,108 @@ function onTodoFocus() {
     todoBlurCloseTimer = null
   }
   if (addTagModalTags.value.length > 0) showTagModal.value = true
+  expandAddInput()
 }
+
+// Experiment (desktop + tablet): while typing a todo, the add-input grows
+// over the icons beside it to the full header row, so a longer title stays
+// readable. Negative margins of exactly the space left/right of it (row =
+// .tablet-input-row on tablet, .main-head-inner on desktop where that row
+// is display:contents) — the flex item grows by that much while every
+// sibling keeps its own spot underneath and just fades out. Only once that
+// sideways grow has finished (addInputSettled, see transitionend below)
+// does the tag dropdown fold down. Collapses with the same delayed close
+// as the dropdown (onTodoBlur), so a click into it doesn't flicker.
+const addInputGrow = ref<{ left: number; right: number } | null>(null)
+const addInputSettled = ref(false)
+let addInputRowObserver: ResizeObserver | null = null
+
+function addInputEls() {
+  const wrapper = todoInputRef.value?.closest<HTMLElement>('.add-wrapper') ?? null
+  const inputRow = wrapper?.closest<HTMLElement>('.tablet-input-row') ?? null
+  const row = inputRow && inputRow.getBoundingClientRect().width > 0 ? inputRow : wrapper?.closest<HTMLElement>('.main-head-inner') ?? null
+  return { wrapper, row }
+}
+
+// Space left/right of the input's own resting box. Already grown, its
+// margins are taken out for the measurement (no transition, same frame —
+// never painted), so a resize while focused re-measures correctly instead
+// of keeping pixel margins from the old layout.
+function measureAddInputGrow(wrapper: HTMLElement, row: HTMLElement) {
+  const { transition, marginLeft, marginRight } = wrapper.style
+  wrapper.style.transition = 'none'
+  wrapper.style.marginLeft = ''
+  wrapper.style.marginRight = ''
+  const r = row.getBoundingClientRect()
+  const box = wrapper.getBoundingClientRect()
+  wrapper.style.marginLeft = marginLeft
+  wrapper.style.marginRight = marginRight
+  void wrapper.offsetWidth
+  wrapper.style.transition = transition
+  return { left: box.left - r.left, right: r.right - box.right }
+}
+
+function expandAddInput() {
+  if (isPhoneWidth.value || addInputGrow.value) return
+  const { wrapper, row } = addInputEls()
+  if (!wrapper || !row) return
+  addInputSettled.value = false
+  const grow = measureAddInputGrow(wrapper, row)
+  addInputGrow.value = grow
+  // Nothing to grow over (no icons beside it) — no transition will run.
+  if (grow.left < 1 && grow.right < 1) addInputSettled.value = true
+  // ResizeObserver always reports once right after observe() — that's
+  // not a resize, and handling it would cut the grow animation short.
+  let initialReport = true
+  addInputRowObserver = new ResizeObserver(() => {
+    if (initialReport) { initialReport = false; return }
+    const els = addInputEls()
+    if (!addInputGrow.value || !els.wrapper || !els.row) return
+    if (isPhoneWidth.value) { collapseAddInput(); return }
+    const next = measureAddInputGrow(els.wrapper, els.row)
+    // Straight to the new size, no slide — it's a resize, not the grow.
+    els.wrapper.style.transition = 'none'
+    addInputGrow.value = next
+    addInputSettled.value = true
+    nextTick(() => {
+      void els.wrapper!.offsetWidth
+      els.wrapper!.style.transition = ''
+    })
+  })
+  addInputRowObserver.observe(row)
+}
+
+function collapseAddInput() {
+  addInputRowObserver?.disconnect()
+  addInputRowObserver = null
+  addInputGrow.value = null
+  addInputSettled.value = false
+}
+
+// Leaving the draft from somewhere other than the main input itself (e.g.
+// Escape in a sub's input after tabbing there) never fires onTodoBlur —
+// the dropdown closing without the input focused is the signal instead.
+watch(showTagModal, (open) => {
+  if (!open && document.activeElement !== todoInputRef.value) collapseAddInput()
+})
+
+function onAddWrapperTransitionEnd(e: TransitionEvent) {
+  if (e.target === e.currentTarget && e.propertyName.startsWith('margin') && addInputGrow.value) {
+    addInputSettled.value = true
+  }
+}
+
+// The dropdown only ever shows once the input sits at its final width —
+// on phone (no grow) that's always. Its content stays mounted (just hidden,
+// see the template's v-show) so opening it never has to build tags/loop
+// picker/subs in the same frame the fold animation starts. Only the inline
+// tag creator holds state of its own — re-keyed on every close
+// (addDropdownSession) so a half-typed tag doesn't linger hidden.
+const addDropdownSession = ref(0)
+watch(showTagModal, (open) => { if (!open) addDropdownSession.value++ })
+const addDropdownOpen = computed(() =>
+  showTagModal.value && addTagModalTags.value.length > 0 && (isPhoneWidth.value || addInputSettled.value)
+)
 
 function onTodoInput() {
   if (addTagModalTags.value.length > 0) showTagModal.value = true
@@ -960,6 +1062,7 @@ let todoBlurCloseTimer: ReturnType<typeof setTimeout> | null = null
 function onTodoBlur() {
   todoBlurCloseTimer = setTimeout(() => {
     showTagModal.value = false
+    collapseAddInput()
     // A title's actually been typed — clicking away almost certainly means
     // glancing at something else, not abandoning the todo, so the draft
     // (title, tags, loop interval) stays staged for whenever the input is
@@ -1532,7 +1635,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 
     <!-- ══ Main head: add todo input (hidden on settings + mobile-tags-open) ══ -->
     <div class="main-head">
-      <div class="main-head-inner">
+      <div class="main-head-inner" :class="{ 'add-input-expanded': addInputGrow }">
         <!-- Sort buttons + the mobile/tablet/phone tag-panel toggle, grouped
              together (see .tablet-left-cluster in tablet.css) so tablet's
              grid can treat them as one left-hand block — needed for
@@ -1672,7 +1775,12 @@ function onSheetHandlePointerUp(e: PointerEvent) {
              all at that width (see .tablet-input-row's phone override in
              mobile.css). -->
         <div class="tablet-input-row">
-          <div class="add-wrapper" :class="{ 'add-wrapper--open': showTagModal && addTagModalTags.length }">
+          <div
+            class="add-wrapper"
+            :class="{ 'add-wrapper--open': addDropdownOpen }"
+            :style="addInputGrow ? { marginLeft: -addInputGrow.left + 'px', marginRight: -addInputGrow.right + 'px' } : undefined"
+            @transitionend="onAddWrapperTransitionEnd"
+          >
             <input
               ref="todoInputRef"
               v-model="todoInput"
@@ -1694,46 +1802,58 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             >
               <X :size="12" />
             </button>
-            <div v-if="showTagModal && addTagModalTags.length" class="add-tag-row">
-              <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
-                <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
-                  <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
-                </div>
-              </Transition>
+            <Transition name="add-tag-row">
+              <div v-if="!isPhoneWidth && addTagModalTags.length" v-show="addDropdownOpen" class="add-tag-row">
+                <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
+                  <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
+                    <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
+                  </div>
+                </Transition>
 
-              <div v-if="themeStore.subsEnabled" class="add-subs-row">
-                <div v-if="newTodoSubs.length" class="add-subs-list">
-                  <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
-                    {{ sub }}
-                    <button type="button" class="add-sub-chip-x" v-tooltip="'remove'" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                <div v-if="themeStore.subsEnabled" class="add-subs-row">
+                  <div v-if="newTodoSubs.length" class="add-subs-list">
+                    <span v-for="(sub, i) in newTodoSubs" :key="i" class="add-sub-chip">
+                      {{ sub }}
+                      <button type="button" class="add-sub-chip-x" v-tooltip="'remove'" @mousedown.prevent="newTodoSubs.splice(i, 1)">
+                        <X :size="9" />
+                      </button>
+                    </span>
+                  </div>
+                  <div class="add-sub-input-wrap">
+                    <input
+                      ref="newSubInputRef"
+                      v-model="newSubDraft"
+                      class="add-sub-input"
+                      placeholder="sub + enter"
+                      @focus="keepTodoModalOpen"
+                      @keydown="onSubDraftKeydown"
+                    />
+                    <button
+                      v-if="newSubDraft.length"
+                      type="button"
+                      class="add-sub-chip-x add-sub-input-clear"
+                      v-tooltip="'clear'"
+                      @mousedown.prevent="newSubDraft = ''"
+                    >
                       <X :size="9" />
                     </button>
-                  </span>
+                  </div>
                 </div>
-                <div class="add-sub-input-wrap">
-                  <input
-                    ref="newSubInputRef"
-                    v-model="newSubDraft"
-                    class="add-sub-input"
-                    placeholder="sub + enter"
-                    @focus="keepTodoModalOpen"
-                    @keydown="onSubDraftKeydown"
-                  />
-                  <button
-                    v-if="newSubDraft.length"
-                    type="button"
-                    class="add-sub-chip-x add-sub-input-clear"
-                    v-tooltip="'clear'"
-                    @mousedown.prevent="newSubDraft = ''"
-                  >
-                    <X :size="9" />
-                  </button>
-                </div>
-              </div>
 
-              <div v-if="addTagModalPinnedTags.length" class="tag-row-pinned">
+                <div v-if="addTagModalPinnedTags.length" class="tag-row-pinned">
+                  <label
+                    v-for="tag in addTagModalPinnedTags"
+                    :key="tag.id"
+                    class="tag-row-opt"
+                    :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
+                    @mousedown.prevent
+                  >
+                    <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
+                    <span>{{ tag.label }}</span>
+                  </label>
+                </div>
                 <label
-                  v-for="tag in addTagModalPinnedTags"
+                  v-for="tag in addTagModalRestTags"
                   :key="tag.id"
                   class="tag-row-opt"
                   :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
@@ -1742,19 +1862,9 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                   <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
                   <span>{{ tag.label }}</span>
                 </label>
+                <TagInlineCreate v-if="themeStore.tagsEnabled" :key="addDropdownSession" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" @exit="focusTodoInput" />
               </div>
-              <label
-                v-for="tag in addTagModalRestTags"
-                :key="tag.id"
-                class="tag-row-opt"
-                :class="{ checked: newTodoTagIds.includes(tag.id), dimmed: newTodoTagIds.length > 0 && !newTodoTagIds.includes(tag.id) }"
-                @mousedown.prevent
-              >
-                <input type="checkbox" :checked="newTodoTagIds.includes(tag.id)" @change="newTodoTagIds = newTodoTagIds.includes(tag.id) ? newTodoTagIds.filter(i => i !== tag.id) : [...newTodoTagIds, tag.id]" />
-                <span>{{ tag.label }}</span>
-              </label>
-              <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onNewTodoTagCreated" @focus-inside="keepTodoModalOpen" @exit="focusTodoInput" />
-            </div>
+            </Transition>
           </div>
           <!-- Overview always; Current only at phone width (tablet keeps
                its existing Lists button instead, see .tablet-header-right

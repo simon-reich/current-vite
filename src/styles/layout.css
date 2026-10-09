@@ -203,6 +203,9 @@
 }
 
 .main-head-inner {
+  /* Shared by the add-input's sideways grow and its neighbors' fade (see
+     .add-wrapper below). */
+  --add-grow-duration: 0.16s;
   display: flex;
   align-items: center;
   gap: 25px;
@@ -441,6 +444,20 @@
 .add-wrapper {
   flex: 1;
   position: relative;
+  /* Grows over its neighbors while typing — see App.vue's expandAddInput
+     (negative margins set inline). Typing works right away, the grow
+     never holds anything up; the tag dropdown folds down after it. */
+  transition: margin var(--add-grow-duration) ease-out;
+  z-index: 1;
+}
+
+.main-head-inner :is(.sort-nav, .top-nav, .tablet-input-focus-date-widget-slot) {
+  transition: opacity var(--add-grow-duration) ease-out;
+}
+
+.main-head-inner.add-input-expanded :is(.sort-nav, .top-nav, .tablet-input-focus-date-widget-slot) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .add-input {
@@ -507,6 +524,22 @@
   border-radius: 0 0 var(--radius) var(--radius);
   box-shadow: 0 5px 0 var(--ink-dark);
   z-index: 30;
+}
+
+/* Folds down from under the input (after its sideways grow, see App.vue's
+   addDropdownOpen) and back up — closing faster than opening. The negative
+   insets keep the drop shadow unclipped once fully open. */
+.add-tag-row-enter-active {
+  animation: add-tag-row-fold 0.14s ease-out;
+}
+
+.add-tag-row-leave-active {
+  animation: add-tag-row-fold 0.09s ease-in reverse;
+}
+
+@keyframes add-tag-row-fold {
+  from { clip-path: inset(0 -10px 100% -10px); }
+  to { clip-path: inset(0 -10px -10px -10px); }
 }
 
 .add-loop-row {
