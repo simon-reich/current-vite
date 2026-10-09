@@ -13,7 +13,6 @@ import ListsPanel from '../components/ListsPanel.vue'
 import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { spawnRemovedFromCurrentToast } from '../composables/useToast'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr } from '../composables/useToday'
 
@@ -91,10 +90,7 @@ const siblingIds = computed(() => displayedTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
 
-// Mirrors AllTodos.vue's sendToCurrent, `obvious` included — a card leaving
-// this list otherwise just vanishes with no explanation. Toast rises from
-// the card's own position, skipped for a direct CircleMinus click. Current
-// and a Date List are independent (see stores/todos.ts), so which one this
+// Current and a Date List are independent (see stores/todos.ts), so which one this
 // affects depends on which one is actually being viewed. Named removeCard,
 // not removeFromCurrent, to not collide with the store action of that name
 // this calls in the default (non-Date-List) branch.
@@ -107,8 +103,7 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 // own Date List calling plain removeFromCurrent instead — which only
 // flips inCurrent, a flag todosForFocusDate never even looks at, so the
 // card just stayed put.
-function removeCard(id: string, obvious?: boolean) {
-  if (!obvious) spawnRemovedFromCurrentToast(id)
+function removeCard(id: string) {
   if (viewingDate.value) store.unassignFocusDate(id, viewingDate.value)
   else store.removeFromCurrent(id)
 }

@@ -736,16 +736,11 @@ function onCardTagCreated(tag: Tag) {
 }
 
 
-// The `obvious` flag on the Current move events tells the parent (see
-// AllTodos.vue/Current.vue) whether to skip the "sent to/removed from
-// Current" toast — a direct click on the card's own +/− button already
-// shows exactly what happened, so it stays silent; the same move
-// triggered less visibly (D/Enter shortcut, swipe) gets the toast.
 const emit = defineEmits<{
-  'send-to-current': [id: string, obvious?: boolean]
-  'remove-from-current': [id: string, obvious?: boolean]
+  'send-to-current': [id: string]
+  'remove-from-current': [id: string]
   'send-to-focus-date': [id: string]
-  'unassign-focus-date': [id: string, obvious?: boolean]
+  'unassign-focus-date': [id: string]
   'move-to-next-day': [id: string]
   'complete': [id: string]
   'done-for-now': [id: string]
@@ -2008,23 +2003,22 @@ const nextListDate = computed(() => listDate.value ? addDaysStr(listDate.value, 
 // the closed card shows (add vs. the list actions), addToList/
 // removeFromList/toggleList do the matching move — the only place that
 // branches on mode/Date Lists for it. Icons, swipe zones and the C/D keys
-// all go through these. `obvious` = a direct icon click, which skips the
-// parent's explanatory toast (see AllTodos.vue/Current.vue).
+// all go through these.
 const isOnList = computed(() => {
   if (props.mode === 'current') return true
   return themeStore.dateListsEnabled ? isOnSelectedFocusDate.value : props.todo.inCurrent
 })
-function addToList(obvious = false) {
+function addToList() {
   if (themeStore.dateListsEnabled) {
     triggerPlannedPulse()
     emit('send-to-focus-date', props.todo.id)
   } else {
-    emit('send-to-current', props.todo.id, obvious)
+    emit('send-to-current', props.todo.id)
   }
 }
-function removeFromList(obvious = false) {
-  if (props.mode === 'all' && themeStore.dateListsEnabled) emit('unassign-focus-date', props.todo.id, obvious)
-  else emit('remove-from-current', props.todo.id, obvious)
+function removeFromList() {
+  if (props.mode === 'all' && themeStore.dateListsEnabled) emit('unassign-focus-date', props.todo.id)
+  else emit('remove-from-current', props.todo.id)
 }
 function toggleList() {
   if (isOnList.value) removeFromList()
@@ -2338,8 +2332,7 @@ watch(zoneHit, (hit, prev) => {
 
 // Planning a todo onto a Date List doesn't move it anywhere (it stays put
 // in Overview — see onDragEnd's focus-zone branch below) — this brief
-// pulse plus the toast (see AllTodos.vue's sendToFocusDate) are the only
-// on-card feedback that anything happened at all, since nothing else
+// pulse is the only on-card feedback that anything happened at all, since nothing else
 // about the card visually changes.
 const justPlanned = ref(false)
 function triggerPlannedPulse() {
@@ -2810,7 +2803,7 @@ onUnmounted(() => {
                a single add icon. Delete lives in the open state, see
                above. -->
           <template v-else-if="!isOnList">
-            <button class="card-btn" v-tooltip="'add to list'" @click.stop="addToList(true)">
+            <button class="card-btn" v-tooltip="'add to list'" @click.stop="addToList()">
               <CirclePlus :size="18" />
             </button>
           </template>
@@ -2845,7 +2838,7 @@ onUnmounted(() => {
             <button
               class="card-btn"
               v-tooltip="'remove from list'"
-              @click.stop="removeFromList(true)"
+              @click.stop="removeFromList()"
             >
               <CircleMinus :size="18" />
             </button>

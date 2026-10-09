@@ -17,7 +17,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickEx
 import { activeModal } from './composables/useModalGuard'
 import { todoDraftRequest } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
-import { toasts, spawnToast, spawnSentToCurrentToast, spawnTodoAddedToast } from './composables/useToast'
+import { toasts, spawnToast } from './composables/useToast'
 import { todayStr, tomorrowStr, addDaysStr } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
@@ -728,13 +728,17 @@ function handleTagKey(e: KeyboardEvent) {
   }
   if (e.key !== 'Enter') return
   const labels = tagInput.value.split(',').map(s => s.trim()).filter(Boolean)
+  // Anchored to whichever tag input was actually typed in — its column
+  // flips sides with Date Lists (see tagSidebarOnLeft), so a fixed
+  // position would point at the wrong sidebar half the time.
+  const rect = (e.target as HTMLElement).getBoundingClientRect()
   let dupIndex = 0
   labels.forEach(label => {
     if (!store.tags.find(t => t.label.toLowerCase() === label.toLowerCase())) {
       store.addTag(label)
     } else {
       const i = dupIndex++
-      setTimeout(() => spawnToast(`already exists: ${label}`, '151px', `${168 + i * 22}px`, true), i * 300)
+      setTimeout(() => spawnToast(`already exists: ${label}`, `${rect.left + rect.width / 2}px`, `${rect.bottom + 10 + i * 22}px`, true), i * 300)
     }
   })
   tagInput.value = ''
@@ -1154,13 +1158,11 @@ function clearTodoInput() {
 
 function addTodo() {
   if (!todoInput.value.trim()) return
-  const inputEl = currentTodoInputEl()
   const todo = store.addTodo(todoInput.value, {
     tags: [...newTodoTagIds.value],
     loopInterval: newTodoTagIds.value.includes(LOOP_TAG_ID) ? newTodoLoopInterval.value : undefined,
     subs: [...newTodoSubs.value],
   })
-  spawnTodoAddedToast(inputEl)
   // A Date todo (once or loop) not actually due yet shouldn't land on
   // Current just because it was typed there — same rule as any other Date
   // todo, which only ever auto-joins Current once it's due (see
@@ -1182,18 +1184,14 @@ function addTodo() {
   // sending it instantly made it look like the add itself had failed
   // (the todo never showed up in All, since All filters out inCurrent).
   // Let it appear in the list first, then move it the same way clicking
-  // its own "+" button would, with a toast explaining where it went.
+  // its own "+" button would.
   else if (todo.loopInterval && !dateTodoNotYetDue) {
-    setTimeout(() => {
-      spawnSentToCurrentToast(todo.id)
-      sendNewTodoToCurrent(todo)
-    }, 600)
+    setTimeout(() => sendNewTodoToCurrent(todo), 600)
   }
   resetTodoDraft()
   // Stays open and refocused (not blurred) — the add-todo input never
   // closes on its own after saving (desktop dropdown or phone panel
-  // alike), so the next todo can be typed immediately; the toast above
-  // is what confirms the previous one actually saved.
+  // alike), so the next todo can be typed immediately.
   nextTick(focusTodoInput)
 }
 

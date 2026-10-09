@@ -6,7 +6,6 @@ import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { spawnSentToCurrentToast, spawnPlannedForDateToast, spawnUnplannedForDateToast } from '../composables/useToast'
 import { nextLoopOccurrence } from '../composables/useLoopSchedule'
 import { useFocusDateNav } from '../composables/useFocusDateNav'
 
@@ -132,14 +131,7 @@ const siblingIds = computed(() => filteredTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
 
-// A card leaving Overview for Current (Enter a second time on an already-
-// open card, or a swipe) otherwise just vanishes from this list with no
-// explanation — reads like the card closed rather than moved. The toast
-// rises from the card's own position, so it's clear where it went
-// instead. Not shown for a direct "+" button click (`obvious`) — that one
-// already makes the move plain on its own.
-function sendToCurrent(id: string, obvious?: boolean) {
-  if (!obvious) spawnSentToCurrentToast(id)
+function sendToCurrent(id: string) {
   store.sendToCurrent(id)
 }
 
@@ -150,15 +142,13 @@ function sendToCurrent(id: string, obvious?: boolean) {
 // Overview (see the plan's "Overview bleibt unberührt" guarantee).
 function sendToFocusDate(id: string) {
   store.assignFocusDate(id, themeStore.selectedFocusDate)
-  spawnPlannedForDateToast(id, themeStore.selectedFocusDate)
 }
 
 // Counterpart for the per-card icon/swipe-zone's Remove state once Date
 // Lists are on (see TodoCard.vue's isOnSelectedFocusDate) — same "doesn't
 // touch inCurrent, card stays right here" guarantee as sendToFocusDate
 // above.
-function unassignFocusDate(id: string, obvious?: boolean) {
-  if (!obvious) spawnUnplannedForDateToast(id, themeStore.selectedFocusDate)
+function unassignFocusDate(id: string) {
   store.unassignFocusDate(id, themeStore.selectedFocusDate)
 }
 </script>
