@@ -89,8 +89,12 @@ const filteredTodos = computed(() => {
   // Hide is a standing exclusion on top of whatever the union above
   // already selected — not an additional AND alongside "only" (which no
   // longer exists as a separate branch; it's folded into the union).
+  // Exempts the selected Date List's own todos (onSelectedListIds), so a
+  // Date todo due that day still shows up in the list's section above the
+  // pool — hiding Date todos is about decluttering the pool, not the list.
   if (loopFilterMode.value === 'hide') {
-    result = result.filter(t => !t.tags.includes(LOOP_TAG_ID))
+    const onList = onSelectedListIds.value
+    result = result.filter(t => !t.tags.includes(LOOP_TAG_ID) || onList.has(t.id))
   }
   // "only" replaces the normal date/A–Z toggle entirely with next-due-
   // first — a dedicated timeline view of what's coming up, not just
