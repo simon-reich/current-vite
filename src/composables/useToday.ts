@@ -10,6 +10,14 @@ export function localDateStr(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+// The local calendar day an ISO timestamp (completedAt, workLog,
+// createdAt, focusAddedAt, ... — all stored as UTC via toISOString) falls
+// on. Use this instead of `.slice(0, 10)`, which reads the UTC day (see
+// localDateStr above for why that's wrong).
+export function localDayOf(iso: string): string {
+  return localDateStr(new Date(iso))
+}
+
 export function todayStr(): string {
   return localDateStr(new Date())
 }

@@ -8,7 +8,7 @@ import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/t
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
-import { todayStr, addDaysStr } from '../composables/useToday'
+import { todayStr, addDaysStr, localDayOf } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
@@ -64,10 +64,8 @@ onBeforeRouteLeave(() => {
 })
 
 function shiftDate(days: number) {
-  const d = new Date(selectedDate.value + 'T12:00:00')
-  d.setDate(d.getDate() + days)
-  selectedDate.value = d.toISOString().slice(0, 10)
-  calendarRef.value?.move(d)
+  selectedDate.value = addDaysStr(selectedDate.value, days)
+  calendarRef.value?.move(new Date(selectedDate.value + 'T12:00:00'))
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -83,8 +81,8 @@ function onKeydown(e: KeyboardEvent) {
 const activeDates = computed(() => {
   const days = new Set<string>()
   store.todos.forEach(t => {
-    if (t.completedAt) days.add(t.completedAt.slice(0, 10))
-    t.workLog.forEach(ts => days.add(ts.slice(0, 10)))
+    if (t.completedAt) days.add(localDayOf(t.completedAt))
+    t.workLog.forEach(ts => days.add(localDayOf(ts)))
   })
   if (themeStore.checksEnabled) {
     checksStore.checks.forEach(c => c.completedDates.forEach(d => days.add(d)))
@@ -175,7 +173,7 @@ const selectedDateLabel = computed(() => selectedDate.value ? formatDayLabel(sel
 const logGroups = computed(() => {
   const groups: { dateStr: string; label: string; todos: Todo[] }[] = []
   for (const todo of store.completedTodos) {
-    const dateStr = todo.completedAt!.slice(0, 10)
+    const dateStr = localDayOf(todo.completedAt!)
     const last = groups[groups.length - 1]
     if (last && last.dateStr === dateStr) last.todos.push(todo)
     else groups.push({ dateStr, label: formatDayLabel(dateStr), todos: [todo] })

@@ -1,6 +1,6 @@
 import type { LoopInterval, Todo } from '../stores/todos'
 import { LOOP_TAG_ID } from '../stores/todos'
-import { todayStr, localDateStr } from './useToday'
+import { todayStr, localDayOf } from './useToday'
 
 function parseISODate(s: string): Date | null {
   if (!s) return null
@@ -142,15 +142,13 @@ export function nextLoopOccurrence(interval: LoopInterval, today: Date = new Dat
 // whether that stuck or it's inCurrent:false again by now) or checked off
 // via "Done for now" today. Either one keeps this loop todo out of Current
 // for the rest of today, not just until the next scheduled check (tab
-// refocus, see App.vue) re-adds it. Both timestamps are UTC ISO strings,
-// so they're converted to the local calendar day before comparing — a
-// plain `.slice(0, 10)` reads the UTC date, which for a positive-offset
-// timezone is still yesterday right after local midnight (exactly when
-// the midnight check sends due todos), and that let a todo already done
-// for now today get sent right back on the next refocus.
+// refocus, see App.vue) re-adds it. Compared by local day (localDayOf) —
+// a UTC day read right after local midnight (exactly when the midnight
+// check sends due todos) let a todo already done for now today get sent
+// right back on the next refocus.
 function processedToday(todo: Todo): boolean {
   const today = todayStr()
-  const isToday = (ts: string) => localDateStr(new Date(ts)) === today
+  const isToday = (ts: string) => localDayOf(ts) === today
   return (!!todo.focusAddedAt && isToday(todo.focusAddedAt)) || todo.workLog.some(isToday)
 }
 
@@ -198,7 +196,7 @@ export function runLoopSchedule(store: LoopScheduleStore) {
     // rest of the list from being checked, or bubble up into App.vue's
     // onMounted and cut off whatever runs after it there.
     try {
-      if (isLoopDueToday(todo.loopInterval, new Date(), todo.createdAt.slice(0, 10))) {
+      if (isLoopDueToday(todo.loopInterval, new Date(), localDayOf(todo.createdAt))) {
         // Sets focusAddedAt, which also satisfies processedToday's "already
         // handled today" guard for the assignFocusDate branch below.
         store.sendToCurrent(todo.id)

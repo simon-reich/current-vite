@@ -1,6 +1,7 @@
 import { useTodosStore } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import { useChecksStore } from '../stores/checks'
+import { todayStr } from './useToday'
 
 function readFileViaInput(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -91,7 +92,7 @@ export function useStorage() {
       tags: store.tags,
       checks: checksStore.checks,
     }
-    await writeJsonFile(payload, `todos-${new Date().toISOString().slice(0, 10)}.json`)
+    await writeJsonFile(payload, `todos-${todayStr()}.json`)
   }
 
   async function importData() {
@@ -125,7 +126,7 @@ export function useStorage() {
       exportedAt: new Date().toISOString(),
       themes: themeStore.savedThemes,
     }
-    await writeJsonFile(payload, `themes-${new Date().toISOString().slice(0, 10)}.json`)
+    await writeJsonFile(payload, `themes-${todayStr()}.json`)
   }
 
   async function importThemes() {
@@ -169,7 +170,7 @@ export function useStorage() {
       activeBg: themeStore.activeBg,
       activeGray: themeStore.activeGray,
     }
-    await writeJsonFile(payload, `everything-${new Date().toISOString().slice(0, 10)}.json`)
+    await writeJsonFile(payload, `everything-${todayStr()}.json`)
   }
 
   // Full restore, not a merge — mirrors importData's "replaces all current

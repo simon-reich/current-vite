@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
-import { todayStr, addDaysStr } from '../composables/useToday'
+import { todayStr, addDaysStr, localDayOf } from '../composables/useToday'
 import { uuid } from '../composables/useId'
 import { useThemeStore } from './theme'
 
@@ -226,10 +226,10 @@ export const useTodosStore = defineStore('todos', () => {
       const interval = t.loopInterval!
       if (dateStr === today && t.inCurrent) return true
       if ((interval.mode ?? 'loop') === 'once') {
-        const start = (interval.startDate || t.createdAt).slice(0, 10)
+        const start = interval.startDate || localDayOf(t.createdAt)
         return dateStr === (start > today ? start : today)
       }
-      return isLoopDueToday(interval, new Date(`${dateStr}T12:00:00`), t.createdAt.slice(0, 10))
+      return isLoopDueToday(interval, new Date(`${dateStr}T12:00:00`), localDayOf(t.createdAt))
     }
     return todos.value.filter(t =>
       !t.completedAt && !t.deletedAt &&
@@ -244,7 +244,7 @@ export const useTodosStore = defineStore('todos', () => {
   // todos with real history are kept around as stubs instead of removed
   // (see deleteTodo below) rather than purged outright.
   function completedOn(dateStr: string) {
-    return todos.value.filter(t => t.completedAt?.slice(0, 10) === dateStr)
+    return todos.value.filter(t => !!t.completedAt && localDayOf(t.completedAt) === dateStr)
   }
 
   // Every Done todo, newest first — the Calendar's log view. Deleted ones
@@ -259,7 +259,7 @@ export const useTodosStore = defineStore('todos', () => {
   function workedOn(dateStr: string) {
     const doneIds = new Set(completedOn(dateStr).map(t => t.id))
     return todos.value.filter(t =>
-      !doneIds.has(t.id) && t.workLog.some(ts => ts.slice(0, 10) === dateStr)
+      !doneIds.has(t.id) && t.workLog.some(ts => localDayOf(ts) === dateStr)
     )
   }
 
@@ -270,7 +270,7 @@ export const useTodosStore = defineStore('todos', () => {
   // as completedOn/workedOn above, for the same reason.
   function subsCompletedOn(dateStr: string): { todo: Todo; subs: Sub[] }[] {
     return todos.value
-      .map(todo => ({ todo, subs: todo.subs.filter(s => s.completedAt?.slice(0, 10) === dateStr) }))
+      .map(todo => ({ todo, subs: todo.subs.filter(s => !!s.completedAt && localDayOf(s.completedAt) === dateStr) }))
       .filter(entry => entry.subs.length > 0)
   }
 
