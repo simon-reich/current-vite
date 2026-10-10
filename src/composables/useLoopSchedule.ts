@@ -1,6 +1,6 @@
 import type { LoopInterval, Todo } from '../stores/todos'
 import { LOOP_TAG_ID } from '../stores/todos'
-import { todayStr } from './useToday'
+import { todayStr, localDateStr } from './useToday'
 
 function parseISODate(s: string): Date | null {
   if (!s) return null
@@ -138,14 +138,39 @@ export function nextLoopOccurrence(interval: LoopInterval, today: Date = new Dat
   return candidate
 }
 
-// Already handled today (sent to Current today, whether that stuck — via
-// "Done for now" it can be inCurrent:false again by now — or not) — set
-// on every sendToCurrent(), manual or automatic. Reusing it instead of a
-// dedicated field means "Done for now" earlier today correctly keeps
-// this loop todo out of Current for the rest of today, not just until the
-// next scheduled check re-adds it.
+// Already handled today — sent to Current today (manual or automatic,
+// whether that stuck or it's inCurrent:false again by now) or checked off
+// via "Done for now" today. Either one keeps this loop todo out of Current
+// for the rest of today, not just until the next scheduled check (tab
+// refocus, see App.vue) re-adds it. Both timestamps are UTC ISO strings,
+// so they're converted to the local calendar day before comparing — a
+// plain `.slice(0, 10)` reads the UTC date, which for a positive-offset
+// timezone is still yesterday right after local midnight (exactly when
+// the midnight check sends due todos), and that let a todo already done
+// for now today get sent right back on the next refocus.
 function processedToday(todo: Todo): boolean {
-  return !!todo.focusAddedAt && todo.focusAddedAt.slice(0, 10) === todayStr()
+  const today = todayStr()
+  const isToday = (ts: string) => localDateStr(new Date(ts)) === today
+  return (!!todo.focusAddedAt && isToday(todo.focusAddedAt)) || todo.workLog.some(isToday)
+}
+
+// Today's occurrence is settled — handled today (see processedToday) and
+// no longer pending on Current, so it won't come back before the next
+// interval date. That's when the next due date counts from tomorrow
+// instead of today (see nextLoopDue).
+export function isLoopSettledToday(todo: Todo): boolean {
+  return !todo.inCurrent && processedToday(todo)
+}
+
+// nextLoopOccurrence, but skipping today once today's occurrence is
+// already settled — "today" would be true by the schedule, but it's
+// already done, so the next real run is the following interval date.
+// Shared by LoopPicker's "next" line (todos and Checks) and Overview's
+// Date-filter "only" sort.
+export function nextLoopDue(interval: LoopInterval, settledToday = false): Date | null {
+  const from = new Date()
+  if (settledToday) from.setDate(from.getDate() + 1)
+  return nextLoopOccurrence(interval, from)
 }
 
 export interface LoopScheduleStore {

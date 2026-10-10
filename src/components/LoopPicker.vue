@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { nextLoopOccurrence } from '../composables/useLoopSchedule'
+import { nextLoopDue } from '../composables/useLoopSchedule'
 import { todayStr } from '../composables/useToday'
 import type { LoopInterval, LoopUnit } from '../stores/todos'
 import DatePickerModal from './DatePickerModal.vue'
@@ -22,6 +22,10 @@ const props = withDefaults(defineProps<{
    *  which strips it back out). Showing it there would look togglable
    *  but silently never stick. */
   allowReschedule?: boolean
+  /** Today's occurrence is already done (see useLoopSchedule's
+   *  isLoopSettledToday) — the "next" line then counts from tomorrow
+   *  instead of still showing "today". */
+  settledToday?: boolean
 }>(), {
   allowOnce: true,
   allowReschedule: true,
@@ -168,8 +172,8 @@ const showDateModal = ref(false)
 // Next due date given the currently selected values — recomputed on every
 // unit/count/startDate change so a stale interval (startDate far in the
 // past, large custom day count) stays legible instead of leaving the user
-// to do the recurrence math themselves.
-const nextOccurrence = computed(() => props.modelValue ? nextLoopOccurrence(props.modelValue) : null)
+// to do the recurrence math themselves. Skips today once it's settled.
+const nextOccurrence = computed(() => props.modelValue ? nextLoopDue(props.modelValue, props.settledToday) : null)
 
 // 'once' can point at a past date and stays due until actually completed
 // (see isLoopDueToday) — negative days reads as "overdue" rather than the

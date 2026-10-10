@@ -6,7 +6,7 @@ import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { nextLoopOccurrence } from '../composables/useLoopSchedule'
+import { nextLoopDue, isLoopSettledToday } from '../composables/useLoopSchedule'
 import { useFocusDateNav } from '../composables/useFocusDateNav'
 
 const store = useTodosStore()
@@ -63,7 +63,7 @@ function lastTouched(t: Todo): string {
 // excluding them), which sorts those to the very end instead of erroring.
 function nextOccurrenceKey(t: Todo): number {
   if (!t.loopInterval) return Infinity
-  return nextLoopOccurrence(t.loopInterval)?.getTime() ?? Infinity
+  return nextLoopDue(t.loopInterval, isLoopSettledToday(t))?.getTime() ?? Infinity
 }
 
 // With Date Lists on, a todo being inCurrent no longer pulls it out of

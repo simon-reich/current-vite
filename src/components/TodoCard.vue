@@ -597,7 +597,7 @@ import { useThemeStore } from '../stores/theme'
 import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickExpand'
 import { activeModal } from '../composables/useModalGuard'
 import { requestTodoDraft } from '../composables/useTodoDraftRequest'
-import { runLoopSchedule, isLoopDueToday } from '../composables/useLoopSchedule'
+import { runLoopSchedule, isLoopDueToday, isLoopSettledToday } from '../composables/useLoopSchedule'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr, tomorrowStr, addDaysStr, WEEKDAY_FULL_LABELS } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
@@ -3000,7 +3000,7 @@ onUnmounted(() => {
           <div v-if="showTagMenu" class="tag-row" @click.stop="handleTagRowClick">
             <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
               <div v-if="draftIsLoop" class="add-loop-row" @click.stop>
-                <LoopPicker :model-value="draftLoopInterval" :inverted="draftIsPriority" @update:model-value="updateDraftLoopInterval" />
+                <LoopPicker :model-value="draftLoopInterval" :inverted="draftIsPriority" :settled-today="isLoopSettledToday(todo)" @update:model-value="updateDraftLoopInterval" />
               </div>
             </Transition>
 

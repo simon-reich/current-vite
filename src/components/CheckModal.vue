@@ -71,7 +71,7 @@ nextTick(() => titleInputRef.value?.focus())
       :maxlength="CHECK_TITLE_MAX_LENGTH"
       @keydown.enter="save"
     />
-    <LoopPicker :model-value="pickerValue" :allow-once="false" :allow-reschedule="false" @update:model-value="updateSchedule" />
+    <LoopPicker :model-value="pickerValue" :allow-once="false" :allow-reschedule="false" :settled-today="!!editing?.completedDates.includes(todayStr())" @update:model-value="updateSchedule" />
     <div class="modal-actions">
       <button v-if="editing" class="modal-btn modal-btn--pale" @click="remove">delete</button>
       <button class="modal-btn modal-btn--cancel" @click="close">cancel</button>
