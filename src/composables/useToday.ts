@@ -18,6 +18,14 @@ export function localDayOf(iso: string): string {
   return localDateStr(new Date(iso))
 }
 
+// Last second of a local calendar day, as the ISO timestamp the stores
+// keep — for backdating a check-off onto that day (see Current.vue's
+// yesterday leftovers), so the calendar files it under exactly that day.
+export function endOfDayIso(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d, 23, 59, 59).toISOString()
+}
+
 export function todayStr(): string {
   return localDateStr(new Date())
 }

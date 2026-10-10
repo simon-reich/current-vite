@@ -2,7 +2,7 @@
 import { computed, ref, inject } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Check, Pencil } from '@lucide/vue'
+import { Plus, Check, Pencil, ArrowRight, Minus } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -14,7 +14,7 @@ import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
-import { todayStr } from '../composables/useToday'
+import { todayStr, addDaysStr, endOfDayIso } from '../composables/useToday'
 
 const store = useTodosStore()
 const checksStore = useChecksStore()
@@ -116,6 +116,25 @@ function doneForNow(id: string) {
   else store.doneForNow(id)
 }
 
+// ── Yesterday's leftovers ──
+// Opt-in (Settings, Date Lists only): plain todos left unfinished on
+// yesterday's Date List, shown below today's own list as pale one-liners
+// — styled like Checks, not like cards, so they read as an offer, not a
+// second list that has to be cleared. Untouched ones simply drop into the
+// pool a day later (see stores/todos.ts's rolloverExpiredFocusDates).
+const yesterdayStr = computed(() => addDaysStr(todayStr(), -1))
+const leftovers = computed(() =>
+  themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled && viewingDate.value === todayStr()
+    ? store.leftoversFrom(yesterdayStr.value)
+    : []
+)
+
+// Backdated so the calendar files it under yesterday, the day it actually
+// belonged to.
+function completeLeftover(id: string) {
+  store.completeTodo(id, endOfDayIso(yesterdayStr.value))
+}
+
 // ── Checks ──
 // Below the todo list, no divider — see CLAUDE.md's Checks section for the
 // full design rationale (background reminders, lower weight than a Todo).
@@ -211,6 +230,26 @@ function editFromAllChecks(check: CheckItem) {
         :float-label="!displayedTodos.length"
         @click="planInOverview"
       />
+    </div>
+
+    <div v-if="leftovers.length" class="leftovers-section">
+      <span class="leftovers-heading">left over from yesterday</span>
+      <div class="leftover-list">
+        <div v-for="todo in leftovers" :key="todo.id" class="leftover-item">
+          <span class="check-label leftover-title">{{ todo.title }}</span>
+          <div class="leftover-actions">
+            <button type="button" class="icon-circle-btn" v-tooltip="'done yesterday'" @click="completeLeftover(todo.id)">
+              <Check :size="10" />
+            </button>
+            <button type="button" class="icon-circle-btn" v-tooltip="'move to today'" @click="store.moveFocusDateToNextDay(todo.id, yesterdayStr)">
+              <ArrowRight :size="10" />
+            </button>
+            <button type="button" class="icon-circle-btn" v-tooltip="'back to pool'" @click="store.releaseToPool(todo.id, yesterdayStr)">
+              <Minus :size="10" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="themeStore.checksEnabled" class="checks-section">
@@ -337,11 +376,50 @@ function editFromAllChecks(check: CheckItem) {
   justify-content: center;
 }
 
-/* Generous space instead of a visual divider — Checks read as lower-
-   weight background items, not a second list that needs separating from
-   the todos above it. */
-.checks-section {
+/* Generous space instead of a visual divider — Checks (and yesterday's
+   leftovers) read as lower-weight background items, not a second list
+   that needs separating from the todos above it. */
+.checks-section,
+.leftovers-section {
   margin-top: 66px;
+}
+
+/* Same left inset as .check-row/.checks-header below. */
+.leftovers-heading {
+  display: block;
+  margin: 0 0 16px 5px;
+  color: var(--ink);
+  opacity: 0.55;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+}
+
+.leftover-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Pale like an unticked .check-pill — only the title; the icons carry
+   their own dim/hover opacity (.icon-circle-btn), which would otherwise
+   compound with this. */
+.leftover-title {
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
+@media (hover: hover) {
+  .leftover-item:hover .leftover-title {
+    opacity: 0.9;
+  }
+}
+
+/* Lifted a hair so the 17px circles sit level with the 16px title's
+   first line instead of hanging from its top edge. */
+.leftover-actions {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 /* Icons stacked directly above their own shared label instead of side by
@@ -356,7 +434,10 @@ function editFromAllChecks(check: CheckItem) {
   margin-bottom: 24px;
 }
 
-.checks-icons {
+/* One row of .icon-circle-btn icons — Checks' add/edit pair and each
+   leftover's done/today/pool trio share the spacing. */
+.checks-icons,
+.leftover-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -369,7 +450,8 @@ function editFromAllChecks(check: CheckItem) {
    across the whole Checks UI. Which text shows ("add check" vs. "edit
    checks") is decided here via checksHover in the script. */
 
-.check-row {
+.check-row,
+.leftover-list {
   display: flex;
   flex-direction: column;
   align-items: flex-start;

@@ -26,6 +26,11 @@ export const useThemeStore = defineStore('theme', () => {
   // TodoCard.vue's subsExpandedWide.
   const subsFullWidth = ref(true)
   const dateListsEnabled = ref(true)
+  // Opt-in, Date Lists only: todos left unfinished on yesterday's Date List
+  // stay reachable for one more day as a pale section in Current, instead
+  // of dropping straight back into the pool at midnight (see stores/
+  // todos.ts's rolloverExpiredFocusDates/leftoversFrom).
+  const yesterdayLeftoversEnabled = ref(false)
   // The Focus Date widget's currently selected target date (YYYY-MM-DD) —
   // where new "plan ahead" assignments go. Persists across reloads (see
   // plan discussion) so multi-day planning doesn't reset on every visit.
@@ -93,6 +98,10 @@ export const useThemeStore = defineStore('theme', () => {
     dateListsEnabled.value = !dateListsEnabled.value
   }
 
+  function toggleYesterdayLeftovers() {
+    yesterdayLeftoversEnabled.value = !yesterdayLeftoversEnabled.value
+  }
+
   // Clamped to today — the Pille is exclusively a "plan ahead" target, a
   // past date there would just be a Date List nobody can ever act on
   // (see assignFocusDate's own guard in stores/todos.ts).
@@ -152,8 +161,8 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, subsFullWidth, expandCurrentSubs, expandOverviewSubs, savedThemes,
-    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, selectedFocusDate, calendarViewMode,
+    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, yesterdayLeftoversEnabled, selectedFocusDate, calendarViewMode,
     apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleSubsFullWidth, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
-    toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, setSelectedFocusDate,
+    toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, toggleYesterdayLeftovers, setSelectedFocusDate,
   }
 }, { persist: true })

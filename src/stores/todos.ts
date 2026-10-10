@@ -466,10 +466,12 @@ export const useTodosStore = defineStore('todos', () => {
     if (todo) todo.completedAt = undefined
   }
 
-  function completeTodo(id: string) {
+  // `at` backdates the check-off (a yesterday leftover done after the
+  // fact, see leftoversFrom) — otherwise it's now.
+  function completeTodo(id: string, at?: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
-      todo.completedAt = new Date().toISOString()
+      todo.completedAt = at ?? new Date().toISOString()
       todo.inCurrent = false
       // A real Done means this todo is finished, period — pull it off
       // every future Date List it was still planned on, not just today's.
@@ -589,6 +591,29 @@ export const useTodosStore = defineStore('todos', () => {
     if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
   }
 
+  // Plain todos still sitting on a past Date List (only ever yesterday's,
+  // kept by rolloverExpiredFocusDates while yesterday leftovers are on) —
+  // minus anything that's also on today's list already. Date Todos
+  // (isDateTodo) are left out: an unfinished occurrence of theirs already
+  // carries over onto today's list by itself (see todosForFocusDate).
+  function leftoversFrom(dateStr: string): Todo[] {
+    const today = todayStr()
+    return todos.value.filter(t =>
+      !t.completedAt && !t.deletedAt && !isDateTodo(t) &&
+      t.focusDates?.includes(dateStr) && !t.focusDates.includes(today)
+    )
+  }
+
+  // A leftover let go by hand — same outcome rolloverExpiredFocusDates
+  // would reach a day later: off that list, back in the pool, bumped to
+  // the top of Overview's date sort.
+  function releaseToPool(id: string, dateStr: string) {
+    const todo = todos.value.find(t => t.id === id)
+    if (!todo) return
+    unassignFocusDate(id, dateStr)
+    todo.poolBumpedAt = new Date().toISOString()
+  }
+
   function deleteFocusDateList(dateStr: string) {
     todos.value.forEach(t => {
       if (t.focusDates?.includes(dateStr)) unassignFocusDate(t.id, dateStr)
@@ -601,12 +626,17 @@ export const useTodosStore = defineStore('todos', () => {
   // to spot again. Called from the same three App.vue hooks that already
   // drive runLoopSchedule/checksStore.refreshToday (mount, midnight, tab
   // refocus) — same "day may have changed under us" problem.
+  // With yesterday leftovers on (Date Lists only, see theme.ts), yesterday's
+  // entries survive one extra day — the cutoff moves back by one, so they
+  // drop into the pool a day later instead of right at midnight.
   function rolloverExpiredFocusDates() {
     const today = todayStr()
+    const theme = useThemeStore()
+    const cutoff = theme.dateListsEnabled && theme.yesterdayLeftoversEnabled ? addDaysStr(today, -1) : today
     const now = new Date().toISOString()
     todos.value.forEach(t => {
       if (t.focusDates?.length) {
-        const remaining = t.focusDates.filter(d => d >= today)
+        const remaining = t.focusDates.filter(d => d >= cutoff)
         if (remaining.length !== t.focusDates.length) {
           t.focusDates = remaining.length ? remaining : undefined
           t.poolBumpedAt = now
@@ -738,7 +768,7 @@ export const useTodosStore = defineStore('todos', () => {
     addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForNow, doneForNowOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
-    assignFocusDate, unassignFocusDate, moveFocusDateToNextDay, deleteFocusDateList, rolloverExpiredFocusDates,
+    assignFocusDate, unassignFocusDate, moveFocusDateToNextDay, deleteFocusDateList, rolloverExpiredFocusDates, leftoversFrom, releaseToPool,
     importData,
   }
 }, {

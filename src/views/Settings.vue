@@ -155,7 +155,26 @@ watch(deleteThemeConfirm, (open) => {
 
     <!-- ── Features ── -->
 
-    <!-- Subs + Date lists -->
+    <!-- Tags + Checks -->
+    <div class="section-row">
+      <section class="section">
+        <h2 class="section-title">tags</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.tagsEnabled }" @click="themeStore.tagsEnabled || themeStore.toggleTags()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.tagsEnabled }" @click="themeStore.tagsEnabled && themeStore.toggleTags()">off</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">checks</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.checksEnabled }" @click="themeStore.checksEnabled || themeStore.toggleChecks()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.checksEnabled }" @click="themeStore.checksEnabled && themeStore.toggleChecks()">off</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Subs + Subs width -->
     <div class="section-row">
       <section class="section">
         <h2 class="section-title">subs</h2>
@@ -165,6 +184,18 @@ watch(deleteThemeConfirm, (open) => {
         </div>
       </section>
 
+      <!-- Only meaningful while subs exist at all. -->
+      <section v-if="themeStore.subsEnabled" class="section">
+        <h2 class="section-title">subs width</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.subsFullWidth }" @click="themeStore.subsFullWidth || themeStore.toggleSubsFullWidth()">full</button>
+          <button class="btn-outline" :class="{ active: !themeStore.subsFullWidth }" @click="themeStore.subsFullWidth && themeStore.toggleSubsFullWidth()">fit</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Date lists + Yesterday -->
+    <div class="section-row">
       <section class="section">
         <h2 class="section-title">date lists</h2>
         <div class="option-row">
@@ -172,45 +203,26 @@ watch(deleteThemeConfirm, (open) => {
           <button class="btn-outline" :class="{ active: !themeStore.dateListsEnabled }" @click="themeStore.dateListsEnabled && themeStore.toggleDateLists()">off</button>
         </div>
       </section>
-    </div>
 
-    <!-- Checks + Tags -->
-    <div class="section-row">
-      <section class="section">
-        <h2 class="section-title">checks</h2>
+      <!-- Only meaningful with Date Lists. -->
+      <section v-if="themeStore.dateListsEnabled" class="section">
+        <h2 class="section-title">yesterday</h2>
         <div class="option-row">
-          <button class="btn-outline" :class="{ active: themeStore.checksEnabled }" @click="themeStore.checksEnabled || themeStore.toggleChecks()">on</button>
-          <button class="btn-outline" :class="{ active: !themeStore.checksEnabled }" @click="themeStore.checksEnabled && themeStore.toggleChecks()">off</button>
-        </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">tags</h2>
-        <div class="option-row">
-          <button class="btn-outline" :class="{ active: themeStore.tagsEnabled }" @click="themeStore.tagsEnabled || themeStore.toggleTags()">on</button>
-          <button class="btn-outline" :class="{ active: !themeStore.tagsEnabled }" @click="themeStore.tagsEnabled && themeStore.toggleTags()">off</button>
+          <button class="btn-outline" :class="{ active: themeStore.yesterdayLeftoversEnabled }" @click="themeStore.yesterdayLeftoversEnabled || themeStore.toggleYesterdayLeftovers()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.yesterdayLeftoversEnabled }" @click="themeStore.yesterdayLeftoversEnabled && themeStore.toggleYesterdayLeftovers()">off</button>
         </div>
       </section>
     </div>
 
     <!-- ── Styling ── -->
 
-    <!-- Celebrations + Subs width -->
+    <!-- Celebrations -->
     <div class="section-row">
       <section class="section">
         <h2 class="section-title">celebrations</h2>
         <div class="option-row">
           <button class="btn-outline" :class="{ active: themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled || themeStore.toggleCelebrations()">on</button>
           <button class="btn-outline" :class="{ active: !themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled && themeStore.toggleCelebrations()">off</button>
-        </div>
-      </section>
-
-      <!-- Only meaningful while subs exist at all. -->
-      <section v-if="themeStore.subsEnabled" class="section">
-        <h2 class="section-title">subs width</h2>
-        <div class="option-row">
-          <button class="btn-outline" :class="{ active: themeStore.subsFullWidth }" @click="themeStore.subsFullWidth || themeStore.toggleSubsFullWidth()">full</button>
-          <button class="btn-outline" :class="{ active: !themeStore.subsFullWidth }" @click="themeStore.subsFullWidth && themeStore.toggleSubsFullWidth()">fit</button>
         </div>
       </section>
     </div>

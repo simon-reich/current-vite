@@ -223,8 +223,11 @@ const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? 
 // are. Meaningful for today or any future day, shown in its own section
 // since nothing here has actually happened yet (unlike dayEntries/
 // checksOnDay, which are all history).
+// A past day is left out — the only past focusDates that still exist are
+// yesterday's leftovers (see stores/todos.ts's leftoversFrom), which never
+// happened on that day and shouldn't read as its plan in hindsight.
 const plannedOnDay = computed(() => {
-  if (!selectedDate.value || !themeStore.dateListsEnabled) return []
+  if (!selectedDate.value || !themeStore.dateListsEnabled || selectedDate.value < todayStr()) return []
   return store.todosForFocusDate(selectedDate.value).filter(t => !t.loopInterval)
 })
 

@@ -1307,6 +1307,13 @@ watch(() => themeStore.dateListsEnabled, (enabled) => {
   viewingDate.value = enabled ? todayStr() : null
 })
 
+// Switching yesterday leftovers (or Date Lists as a whole) off releases
+// whatever yesterday's list still held right away, instead of only at the
+// next midnight/refocus check — see rolloverExpiredFocusDates.
+watch(() => themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled, (on) => {
+  if (!on) store.rolloverExpiredFocusDates()
+})
+
 // Date math shared by every Date-List nav rendering (this file's own
 // Current variant below, FocusDateNav.vue's Overview variant, and the
 // tablet slide-in panel) — see useFocusDateNav's own comment.
