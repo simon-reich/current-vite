@@ -3482,6 +3482,15 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* ...and in its place, a plain ink border on .todo-card itself, which
+   does travel with the drag — so the gripped card still reads as a card,
+   not just loose text. Border only: the pale fill can't move here (it
+   would need either opacity on .todo-card, dimming the text too, or an
+   in-between color). Priority+loop already has a solid ink border. */
+.todo-card-wrap.dragging .todo-card.loop {
+  border-color: var(--ink);
+}
+
 /* Priority + loop together: full solid ink fill/border like plain
    priority (text already reads var(--bg) from .priority, untouched here)
    but the drop shadow stays the loop's pale ink instead of priority's
