@@ -598,6 +598,7 @@ import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickE
 import { activeModal } from '../composables/useModalGuard'
 import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 import { runLoopSchedule, isLoopDueToday, isLoopSettledToday } from '../composables/useLoopSchedule'
+import { shrinkFontToFit } from '../composables/useFitFont'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
 import { todayStr, tomorrowStr, addDaysStr, localDayOf, WEEKDAY_FULL_LABELS } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
@@ -1839,10 +1840,8 @@ let cardResizeObserver: ResizeObserver | null = null
 
 // A title that only barely wraps (a handful of characters spilling onto a
 // second line) shrinks back to one line instead — a title that's genuinely
-// long stays multi-line untouched. The base size always comes from
-// getComputedStyle (i.e. from .todo-card's CSS font-size) rather than a
-// duplicated constant here, so this keeps tracking the real breakpoint
-// values if those ever change.
+// long stays multi-line untouched. The shrinking itself is shared with
+// Current.vue's yesterday rows (shrinkFontToFit, useFitFont.ts).
 const titleRef = ref<HTMLElement | null>(null)
 const OVERFLOW_TOLERANCE_CHARS = 6
 const MIN_SHRINK_RATIO = 0.85
@@ -1878,18 +1877,7 @@ function fitTitleFont() {
   const tolerancePx = OVERFLOW_TOLERANCE_CHARS * baseSize * 0.5
   if (overflow > tolerancePx) return
 
-  const minSize = baseSize * MIN_SHRINK_RATIO
-  for (let size = baseSize - SHRINK_STEP_PX; size >= minSize; size -= SHRINK_STEP_PX) {
-    el.style.fontSize = `${size.toFixed(2)}px`
-    // Re-measured at each step rather than computed once — text width
-    // doesn't scale perfectly linearly with font-size (glyph hinting/
-    // rounding), so a single computed guess can still overflow by a
-    // character or two.
-    if (measureOverflowPx(el) <= 0) return
-  }
-  // Couldn't reach one line within the allowed shrink range — not a "just a
-  // few characters" case after all, leave the title at its base size.
-  el.style.fontSize = ''
+  shrinkFontToFit(el, () => measureOverflowPx(el) <= 0, { minRatio: MIN_SHRINK_RATIO, step: SHRINK_STEP_PX })
 }
 
 onMounted(() => {

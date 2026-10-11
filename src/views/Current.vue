@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, inject, nextTick, type Component } from 'vue'
+import { computed, ref, inject, nextTick, watch, type Component } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Check, CheckCheck, Clock, Pencil, ArrowUp, Minus, Ellipsis } from '@lucide/vue'
@@ -16,6 +16,7 @@ import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
 import { simulateYesterdayLeftovers, SIMULATE_YESTERDAY_ENABLED } from '../dev/simulateYesterday'
 import { todayStr, addDaysStr, endOfDayIso } from '../composables/useToday'
+import { shrinkFontToFit } from '../composables/useFitFont'
 
 const store = useTodosStore()
 const checksStore = useChecksStore()
@@ -147,6 +148,51 @@ const leftovers = computed(() =>
 // Each title in its own todo font, same as on a card — assignFonts over
 // this little list keeps the "no two neighbors alike" rule within it.
 const leftoverFontMap = computed(() => assignFonts(leftovers.value.map(t => t.id)))
+
+// Phone: the ellipsis rides at the end of the title's last line — when a
+// title just about fills its line, the icon would drop onto a line of its
+// own. Such a title shrinks a little (shared shrinkFontToFit) until the
+// icon fits back in behind it. Desktop/tablet show the icon trio beside
+// the text instead (compact toggle hidden), nothing to fit there.
+const leftoverFrameRef = ref<HTMLElement | null>(null)
+
+function iconOnLastLine(title: HTMLElement, icon: HTMLElement): boolean {
+  const lines = title.getClientRects()
+  if (!lines.length) return true
+  const r = icon.getBoundingClientRect()
+  return (r.top + r.bottom) / 2 < lines[lines.length - 1].bottom
+}
+
+function fitLeftoverTitles() {
+  const frame = leftoverFrameRef.value
+  if (!frame) return
+  for (const item of frame.querySelectorAll<HTMLElement>('.leftover-item')) {
+    const title = item.querySelector<HTMLElement>('.leftover-title')
+    const icon = item.querySelector<HTMLElement>('.leftover-actions--compact')
+    if (!title || !icon) continue
+    if (!icon.offsetParent) { title.style.fontSize = ''; continue }
+    shrinkFontToFit(title, () => iconOnLastLine(title, icon))
+  }
+}
+
+// Refit on width changes only (rotation, resize) — the frame's height also
+// moves with each fit and during the leave animations, which would just
+// re-run this for nothing. Content changes (titles, fonts, fonts finishing
+// loading) are covered separately.
+watch(leftoverFrameRef, (frame, _, onCleanup) => {
+  if (!frame) return
+  let lastWidth = -1
+  const observer = new ResizeObserver(entries => {
+    const width = entries[0].contentRect.width
+    if (width === lastWidth) return
+    lastWidth = width
+    fitLeftoverTitles()
+  })
+  observer.observe(frame)
+  document.fonts?.ready.then(fitLeftoverTitles)
+  onCleanup(() => observer.disconnect())
+})
+watch(() => [leftovers.value.map(t => t.title).join('\n'), leftoverFontMap.value], () => nextTick(fitLeftoverTitles))
 
 // Both backdated so the calendar files them under yesterday, the day they
 // actually belonged to. Done-for-now leaves the todo in the pool, same as
@@ -513,7 +559,7 @@ function editFromAllChecks(check: CheckItem) {
           </button>
         </div>
       </div>
-      <div class="leftover-frame">
+      <div ref="leftoverFrameRef" class="leftover-frame">
         <TransitionGroup tag="div" class="leftover-list" :css="false" @leave="onLeftoverLeave">
           <div v-for="todo in leftovers" :key="todo.id" :data-id="todo.id" class="leftover-item" :class="{ open: openLeftover?.id === todo.id }">
             <div class="leftover-main">
@@ -822,6 +868,13 @@ function editFromAllChecks(check: CheckItem) {
 
   .leftover-title {
     display: inline;
+  }
+
+  /* A notch below a phone card's own 14px title (TodoCard.vue), so the
+     leftovers stay the quieter list. Descendant selector to outrank
+     .check-label's 16px further down. */
+  .leftover-item .leftover-title {
+    font-size: 13px;
   }
 
   .leftover-actions.leftover-actions--compact {
