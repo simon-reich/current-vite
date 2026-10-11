@@ -728,10 +728,15 @@ function editFromAllChecks(check: CheckItem) {
 
 /* Generous space instead of a visual divider — Checks (and yesterday's
    leftovers) read as lower-weight background items, not a second list
-   that needs separating from the todos above it. */
-.checks-section,
-.leftovers-section {
+   that needs separating from the todos above it. Yesterday sits a bit
+   closer — it's still the same kind of thing as the todos (a list
+   carried over), so on purpose not tied to Checks' value. */
+.checks-section {
   margin-top: 66px;
+}
+
+.leftovers-section {
+  margin-top: 48px;
 }
 
 /* Pale frame around the yesterday entries (heading sits above it,
