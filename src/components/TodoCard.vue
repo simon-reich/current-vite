@@ -3254,7 +3254,7 @@ onUnmounted(() => {
   display: inline-flex;
   flex-direction: column;
   background: var(--bg);
-  font-size: 17px;
+  font-size: var(--card-font-size);
   color: var(--ink);
   max-width: 600px;
   border-radius: var(--radius);
@@ -3864,7 +3864,7 @@ onUnmounted(() => {
 
 @media (max-width: 700px) {
   .todo-card {
-    font-size: 14px;
+    font-size: var(--card-font-size-phone);
   }
 
   .todo-card-main {
@@ -3894,7 +3894,7 @@ onUnmounted(() => {
    that, the card only needs a lighter trim from the full desktop size. */
 @media (min-width: 1025px) and (max-width: 1400px) {
   .todo-card {
-    font-size: 15px;
+    font-size: var(--card-font-size-narrow-desktop);
     max-width: 400px;
   }
 
@@ -3923,7 +3923,7 @@ onUnmounted(() => {
 
 @media (min-width: 701px) and (max-width: 1024px) {
   .todo-card {
-    font-size: 13.5px;
+    font-size: var(--card-font-size-tablet);
     max-width: 100%;
   }
 

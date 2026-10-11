@@ -63,6 +63,15 @@
      yesterday) match it at the same width. */
   --card-icon-gap-tablet: 6px;
 
+  /* A todo card's text size per breakpoint (TodoCard.vue's .todo-card) —
+     Current's yesterday titles run a step below it at every width
+     (--leftover-font-step), so they stay the quieter list. */
+  --card-font-size: 17px;
+  --card-font-size-narrow-desktop: 15px;
+  --card-font-size-tablet: 13.5px;
+  --card-font-size-phone: 14px;
+  --leftover-font-step: 1px;
+
   /* .icon-circle-btn's diameter — also what Calendar's undo column
      reserves for it, so that column is exactly as wide as the button. */
   --icon-circle-btn-size: 17px;

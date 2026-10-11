@@ -875,13 +875,6 @@ function editFromAllChecks(check: CheckItem) {
     display: inline;
   }
 
-  /* A notch below a phone card's own 14px title (TodoCard.vue), so the
-     leftovers stay the quieter list. Descendant selector to outrank
-     .check-label's 16px further down. */
-  .leftover-item .leftover-title {
-    font-size: 13px;
-  }
-
   .leftover-actions.leftover-actions--compact {
     display: inline-flex;
     vertical-align: middle;
@@ -933,6 +926,31 @@ function editFromAllChecks(check: CheckItem) {
 
   .leftover-opt svg {
     display: none;
+  }
+}
+
+/* A step below a todo card's text at every width (tokens in base.css),
+   so the leftovers stay the quieter list.
+   Descendant selector to outrank .check-label's 16px further down. */
+.leftover-item .leftover-title {
+  font-size: calc(var(--card-font-size) - var(--leftover-font-step));
+}
+
+@media (min-width: 1025px) and (max-width: 1400px) {
+  .leftover-item .leftover-title {
+    font-size: calc(var(--card-font-size-narrow-desktop) - var(--leftover-font-step));
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1024px) {
+  .leftover-item .leftover-title {
+    font-size: calc(var(--card-font-size-tablet) - var(--leftover-font-step));
+  }
+}
+
+@media (max-width: 700px) {
+  .leftover-item .leftover-title {
+    font-size: calc(var(--card-font-size-phone) - var(--leftover-font-step));
   }
 }
 
