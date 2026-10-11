@@ -594,26 +594,28 @@ export const useTodosStore = defineStore('todos', () => {
   }
 
   // Plain todos still sitting on a past Date List (only ever yesterday's,
-  // kept by rolloverExpiredFocusDates while yesterday leftovers are on) —
-  // minus anything that's also on today's list already. Date Todos
-  // (isDateTodo) are left out: an unfinished occurrence of theirs already
-  // carries over onto today's list by itself (see todosForFocusDate).
+  // kept by rolloverExpiredFocusDates while yesterday leftovers are on).
+  // One that's on today's list too still shows — it can still be ticked
+  // off for yesterday after the fact (Current.vue just leaves out its
+  // "to today", it's there already). Date Todos (isDateTodo) are left out:
+  // an unfinished occurrence of theirs already carries over onto today's
+  // list by itself (see todosForFocusDate).
   function leftoversFrom(dateStr: string): Todo[] {
-    const today = todayStr()
     return todos.value.filter(t =>
-      !t.completedAt && !t.deletedAt && !isDateTodo(t) &&
-      t.focusDates?.includes(dateStr) && !t.focusDates.includes(today)
+      !t.completedAt && !t.deletedAt && !isDateTodo(t) && t.focusDates?.includes(dateStr)
     )
   }
 
   // A leftover let go by hand — same outcome rolloverExpiredFocusDates
   // would reach a day later: off that list, back in the pool, bumped to
-  // the top of Overview's date sort.
+  // the top of Overview's date sort. Only ever off that one list: one
+  // that's on today's list too just stays there, and isn't bumped (it
+  // isn't back in the pool).
   function releaseToPool(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
     unassignFocusDate(id, dateStr)
-    todo.poolBumpedAt = new Date().toISOString()
+    if (!todo.focusDates?.includes(todayStr())) todo.poolBumpedAt = new Date().toISOString()
   }
 
   function deleteFocusDateList(dateStr: string) {

@@ -459,6 +459,19 @@ const LEFTOVER_ALL_OPTIONS: LeftoverOption[] = [
   { key: 'pool', icon: Minus, label: 'remove', run: releaseLeftover },
 ]
 
+// A leftover that's on today's list as well (planned on both days) still
+// shows, so it can be ticked off for yesterday — just without "to today",
+// it's there already. Its "remove" then only takes it off yesterday's
+// list (store.releaseToPool), "all to today" likewise.
+function isAlsoOnToday(todo: { focusDates?: string[] }): boolean {
+  return !!todo.focusDates?.includes(todayStr())
+}
+
+function leftoverOptions(todo: { focusDates?: string[] }, menu: LeftoverMenu): LeftoverOption[] {
+  if (menu === 'done') return LEFTOVER_DONE_OPTIONS
+  return isAlsoOnToday(todo) ? LEFTOVER_ALL_OPTIONS.filter(o => o.key !== 'today') : LEFTOVER_ALL_OPTIONS
+}
+
 // ── Checks ──
 // Below the todo list, no divider — see CLAUDE.md's Checks section for the
 // full design rationale (background reminders, lower weight than a Todo).
@@ -585,10 +598,10 @@ function editFromAllChecks(check: CheckItem) {
                 <button type="button" class="icon-circle-btn leftover-toggle" v-tooltip="'done yesterday'" @click="toggleLeftover(todo.id, 'done')">
                   <Check :size="10" />
                 </button>
-                <button type="button" class="icon-circle-btn" v-tooltip="'move to today'" @click="moveLeftoverToToday(todo.id)">
+                <button v-if="!isAlsoOnToday(todo)" type="button" class="icon-circle-btn" v-tooltip="'move to today'" @click="moveLeftoverToToday(todo.id)">
                   <ArrowUp :size="10" />
                 </button>
-                <button type="button" class="icon-circle-btn" v-tooltip="'back to pool'" @click="releaseLeftover(todo.id)">
+                <button type="button" class="icon-circle-btn" v-tooltip="'remove'" @click="releaseLeftover(todo.id)">
                   <Minus :size="10" />
                 </button>
               </div>
@@ -600,7 +613,7 @@ function editFromAllChecks(check: CheckItem) {
             </div>
             <div v-if="openLeftover?.id === todo.id" class="leftover-opts-row">
               <button
-                v-for="(opt, i) in openLeftover.menu === 'all' ? LEFTOVER_ALL_OPTIONS : LEFTOVER_DONE_OPTIONS"
+                v-for="(opt, i) in leftoverOptions(todo, openLeftover.menu)"
                 :key="opt.key"
                 type="button"
                 class="leftover-opt"
