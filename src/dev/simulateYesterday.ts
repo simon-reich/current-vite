@@ -8,7 +8,11 @@ import { lastTouched } from '../composables/useTodoSort'
 // yesterday's Date List, as if they'd been left over, so the section can
 // be tried out without waiting for midnight. Writes focusDates directly:
 // assignFocusDate refuses past dates by design. Only wired up in a dev
-// build (see Settings.vue).
+// build (see Current.vue's "simulate yesterday" button).
+//
+// Switched off for now — flip to true to bring the button back for testing.
+export const SIMULATE_YESTERDAY_ENABLED = true
+
 export function simulateYesterdayLeftovers(count = 4): number {
   const store = useTodosStore()
   const today = todayStr()

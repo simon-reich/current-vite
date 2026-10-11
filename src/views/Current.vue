@@ -14,7 +14,7 @@ import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
-import { simulateYesterdayLeftovers } from '../dev/simulateYesterday'
+import { simulateYesterdayLeftovers, SIMULATE_YESTERDAY_ENABLED } from '../dev/simulateYesterday'
 import { todayStr, addDaysStr, endOfDayIso } from '../composables/useToday'
 
 const store = useTodosStore()
@@ -124,13 +124,13 @@ function doneForNow(id: string) {
 // second list that has to be cleared. Untouched ones simply drop into the
 // pool a day later (see stores/todos.ts's rolloverExpiredFocusDates).
 const yesterdayStr = computed(() => addDaysStr(todayStr(), -1))
-// Temporary dev-only test helper next to "add todos" (see
+// Temporary dev-only test helper (off by default, see SIMULATE_YESTERDAY_ENABLED) next to "add todos" (see
 // dev/simulateYesterday.ts), on today's list — where the leftovers section
 // shows up. Not gated on the yesterday setting: that lives per device
 // (localStorage), so a click switches it on too instead of the button
 // silently missing on a phone where it's still off.
 const showSimulateYesterday = computed(() =>
-  import.meta.env.DEV && themeStore.dateListsEnabled && viewingDate.value === todayStr()
+  SIMULATE_YESTERDAY_ENABLED && import.meta.env.DEV && themeStore.dateListsEnabled && viewingDate.value === todayStr()
 )
 
 function simulateYesterday() {
@@ -688,9 +688,8 @@ function editFromAllChecks(check: CheckItem) {
   margin-top: 66px;
 }
 
-/* EXPERIMENT: pale frame around the yesterday entries (heading sits above
-   it, outside) — same pseudo +
-   opacity trick as a Date todo card's pale body (TodoCard.vue's
+/* Pale frame around the yesterday entries (heading sits above it,
+   outside) — same pseudo + opacity trick as a Date todo card's pale body (TodoCard.vue's
    .swipe-container.loop::before), so the border dims without dimming the
    content. Fills .leftovers-section (shrink-wrapped, see below), corners
    follow rounded/square. */
