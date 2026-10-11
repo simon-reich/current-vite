@@ -2963,7 +2963,7 @@ onUnmounted(() => {
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
           <div v-if="showMenu && mode === 'current'" class="check-row">
             <span v-if="previewLocked" class="check-opt check-opt--locked" v-tooltip="'this day hasn\'t arrived yet'">
-              <Clock :size="16" /> <span>Not due yet</span>
+              <Clock :size="16" /> <span>not due yet</span>
             </span>
             <template v-else>
               <button
@@ -2971,14 +2971,14 @@ onUnmounted(() => {
                 :class="{ 'is-focused': focusedCheckOption === 'now' }"
                 @click.stop="handleDoneForNow(todo.id)"
               >
-                <Clock :size="16" /> <span>Done for now</span>
+                <Clock :size="16" /> <span>done for now</span>
               </button>
               <button
                 class="check-opt"
                 :class="{ 'is-focused': focusedCheckOption === 'done' }"
                 @click.stop="handleComplete(todo.id)"
               >
-                <CheckCheck :size="16" /> <span>Done</span>
+                <CheckCheck :size="16" /> <span>done</span>
               </button>
             </template>
           </div>
@@ -3017,7 +3017,7 @@ onUnmounted(() => {
               </label>
               <TagInlineCreate v-if="themeStore.tagsEnabled" @created="onCardTagCreated" />
             </template>
-            <span v-else class="tag-row-empty">No tags yet</span>
+            <span v-else class="tag-row-empty">no tags yet</span>
           </div>
         </Transition>
       </motion.div>
