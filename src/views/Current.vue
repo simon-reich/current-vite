@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, inject } from 'vue'
+import { computed, ref, inject, nextTick, type Component } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Check, Pencil, ArrowRight, Minus } from '@lucide/vue'
+import { Plus, Check, CheckCheck, Clock, Pencil, ArrowUp, Minus, Ellipsis } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID } from '../stores/todos'
 import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -13,7 +13,8 @@ import ListsPanel from '../components/ListsPanel.vue'
 import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
-import { burstCheckbox } from '../composables/useCheckboxBurst'
+import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
+import { simulateYesterdayLeftovers } from '../dev/simulateYesterday'
 import { todayStr, addDaysStr, endOfDayIso } from '../composables/useToday'
 
 const store = useTodosStore()
@@ -123,17 +124,277 @@ function doneForNow(id: string) {
 // second list that has to be cleared. Untouched ones simply drop into the
 // pool a day later (see stores/todos.ts's rolloverExpiredFocusDates).
 const yesterdayStr = computed(() => addDaysStr(todayStr(), -1))
+// Temporary dev-only test helper next to "add todos" (see
+// dev/simulateYesterday.ts), on today's list — where the leftovers section
+// shows up. Not gated on the yesterday setting: that lives per device
+// (localStorage), so a click switches it on too instead of the button
+// silently missing on a phone where it's still off.
+const showSimulateYesterday = computed(() =>
+  import.meta.env.DEV && themeStore.dateListsEnabled && viewingDate.value === todayStr()
+)
+
+function simulateYesterday() {
+  if (!themeStore.yesterdayLeftoversEnabled) themeStore.toggleYesterdayLeftovers()
+  simulateYesterdayLeftovers()
+}
+
 const leftovers = computed(() =>
   themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled && viewingDate.value === todayStr()
     ? store.leftoversFrom(yesterdayStr.value)
     : []
 )
 
-// Backdated so the calendar files it under yesterday, the day it actually
-// belonged to.
-function completeLeftover(id: string) {
-  store.completeTodo(id, endOfDayIso(yesterdayStr.value))
+// Each title in its own todo font, same as on a card — assignFonts over
+// this little list keeps the "no two neighbors alike" rule within it.
+const leftoverFontMap = computed(() => assignFonts(leftovers.value.map(t => t.id)))
+
+// Both backdated so the calendar files them under yesterday, the day they
+// actually belonged to. Done-for-now leaves the todo in the pool, same as
+// it would have from yesterday's list itself.
+// Each action plays its own little exit before the row goes (see
+// onLeftoverLeave): 'today' winds up and shoots off upward toward today's
+// list, 'pool' the same off to the left, 'done' pops in a spark burst
+// right after the one at the clicked button. The kind (and a stagger
+// index for the bulk actions) is put on the row first and rendered,
+// *then* the store action removes it — the TransitionGroup's leave hook
+// reads it off the element's last render.
+type LeaveKind = 'done' | 'today' | 'pool'
+// A bulk action's rows share one group: each exits on its own (staggered),
+// but none collapses individually — the last one to finish its exit
+// collapses the whole section once for all of them (see onLeftoverLeave),
+// instead of the box shrinking in several small steps.
+interface LeaveGroup { pending: number; settled: Promise<void>; settle: () => void }
+const leaving = ref<Record<string, { kind: LeaveKind; index: number; group?: LeaveGroup }>>({})
+
+// The open options row (if it's one of these) stays open on purpose — it
+// leaves together with its row instead of snapping shut first, which made
+// the whole page jump up by its height right at the click.
+async function leaveThen(ids: string[], kind: LeaveKind, run: (id: string) => void) {
+  let group: LeaveGroup | undefined
+  if (ids.length > 1) {
+    let settle!: () => void
+    const settled = new Promise<void>(resolve => { settle = resolve })
+    group = { pending: ids.length, settled, settle }
+  }
+  ids.forEach((id, index) => { leaving.value[id] = { kind, index, group } })
+  await nextTick()
+  ids.forEach(run)
 }
+
+// The whole box shrinks into its top-left corner — the frame itself (so
+// its pale border and shadow shrink with it, rather than getting clipped
+// off), narrower and shorter at the same time, while the heading row above
+// fades out and folds away and the section's top margin closes up. The
+// (already faded-out) rows inside are taken out of the frame's layout
+// first, so its size is free to animate all the way down to nothing.
+function collapseSection(section: HTMLElement): Promise<unknown> {
+  const head = section.querySelector<HTMLElement>('.leftovers-head')
+  const frame = section.querySelector<HTMLElement>('.leftover-frame')
+  const list = frame?.querySelector<HTMLElement>('.leftover-list')
+  const opts = { duration: COLLAPSE_MS, easing: 'ease-in-out', fill: 'forwards' } as const
+  const anims: Animation[] = []
+
+  if (frame) {
+    const frameStyle = getComputedStyle(frame)
+    const from = {
+      width: `${frame.offsetWidth}px`,
+      height: `${frame.offsetHeight}px`,
+      padding: frameStyle.padding,
+      opacity: '1',
+    }
+    if (list) {
+      list.style.position = 'absolute'
+      list.style.visibility = 'hidden'
+    }
+    anims.push(frame.animate([
+      from,
+      { ...from, width: '0px', height: '0px', padding: '0px', opacity: '1', offset: 0.85 },
+      { width: '0px', height: '0px', padding: '0px', opacity: '0' },
+    ], opts))
+  }
+  if (head) {
+    head.style.overflow = 'hidden'
+    anims.push(head.animate([
+      { height: `${head.offsetHeight}px`, marginBottom: getComputedStyle(head).marginBottom, opacity: 1 },
+      { opacity: 0, offset: 0.4 },
+      { height: '0px', marginBottom: '0px', opacity: 0 },
+    ], opts))
+  }
+  anims.push(section.animate(
+    [{ marginTop: getComputedStyle(section).marginTop }, { marginTop: '0px' }],
+    opts,
+  ))
+  return Promise.all(anims.map(a => a.finished))
+}
+
+function burst(el?: HTMLElement) {
+  if (el && themeStore.celebrationsEnabled) burstCheckbox(el)
+}
+
+function completeLeftover(id: string, el?: HTMLElement) {
+  burst(el)
+  leaveThen([id], 'done', id => store.completeTodo(id, endOfDayIso(yesterdayStr.value)))
+}
+
+function doneForNowLeftover(id: string, el?: HTMLElement) {
+  burst(el)
+  leaveThen([id], 'done', id => store.doneForNowOnDate(id, yesterdayStr.value, endOfDayIso(yesterdayStr.value)))
+}
+
+function moveLeftoverToToday(id: string) {
+  leaveThen([id], 'today', id => store.moveFocusDateToNextDay(id, yesterdayStr.value))
+}
+
+function releaseLeftover(id: string) {
+  leaveThen([id], 'pool', id => store.releaseToPool(id, yesterdayStr.value))
+}
+
+// The heading row's bulk versions of the two above — every leftover at
+// once, leaving one after the other.
+function moveAllLeftoversToToday() {
+  leaveThen(leftovers.value.map(t => t.id), 'today', id => store.moveFocusDateToNextDay(id, yesterdayStr.value))
+}
+
+function releaseAllLeftovers() {
+  leaveThen(leftovers.value.map(t => t.id), 'pool', id => store.releaseToPool(id, yesterdayStr.value))
+}
+
+// Exit first, collapse only once it's fully done: the row's height
+// closes up together with the list gap it leaves behind, so neighbors
+// close up smoothly instead of jumping the last 20px when it's removed.
+// The very last row to go collapses the whole section instead (heading,
+// frame, its top margin) — otherwise all of that vanished at once at the
+// end, and the page jumped by it whenever it was scrolled to the bottom.
+//
+// today/pool: a short wind-up a few px the other way, then accelerating
+// away (ease-in per segment). done: a beat after the clicked button's
+// own burst (completeLeftover), the row puffs up and pops in a bigger
+// burst of sparks from its own center (sparks only with celebrations on;
+// the pop itself always plays).
+const DONE_POP_DELAY = 140
+// Unhurried, so the page settles smoothly when the shrinking content makes
+// it scroll back up (scrolled to the bottom).
+const COLLAPSE_MS = 280
+
+function exitKeyframes(kind: LeaveKind): Keyframe[] {
+  if (kind === 'done') {
+    return [
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(1.06)', opacity: 1, offset: 0.35, easing: 'ease-in' },
+      { transform: 'scale(0.7)', opacity: 0 },
+    ]
+  }
+  const [windUp, away] = kind === 'today'
+    ? ['translateY(3px)', 'translateY(-40px)']
+    : ['translateX(5px)', 'translateX(-70px)']
+  return [
+    { transform: 'none', opacity: 1, easing: 'ease-out' },
+    { transform: windUp, opacity: 1, offset: 0.3, easing: 'cubic-bezier(0.55, 0, 0.9, 0.4)' },
+    { transform: away, opacity: 0 },
+  ]
+}
+
+async function onLeftoverLeave(el: Element, done: () => void) {
+  const e = el as HTMLElement
+  const id = e.dataset.id!
+  const info = leaving.value[id] ?? { kind: 'pool', index: 0 }
+  const isDone = info.kind === 'done'
+  const delay = isDone ? DONE_POP_DELAY : info.index * 50
+  const gap = parseFloat(getComputedStyle(e.parentElement!).rowGap) || 0
+  const isLast = !e.nextElementSibling
+  const isOnly = isLast && !e.previousElementSibling
+
+  if (isDone && themeStore.celebrationsEnabled) {
+    // From the title text's own center — the whole row also spans the
+    // icons (and the open options row below), which pulled it off-center.
+    setTimeout(() => {
+      const rect = (e.querySelector('.leftover-title') ?? e).getBoundingClientRect()
+      burstSparks(rect.left + rect.width / 2, rect.top + rect.height / 2, 10, 28)
+    }, delay)
+  }
+
+  const exit = e.animate(exitKeyframes(info.kind), {
+    duration: isDone ? 220 : 320,
+    delay,
+    fill: 'forwards',
+  })
+  await exit.finished
+
+  const section = e.closest<HTMLElement>('.leftovers-section')
+  const group = info.group
+  const lastToGo = leftovers.value.length === 0 && Object.keys(leaving.value).length === 1
+  let widthAnim: Animation | null = null
+  if (group) {
+    group.pending--
+    if (group.pending === 0) {
+      if (section && leftovers.value.length === 0) await collapseSection(section)
+      group.settle()
+    }
+    await group.settled
+  } else if (lastToGo && section) {
+    await collapseSection(section)
+  } else {
+    // The section is shrink-wrapped to its widest row — if that was this
+    // one, it would otherwise snap narrower the instant the row is gone.
+    // Measure the width it'll settle at (this row taken out of the layout
+    // for a moment, no paint in between) and ease there alongside the
+    // height collapse; the explicit width is dropped again once the row
+    // is really gone, handing back to fit-content at that same width.
+    if (section) {
+      const fromWidth = section.offsetWidth
+      e.style.display = 'none'
+      const toWidth = section.offsetWidth
+      e.style.display = ''
+      if (toWidth !== fromWidth) {
+        widthAnim = section.animate(
+          [{ width: `${fromWidth}px` }, { width: `${toWidth}px` }],
+          { duration: COLLAPSE_MS, easing: 'ease-in-out', fill: 'forwards' },
+        )
+      }
+    }
+    await e.animate(
+      [
+        { height: `${e.offsetHeight}px`, marginTop: '0px', marginBottom: '0px' },
+        {
+          height: '0px',
+          marginTop: isLast && !isOnly ? `${-gap}px` : '0px',
+          marginBottom: isLast ? '0px' : `${-gap}px`,
+        },
+      ],
+      { duration: COLLAPSE_MS, easing: 'ease-in-out', fill: 'forwards' },
+    ).finished
+  }
+  if (openLeftover.value?.id === id) openLeftover.value = null
+  delete leaving.value[id]
+  done()
+  widthAnim?.cancel()
+}
+
+// Keeps the section mounted while its last rows are still animating out.
+const showLeftovers = computed(() => leftovers.value.length > 0 || Object.keys(leaving.value).length > 0)
+
+// A leftover's options unfold in a small row underneath, like a card's own
+// check menu — one open at a time. 'done' = the check icon (desktop/
+// tablet): just the two done modes, today/pool have their own icons
+// there. 'all' = the single ellipsis icon on phones, which carries every
+// option in that row instead of a cramped icon trio.
+type LeftoverMenu = 'done' | 'all'
+const openLeftover = ref<{ id: string; menu: LeftoverMenu } | null>(null)
+function toggleLeftover(id: string, menu: LeftoverMenu) {
+  const open = openLeftover.value
+  openLeftover.value = open?.id === id && open.menu === menu ? null : { id, menu }
+}
+
+interface LeftoverOption { key: string; icon: Component; label: string; run: (id: string, el?: HTMLElement) => void }
+const LEFTOVER_DONE_OPTIONS: LeftoverOption[] = [
+  { key: 'now', icon: Clock, label: 'done for now', run: doneForNowLeftover },
+  { key: 'done', icon: CheckCheck, label: 'done', run: completeLeftover },
+]
+const LEFTOVER_ALL_OPTIONS: LeftoverOption[] = [
+  ...LEFTOVER_DONE_OPTIONS,
+  { key: 'today', icon: ArrowUp, label: 'to today', run: moveLeftoverToToday },
+  { key: 'pool', icon: Minus, label: 'remove', run: releaseLeftover },
+]
 
 // ── Checks ──
 // Below the todo list, no divider — see CLAUDE.md's Checks section for the
@@ -230,25 +491,65 @@ function editFromAllChecks(check: CheckItem) {
         :float-label="!displayedTodos.length"
         @click="planInOverview"
       />
+      <IconLabelButton
+        v-if="showSimulateYesterday"
+        :icon="Plus"
+        label="simulate yesterday"
+        title="dev: put 4 pool todos on yesterday"
+        :float-label="!displayedTodos.length"
+        @click="simulateYesterday"
+      />
     </div>
 
-    <div v-if="leftovers.length" class="leftovers-section">
-      <span class="leftovers-heading">left over from yesterday</span>
-      <div class="leftover-list">
-        <div v-for="todo in leftovers" :key="todo.id" class="leftover-item">
-          <span class="check-label leftover-title">{{ todo.title }}</span>
-          <div class="leftover-actions">
-            <button type="button" class="icon-circle-btn" v-tooltip="'done yesterday'" @click="completeLeftover(todo.id)">
-              <Check :size="10" />
-            </button>
-            <button type="button" class="icon-circle-btn" v-tooltip="'move to today'" @click="store.moveFocusDateToNextDay(todo.id, yesterdayStr)">
-              <ArrowRight :size="10" />
-            </button>
-            <button type="button" class="icon-circle-btn" v-tooltip="'back to pool'" @click="store.releaseToPool(todo.id, yesterdayStr)">
-              <Minus :size="10" />
-            </button>
-          </div>
+    <div v-if="showLeftovers" class="leftovers-section">
+      <div class="leftovers-head">
+        <span class="leftovers-heading">yesterday</span>
+        <div class="leftover-actions">
+          <button type="button" class="icon-circle-btn" v-tooltip="'all to today'" @click="moveAllLeftoversToToday">
+            <ArrowUp :size="10" />
+          </button>
+          <button type="button" class="icon-circle-btn" v-tooltip="'remove all'" @click="releaseAllLeftovers">
+            <Minus :size="10" />
+          </button>
         </div>
+      </div>
+      <div class="leftover-frame">
+        <TransitionGroup tag="div" class="leftover-list" :css="false" @leave="onLeftoverLeave">
+          <div v-for="todo in leftovers" :key="todo.id" :data-id="todo.id" class="leftover-item" :class="{ open: openLeftover?.id === todo.id }">
+            <div class="leftover-main">
+              <span class="check-label leftover-title" :style="{ fontFamily: leftoverFontMap.get(todo.id) }">{{ todo.title }}</span>
+              <div class="leftover-actions leftover-actions--full">
+                <button type="button" class="icon-circle-btn leftover-toggle" v-tooltip="'done yesterday'" @click="toggleLeftover(todo.id, 'done')">
+                  <Check :size="10" />
+                </button>
+                <button type="button" class="icon-circle-btn" v-tooltip="'move to today'" @click="moveLeftoverToToday(todo.id)">
+                  <ArrowUp :size="10" />
+                </button>
+                <button type="button" class="icon-circle-btn" v-tooltip="'back to pool'" @click="releaseLeftover(todo.id)">
+                  <Minus :size="10" />
+                </button>
+              </div>
+              <div class="leftover-actions leftover-actions--compact">
+                <button type="button" class="icon-circle-btn leftover-toggle" aria-label="options" @click="toggleLeftover(todo.id, 'all')">
+                  <Ellipsis :size="10" />
+                </button>
+              </div>
+            </div>
+            <div v-if="openLeftover?.id === todo.id" class="leftover-opts-row">
+              <button
+                v-for="(opt, i) in openLeftover.menu === 'all' ? LEFTOVER_ALL_OPTIONS : LEFTOVER_DONE_OPTIONS"
+                :key="opt.key"
+                type="button"
+                class="leftover-opt"
+                :class="{ 'modal-btn': openLeftover.menu === 'all' }"
+                :style="{ '--i': i }"
+                @click="opt.run(todo.id, $event.currentTarget as HTMLElement)"
+              >
+                <component :is="opt.icon" :size="12" /> <span>{{ opt.label }}</span>
+              </button>
+            </div>
+          </div>
+        </TransitionGroup>
       </div>
     </div>
 
@@ -368,6 +669,9 @@ function editFromAllChecks(check: CheckItem) {
    (centered) empty-state text when there are no cards. */
 .plan-in-overview-row {
   display: flex;
+  /* Only matters while the temporary dev "simulate yesterday" button sits
+     next to "add todos" — remove together with it. */
+  gap: 16px;
   justify-content: flex-start;
   margin-top: 24px;
 }
@@ -384,10 +688,52 @@ function editFromAllChecks(check: CheckItem) {
   margin-top: 66px;
 }
 
+/* EXPERIMENT: pale frame around the yesterday entries (heading sits above
+   it, outside) — same pseudo +
+   opacity trick as a Date todo card's pale body (TodoCard.vue's
+   .swipe-container.loop::before), so the border dims without dimming the
+   content. Fills .leftovers-section (shrink-wrapped, see below), corners
+   follow rounded/square. */
+.leftover-frame {
+  position: relative;
+  padding: 16px 20px 20px 15px;
+}
+
+.leftover-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  /* Same shadow as a Date todo card's pale body (follows the Mono/Dark
+     drop-shadow setting), dimmed along with the border. */
+  box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 /* Same left inset as .check-row/.checks-header below. */
-.leftovers-heading {
-  display: block;
+/* Shrink-wrapped to the wider of its heading row and its framed entries —
+   the frame fills it, so the heading row's bulk icons end flush with the
+   frame's right edge. */
+.leftovers-section {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Heading left (same left inset as .check-row/.checks-header below), bulk
+   icons right. */
+.leftovers-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin: 0 0 16px 5px;
+}
+
+/* The section's small print — heading and the unfolded options. */
+.leftovers-heading,
+.leftover-opt {
   color: var(--ink);
   opacity: 0.55;
   font-size: 13px;
@@ -395,10 +741,142 @@ function editFromAllChecks(check: CheckItem) {
   font-family: var(--font-mono, monospace);
 }
 
-.leftover-item {
+/* Icons right behind the title, a little apart from it. */
+.leftover-main {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 16px;
+}
+
+/* Done modes first, in the same order as a card's own check menu (done
+   for now, then done). Wraps on a narrow phone once all four are in. */
+.leftover-opts-row {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 16px;
+}
+
+.leftover-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+/* Plain text options (desktop/tablet's done menu) — the phone's buttons
+   keep .modal-btn's own border/background instead. */
+.leftover-opt:not(.modal-btn) {
+  padding: 8px 0 0;
+  background: none;
+  border: none;
+}
+
+@media (hover: hover) {
+  .leftover-opt:hover {
+    opacity: 0.9;
+  }
+}
+
+/* The row takes its space at once (closing is instant, no Transition
+   leave), and the options jump in one after the other (--i = position) —
+   same springy overshoot as the Calendar's day entry (--ease-pop).
+   Keyframes with only a `from` + fill-mode backwards: they settle onto the
+   element's own styles afterwards, so the resting 0.55 opacity and hover
+   still apply. */
+.leftover-opt {
+  animation: leftover-opt-pop 0.32s var(--ease-pop) backwards;
+  animation-delay: calc(var(--i, 0) * 0.06s);
+}
+
+@keyframes leftover-opt-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The toggle icon stays lit while its options are unfolded. */
+.leftover-item.open .leftover-toggle {
+  opacity: 0.9;
+}
+
+/* Phones get the single ellipsis toggle instead of the icon trio. Double
+   class to outrank the shared `.leftover-actions { display: flex }` rule
+   further down. */
+.leftover-actions.leftover-actions--compact {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .leftover-actions.leftover-actions--full {
+    display: none;
+  }
+
+  /* Just the one ellipsis icon here, and it rides along at the end of the
+     title's last line (inline flow instead of a flex row) rather than
+     sitting beside the whole text block — on a wrapped title that's
+     where the text actually ends, not the end of the first line. */
+  .leftover-main {
+    display: block;
+  }
+
+  .leftover-title {
+    display: inline;
+  }
+
+  .leftover-actions.leftover-actions--compact {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 8px;
+    margin-top: 0;
+  }
+
+  /* Phone: the frame spans the full width (so opening a menu doesn't
+     resize it), and the options turn into small buttons without icons —
+     one row, sharing the width; a long label wraps inside its own button
+     rather than pushing the row onto a second line. The look itself is
+     the modals' own .modal-btn (hard drop shadow, layout.css), added in
+     the template for the phone-only 'all' menu, filled with --bg and
+     pale as a whole — plus size and type: chip-sized vertically (shared --chip-*
+     tokens), in the section's small print. The gap leaves room for each
+     button's shadow. */
+  .leftovers-section {
+    width: 100%;
+  }
+
+  .leftover-frame {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .leftover-opts-row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 12px;
+    padding-bottom: 3px;
+  }
+
+  .leftover-opt.modal-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: var(--chip-padding-v) 6px;
+    line-height: var(--chip-line-height);
+    font-size: 13px;
+    text-align: center;
+    background: var(--bg);
+  }
+
+  /* Border, text and shadow all pale together via the button's own
+     opacity — the same 0.55 resting/0.9 active as the rest of the
+     section's small print (.leftover-opt above). */
+  .leftover-opt.modal-btn:active {
+    opacity: 0.9;
+  }
+
+  .leftover-opt svg {
+    display: none;
+  }
 }
 
 /* Pale like an unticked .check-pill — only the title; the icons carry
@@ -413,6 +891,10 @@ function editFromAllChecks(check: CheckItem) {
   .leftover-item:hover .leftover-title {
     opacity: 0.9;
   }
+}
+
+.leftover-item.open .leftover-title {
+  opacity: 0.9;
 }
 
 /* Lifted a hair so the 17px circles sit level with the 16px title's
@@ -435,12 +917,28 @@ function editFromAllChecks(check: CheckItem) {
 }
 
 /* One row of .icon-circle-btn icons — Checks' add/edit pair and each
-   leftover's done/today/pool trio share the spacing. */
+   leftover's done/today/pool icons share the spacing: snug with a mouse,
+   on tablet the same as a todo card's own icons, wider apart on a phone
+   so a finger hits the right one. */
 .checks-icons,
 .leftover-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+}
+
+@media (min-width: 701px) and (max-width: 1024px) {
+  .checks-icons,
+  .leftover-actions {
+    gap: var(--card-icon-gap-tablet);
+  }
+}
+
+@media (max-width: 700px) {
+  .checks-icons,
+  .leftover-actions {
+    gap: 14px;
+  }
 }
 
 /* Icon circle style (.icon-circle-btn) and the fade-in label below it

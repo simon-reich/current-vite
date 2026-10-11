@@ -3941,7 +3941,7 @@ onUnmounted(() => {
 
   .todo-card-main {
     padding: 7px 10px;
-    gap: 6px;
+    gap: var(--card-icon-gap-tablet);
   }
 
   /* Excludes card-btn--circle (edit/accept/flag): they're not bare icons

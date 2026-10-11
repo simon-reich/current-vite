@@ -792,7 +792,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
    to match the calendar grid's own entrance spring (see .calendar-inner)
    so both arrive together, instead of the day's entry (day-switch fade
    above) finishing far ahead of the grid. */
-.unfold-appear-active { transition: opacity 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.unfold-appear-active { transition: opacity 0.32s var(--ease-pop), transform 0.32s var(--ease-pop); }
 .unfold-appear-from { opacity: 0; transform: translateY(8px); }
 
 /* Pin the calendar in place, scroll the day's entries underneath it

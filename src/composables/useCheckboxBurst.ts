@@ -21,12 +21,17 @@ export function burstCheckbox(el: HTMLElement) {
   // commented-out particle effects in TodoCard.vue), scaled way down and
   // anchored to this one checkbox instead of the whole viewport.
   const rect = el.getBoundingClientRect()
-  const cx = rect.left + rect.width / 2
-  const cy = rect.top + rect.height / 2
-  const sparkCount = 6
-  for (let i = 0; i < sparkCount; i++) {
-    const angle = (360 / sparkCount) * i + (Math.random() - 0.5) * 20
-    const dist = 14 + Math.random() * 8
+  burstSparks(rect.left + rect.width / 2, rect.top + rect.height / 2)
+}
+
+// Just the sparks, at a viewport point — burstCheckbox's own, and reused
+// on its own wherever something should pop without the checkbox's scale
+// bump (e.g. a yesterday leftover popping away in Current.vue). count/
+// reach scale it up for something bigger than a checkbox.
+export function burstSparks(cx: number, cy: number, count = 6, reach = 14) {
+  for (let i = 0; i < count; i++) {
+    const angle = (360 / count) * i + (Math.random() - 0.5) * 20
+    const dist = reach + Math.random() * (reach * 4 / 7)
     const dx = Math.cos((angle * Math.PI) / 180) * dist
     const dy = Math.sin((angle * Math.PI) / 180) * dist
     const spark = document.createElement('span')

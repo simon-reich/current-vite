@@ -91,7 +91,7 @@ export interface Todo {
   excludedFocusDates?: string[]
   /** Set when `rolloverExpiredFocusDates` auto-returns an unfinished
    *  Date-List todo to the pool at day-change — bumps it to the top of
-   *  Overview's "date" sort (see AllTodos.vue's lastTouched) without
+   *  Overview's "date" sort (see useTodoSort.ts's lastTouched) without
    *  faking a real workLog entry (which would wrongly show up on the
    *  calendar as a worked-on day). */
   poolBumpedAt?: string
@@ -511,10 +511,12 @@ export const useTodosStore = defineStore('todos', () => {
   // back and clear the broader Current list); only for a Date Todo checked
   // off on *today's* list does it also clear `inCurrent` (same occurrence,
   // see isDateTodo/doneForNow).
-  function doneForNowOnDate(id: string, dateStr: string) {
+  // `at` backdates the workLog entry (a yesterday leftover worked on after
+  // the fact, see leftoversFrom) — otherwise it's now.
+  function doneForNowOnDate(id: string, dateStr: string, at?: string) {
     const todo = todos.value.find(t => t.id === id)
     if (todo) {
-      todo.workLog.push(new Date().toISOString())
+      todo.workLog.push(at ?? new Date().toISOString())
       unassignFocusDate(id, dateStr)
       if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
       applyLoopReschedule(todo)
