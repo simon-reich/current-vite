@@ -2807,7 +2807,7 @@ onUnmounted(() => {
                even once a Current card is open — clicking the title text
                starts editing directly (handleTitleClick), so this slot
                doesn't need to swap to an Edit trigger. -->
-          <template v-else>
+          <div v-else class="card-list-actions">
             <button
               class="card-btn card-btn--circle"
               v-tooltip="isPriority ? 'unset priority' : 'set priority'"
@@ -2830,7 +2830,7 @@ onUnmounted(() => {
             >
               <CircleMinus :size="18" />
             </button>
-          </template>
+          </div>
         </div>
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
@@ -3496,7 +3496,7 @@ onUnmounted(() => {
 .todo-card-main {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--icon-title-gap);
   padding: 12px 18px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -3539,6 +3539,25 @@ onUnmounted(() => {
 
   .priority .card-btn:hover {
     color: var(--ink);
+  }
+}
+
+/* The list-action trio. Outside desktop it isn't a box of its own
+   (display: contents), so the icons keep spacing like any other icon in
+   .todo-card-main's own gap. On desktop they move closer together — the
+   same spacing as Current's yesterday icons (--icon-row-gap); the
+   distance to the title is .todo-card-main's gap (--icon-title-gap, also
+   shared with yesterday). */
+.card-list-actions {
+  display: contents;
+}
+
+@media (min-width: 1025px) {
+  .card-list-actions {
+    display: flex;
+    align-items: flex-start;
+    flex-shrink: 0;
+    gap: var(--icon-row-gap);
   }
 }
 
@@ -3900,7 +3919,6 @@ onUnmounted(() => {
 
   .todo-card-main {
     padding: 8px 13px;
-    gap: 8px;
   }
 
   /* Same circle-vs-bare-icon split as the tablet block below — see its

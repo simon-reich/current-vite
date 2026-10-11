@@ -795,7 +795,7 @@ function editFromAllChecks(check: CheckItem) {
 .leftover-main {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--icon-title-gap);
 }
 
 /* Done modes first, in the same order as a card's own check menu (done
@@ -999,7 +999,7 @@ function editFromAllChecks(check: CheckItem) {
 .leftover-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--icon-row-gap);
 }
 
 @media (min-width: 701px) and (max-width: 1024px) {
