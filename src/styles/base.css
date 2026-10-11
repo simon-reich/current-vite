@@ -62,12 +62,12 @@
      yesterday icons, and a todo card's list actions (TodoCard.vue's
      .card-list-actions). */
   --icon-row-gap: 5px;
-  /* …and between a title and the icons beside it, on desktop (a card's
-     .todo-card-main gap, Current's yesterday rows). */
+  /* …and between a title and the icons beside it, on desktop and tablet
+     (a card's .todo-card-main gap, Current's yesterday rows). */
   --icon-title-gap: 16px;
 
   /* Spacing between a closed todo card's icons on tablet (TodoCard.vue's
-     .todo-card-main gap there) — Current's small icon rows (Checks,
+     .card-list-actions gap there) — Current's small icon rows (Checks,
      yesterday) match it at the same width. */
   --card-icon-gap-tablet: 6px;
 
@@ -81,8 +81,16 @@
   --leftover-font-step: 1px;
 
   /* .icon-circle-btn's diameter — also what Calendar's undo column
-     reserves for it, so that column is exactly as wide as the button. */
+     reserves for it, so that column is exactly as wide as the button.
+     One size for every small icon circle in the app, at every width:
+     Current's yesterday/Checks icons, Calendar's day-detail icons and a
+     todo card's own icons (TodoCard.vue's .card-btn). The glyph inside is
+     --icon-circle-glyph-size. A bare Lucide circle icon (CirclePlus etc.,
+     no border of its own) draws its circle at 22 of its 24 units, so it's
+     scaled up by that ratio to come out the same size. */
   --icon-circle-btn-size: 17px;
+  --icon-circle-glyph-size: 10px;
+  --icon-bare-size: calc(var(--icon-circle-btn-size) * 24 / 22);
 
   /* The app's hard drop-shadow depth — todo cards (right + down), the
      date pill and its prev/next buttons (down only), and anything that
@@ -173,6 +181,8 @@ input::placeholder, textarea::placeholder {
 /* Overrides Lucide's own stroke-width attribute — a slightly heavier line
    so these small icons don't read as faint decoration. */
 .icon-circle-btn svg {
+  width: var(--icon-circle-glyph-size);
+  height: var(--icon-circle-glyph-size);
   stroke-width: 2.5;
 }
 

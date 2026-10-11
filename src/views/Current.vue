@@ -431,6 +431,23 @@ function toggleLeftover(id: string, menu: LeftoverMenu) {
   openLeftover.value = open?.id === id && open.menu === menu ? null : { id, menu }
 }
 
+// A tap/click anywhere outside the open row folds it back up. Not while
+// that row is leaving — its options stay put until the exit animation is
+// done (see onLeftoverLeave), so the list doesn't jump. Capture phase, so
+// it still runs when something else stops the event.
+function closeLeftoverOnOutside(e: PointerEvent) {
+  const open = openLeftover.value
+  if (!open || leaving.value[open.id]) return
+  const target = e.target as Element | null
+  if (target?.closest(`.leftover-item[data-id="${open.id}"]`)) return
+  openLeftover.value = null
+}
+watch(() => !!openLeftover.value, (isOpen, _, onCleanup) => {
+  if (!isOpen) return
+  document.addEventListener('pointerdown', closeLeftoverOnOutside, true)
+  onCleanup(() => document.removeEventListener('pointerdown', closeLeftoverOnOutside, true))
+})
+
 interface LeftoverOption { key: string; icon: Component; label: string; run: (id: string, el?: HTMLElement) => void }
 const LEFTOVER_DONE_OPTIONS: LeftoverOption[] = [
   { key: 'now', icon: Clock, label: 'done for now', run: doneForNowLeftover },

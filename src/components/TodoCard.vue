@@ -3542,35 +3542,54 @@ onUnmounted(() => {
   }
 }
 
-/* The list-action trio. Outside desktop it isn't a box of its own
-   (display: contents), so the icons keep spacing like any other icon in
-   .todo-card-main's own gap. On desktop they move closer together — the
-   same spacing as Current's yesterday icons (--icon-row-gap); the
-   distance to the title is .todo-card-main's gap (--icon-title-gap, also
-   shared with yesterday). */
+/* The list-action trio — the icons sit closer together than the distance
+   to the title: the same spacing as Current's yesterday icons
+   (--icon-row-gap, --card-icon-gap-tablet), while the distance to the
+   title is .todo-card-main's gap (--icon-title-gap, also shared with
+   yesterday; phone: its own, see the phone block). */
 .card-list-actions {
-  display: contents;
+  display: flex;
+  align-items: flex-start;
+  flex-shrink: 0;
+  gap: var(--icon-row-gap);
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 701px) and (max-width: 1024px) {
   .card-list-actions {
-    display: flex;
-    align-items: flex-start;
-    flex-shrink: 0;
-    gap: var(--icon-row-gap);
+    gap: var(--card-icon-gap-tablet);
+  }
+}
+
+@media (max-width: 700px) {
+  .card-list-actions {
+    gap: 8px;
   }
 }
 
 /* Deliberately no align-self override — this sits in the exact same spot
    as the plain trash/plus/minus icons (which rely on .todo-card-main's own
-   flex-start alignment), just swapped in conditionally. Sized to match
-   CirclePlus's own 18px footprint. */
+   flex-start alignment), just swapped in conditionally. Same size as every
+   other small icon circle in the app (.icon-circle-btn, base.css) at every
+   width — circle and the icon inside it both from the shared tokens. */
 .card-btn--circle {
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: var(--icon-circle-btn-size);
+  height: var(--icon-circle-btn-size);
   border-radius: 50%;
   border: 1.5px solid currentColor;
+}
+
+.card-btn--circle svg {
+  width: var(--icon-circle-glyph-size);
+  height: var(--icon-circle-glyph-size);
+}
+
+/* Bare Lucide icons (CirclePlus/CircleMinus/CircleArrowRight/Trash2): sized
+   so their drawn circle matches .card-btn--circle's (see
+   --icon-bare-size). */
+.card-btn:not(.card-btn--circle) svg {
+  width: var(--icon-bare-size);
+  height: var(--icon-bare-size);
 }
 
 .title-input {
@@ -3886,9 +3905,12 @@ onUnmounted(() => {
     font-size: var(--card-font-size-phone);
   }
 
+  /* Title to icons: a bit more room than between the icons themselves
+     (.card-list-actions, 8px), but less than tablet/desktop's
+     --icon-title-gap — a phone line is short enough already. */
   .todo-card-main {
     padding: 8px 12px;
-    gap: 8px;
+    gap: 12px;
   }
 
   .sub-row {
@@ -3921,22 +3943,6 @@ onUnmounted(() => {
     padding: 8px 13px;
   }
 
-  /* Same circle-vs-bare-icon split as the tablet block below — see its
-     own comment. */
-  .card-btn:not(.card-btn--circle) svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .card-btn--circle {
-    width: 16px;
-    height: 16px;
-  }
-
-  .card-btn--circle svg {
-    width: 9px;
-    height: 9px;
-  }
 }
 
 @media (min-width: 701px) and (max-width: 1024px) {
@@ -3947,27 +3953,6 @@ onUnmounted(() => {
 
   .todo-card-main {
     padding: 7px 10px;
-    gap: var(--card-icon-gap-tablet);
-  }
-
-  /* Excludes card-btn--circle (edit/accept/flag): they're not bare icons
-     like plus/minus/trash, but a fixed 18px circle around a deliberately
-     smaller icon (10-11px) — this rule blowing that icon up to 15px
-     overflowed the circle instead of scaling it. Scaled down separately
-     below instead, keeping the same circle-to-icon ratio. */
-  .card-btn:not(.card-btn--circle) svg {
-    width: 15px;
-    height: 15px;
-  }
-
-  .card-btn--circle {
-    width: 15px;
-    height: 15px;
-  }
-
-  .card-btn--circle svg {
-    width: 8px;
-    height: 8px;
   }
 }
 </style>
