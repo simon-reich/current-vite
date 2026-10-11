@@ -44,6 +44,11 @@
   --chip-border-width: 2px;
   --chip-font-size: 13px;
   --chip-line-height: 1.4;
+  /* Current's Date-List nav labels (today/tomorrow/weekdays, layout.css's
+     .date-nav-btn/.date-nav-upcoming-chip) — a step up from the chips to
+     read as headings. Current's "yesterday" heading uses the same size.
+     Narrow desktop sets its own (layout.css). */
+  --date-nav-font-size: calc(var(--chip-font-size) + 2px);
 
   /* Date-List nav's step between rows inside its near-term block —
      tomorrow → week and week → month (layout.css) share this one value. */

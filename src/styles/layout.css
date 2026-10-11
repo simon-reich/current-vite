@@ -70,9 +70,13 @@
      so today/tomorrow shrank to 11px while the rest of the list stayed at
      full size and no longer fit the narrowed column. One shared, in-between
      size for both keeps the whole nav legible and uniform at this width. */
+  :root {
+    --date-nav-font-size: 12px;
+  }
+
   .sidebar .date-nav-btn,
   .sidebar .date-nav-upcoming-chip .tag-label {
-    font-size: 12px;
+    font-size: var(--date-nav-font-size);
   }
 
   .sidebar .date-nav-btn {
@@ -1063,7 +1067,7 @@
      these three, same fixed-width-for-the-trio approach as .all-btn itself. */
   width: 84px;
   border: none;
-  font-size: calc(var(--chip-font-size) + 2px);
+  font-size: var(--date-nav-font-size);
   font-weight: 800;
   text-align: left;
 }
@@ -1088,7 +1092,7 @@
 
 .date-nav-upcoming-chip .tag-label {
   font-weight: 800;
-  font-size: calc(var(--chip-font-size) + 2px);
+  font-size: var(--date-nav-font-size);
 }
 
 /* Interlude headings ("week"/"month"/month name) breaking up the Date-List

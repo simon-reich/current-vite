@@ -808,6 +808,11 @@ function editFromAllChecks(check: CheckItem) {
   font-family: var(--font-mono, monospace);
 }
 
+/* Same size as the Date-List nav's today/tomorrow (shared token). */
+.leftovers-heading {
+  font-size: var(--date-nav-font-size);
+}
+
 /* Icons right behind the title, a little apart from it. */
 .leftover-main {
   display: flex;
