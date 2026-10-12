@@ -2019,7 +2019,7 @@ function moveToNextDay() {
 // ── Swipe zones ──────────────────────────────────────────────────────
 // Drop-in-a-corner-triangle model (see zoneHit/onDrag/onDragEnd) —
 // absolute-position hit-testing against fixed corner triangles.
-type ZoneSlot = 'focus' | 'date' | 'delete'
+type ZoneSlot = 'focus' | 'date' | 'delete' | 'next'
 type ZoneCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
 interface SwipeZone {
@@ -2056,6 +2056,7 @@ const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner; overview?: Partial<Zon
   focus:  { corner: 'top-right',   phone: [0.41, 0.31], tablet: [0.37, 0.30], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
   date:   { corner: 'top-left',    phone: [0.50, 0.44], tablet: [0.51, 0.52], desktop: [0.42, 0.52] },
   delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.36, 0.33] },
+  next:   { corner: 'bottom-right', phone: [0.36, 0.34], tablet: [0.38, 0.27], desktop: [0.27, 0.42] },
 }
 
 // Gap between each triangle and the edge of backdropRect — about half on
@@ -2147,14 +2148,17 @@ function zonePath(zone: SwipeZone): string {
 // Current (mode 'current'): all three always apply, except previewLocked
 // (browsing a future Date List via ListsPanel.vue) — Done/Done-for-now
 // stay locked out there same as the check-row buttons do, leaving only
-// Remove.
+// Remove. Plus a fourth, 'next' (bottom right), with Date Lists on only:
+// move to the next day's list — the same action as the card's own
+// "move to next day" icon (nextListDate/moveToNextDay), so it's there
+// exactly when that icon is, previews included.
 // Every label a zone can show, per view and slot — the one place these
 // strings live. zones picks the current one; zoneLabelLayout sizes against
 // all of them, so the label size is identical in both views and doesn't
 // change with the state of the card being dragged.
 const ZONE_LABELS = {
   all: { focus: ['Add to list', 'Remove from list'], delete: ['Delete'] },
-  current: { focus: ['Done.'], date: ['Done for now'], delete: ['Remove'] },
+  current: { focus: ['Done.'], date: ['Done for now'], delete: ['Remove'], next: ['To next day'] },
 } as const
 
 const zones = computed<SwipeZone[]>(() => {
@@ -2175,6 +2179,7 @@ const zones = computed<SwipeZone[]>(() => {
       list.push(buildZone('date', ZONE_LABELS.current.date[0], rect, false))
     }
     list.push(buildZone('delete', ZONE_LABELS.current.delete[0], rect, false))
+    if (nextListDate.value) list.push(buildZone('next', ZONE_LABELS.current.next[0], rect, false))
   }
 
   return list
@@ -2559,12 +2564,17 @@ async function onDragEnd(_event: PointerEvent, _info: PanInfo) {
   // Same three slots as Overview (see zones computed) — 'focus' is
   // Done, 'date' is Done-for-now, 'delete' is Remove. Remove is
   // non-destructive (the todo just goes back to the pool), unlike
-  // Overview's Delete, so no confirmation here.
+  // Overview's Delete, so no confirmation here. 'next' (Date Lists only)
+  // moves it on to the next day's list — it leaves this one, so it flies
+  // off toward its own corner, the opposite way from Remove.
   const hit = zoneHit.value
   zoneHit.value = null
   if (hit === 'delete') {
     await flyOutLeft()
     removeFromList()
+  } else if (hit === 'next') {
+    await flyOutRight()
+    moveToNextDay()
   } else if (hit === 'date') {
     springBackToCenter()
     handleDoneForNow(props.todo.id)

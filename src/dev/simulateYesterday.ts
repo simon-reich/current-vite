@@ -11,7 +11,7 @@ import { lastTouched } from '../composables/useTodoSort'
 // build (see Current.vue's "simulate yesterday" button).
 //
 // Switched off for now — flip to true to bring the button back for testing.
-export const SIMULATE_YESTERDAY_ENABLED = true
+export const SIMULATE_YESTERDAY_ENABLED = false
 
 export function simulateYesterdayLeftovers(count = 4): number {
   const store = useTodosStore()
