@@ -2053,7 +2053,7 @@ type ZoneSize = Record<ViewportTier, [number, number]>
 // 'all', per tier) — the slots are shared with Current, but Overview has
 // just two zones and room for a bigger one.
 const ZONE_LAYOUT: Record<ZoneSlot, { corner: ZoneCorner; overview?: Partial<ZoneSize> } & ZoneSize> = {
-  focus:  { corner: 'top-right',   phone: [0.41, 0.31], tablet: [0.37, 0.30], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
+  focus:  { corner: 'top-right',   phone: [0.41, 0.31], tablet: [0.37, 0.38], desktop: [0.45, 0.48], overview: { phone: [0.58, 0.38], tablet: [0.56, 0.45], desktop: [0.50, 0.53] } },
   date:   { corner: 'top-left',    phone: [0.50, 0.44], tablet: [0.51, 0.52], desktop: [0.42, 0.52] },
   delete: { corner: 'bottom-left', phone: [0.48, 0.24], tablet: [0.43, 0.23], desktop: [0.36, 0.33] },
   next:   { corner: 'bottom-right', phone: [0.36, 0.34], tablet: [0.38, 0.27], desktop: [0.27, 0.42] },
