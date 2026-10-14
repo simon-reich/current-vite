@@ -169,7 +169,8 @@ function toggleReschedule() {
 // for why) rather than a popover anchored to the trigger.
 const showDateModal = ref(false)
 
-// Next due date given the currently selected values — recomputed on every
+// Next due date given the currently selected values (for 'once' simply its
+// date, see nextLoopOccurrence) — recomputed on every
 // unit/count/startDate change so a stale interval (startDate far in the
 // past, large custom day count) stays legible instead of leaving the user
 // to do the recurrence math themselves. Skips today once it's settled.
@@ -309,11 +310,13 @@ const loopNextText = computed(() => {
           updates when done
         </button>
       </div>
-
-      <div class="loop-row">
-        <span class="loop-next">{{ loopNextText }}</span>
-      </div>
     </template>
+
+    <!-- Both modes: how far off the next due day is — a loop's next
+         occurrence, or a once todo's own date (overdue once it's past). -->
+    <div class="loop-row">
+      <span class="loop-next">{{ loopNextText }}</span>
+    </div>
 
     <DatePickerModal
       v-if="showDateModal"
