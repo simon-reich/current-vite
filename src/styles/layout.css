@@ -4,12 +4,11 @@
 }
 
 /* ══ App grid (desktop) ══ */
-/* Row 1 is fixed at 130px everywhere (not just Current with Date Lists on)
-   — Current's own second header row (.current-date-list-nav, see App.vue)
-   needs that extra height, and keeping it a *global* constant rather than
-   a per-route/state override is what keeps row 2 (sidebars, main content,
-   Settings icon, ...) from shifting up/down whenever that second row
-   appears or disappears. */
+/* Row 1 is fixed at 130px everywhere — a *global* constant rather than a
+   per-route/state override, so row 2 (sidebars, main content, Settings
+   icon, ...) never shifts up/down between views. (The extra height once
+   made room for Current's own second header row, a back/next Date-List
+   browser, since replaced by the date pill — kept as breathing room.) */
 #app {
   display: grid;
   grid-template-columns: 230px 1fr 230px;
@@ -174,19 +173,8 @@
 }
 
 /* ── Main head ──
-   flex-direction: column, not row — normally just the one row
-   (.main-head-inner, width:100%), packed at the top (default
-   justify-content: flex-start) exactly like the old row layout's single
-   child. Current with Date Lists on adds a second row below it
-   (.current-date-list-nav, see App.vue) instead of that living inline in
-   Current.vue's own scrolling template — deliberately *not* centered via
-   the container's own justify-content (that would recenter the whole
-   two-item block and shift .main-head-inner up whenever the second row
-   toggles on/off). Instead .current-date-list-nav alone carries
-   `margin: auto 0 0` (see below) so only *it* soaks up the leftover space
-   between .main-head-inner's fixed top-packed position and this box's own
-   bottom edge — .main-head-inner's position never depends on whether that
-   sibling exists. */
+   flex-direction: column, packed at the top (default justify-content:
+   flex-start) — .main-head-inner sits at the same spot in every view. */
 .main-head {
   grid-column: 2;
   grid-row: 1;
@@ -233,80 +221,6 @@
      single-line row any more (tablet: a two-line grid; both: sized to
      their own real content, not this fixed number). */
   flex: 0 0 59px;
-}
-
-/* Current's Date-List back/next browser, moved here from Current.vue's own
-   template (see App.vue) so it sits fixed in the header instead of
-   scrolling away with the list underneath it. Same width/centering as
-   .main-head-inner above it, not a separately eyeballed max-width. Three
-   columns — two equal 1fr flanks around an auto-sized center, the same
-   "truly centered regardless of what's on either side" pattern
-   tablet.css's own header row uses — needed because "back"/"next" aren't
-   the same width, so plain flex space-between would leave the label
-   off-center.
-   `margin: auto 0 -10px` is what actually positions this row within
-   .main-head — an auto top margin on a flex-column child soaks up all the
-   free main-axis space above itself, pushing it down past this box's own
-   padding-bottom edge (the negative bottom margin eats into that padding)
-   instead of centering it in the leftover space. Deliberate, not just
-   "however the auto-margin trick happens to land": this row belongs to
-   the todo list below it (it browses *that*), not to the input/icon row
-   above it, so it reads more like part of the list than part of the
-   header the closer it sits to the bottom edge — which is also where the
-   scroll-divider line sits once todos scroll under it (.scroll-divider,
-   sticky at .main-content's own top). .main-head-inner stays top-packed
-   regardless (see .main-head's own comment above). Tablet/phone (see
-   tablet.css/mobile.css) don't have a fixed-height header to begin with —
-   there the row simply grows to fit both rows, sitting directly below the
-   input/icon row with just the shared `gap`, which already reads as
-   "closer to the list" than to the header at that breakpoint's tighter
-   spacing. */
-.current-date-list-nav {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  width: 100%;
-  max-width: 796px;
-  margin: auto 0 -10px;
-}
-
-.date-list-nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  background: none;
-  border: none;
-  color: var(--ink);
-  opacity: 0.6;
-  font-size: var(--current-aside-font-size);
-  font-weight: 600;
-  font-family: var(--font-playful, sans-serif);
-  cursor: pointer;
-  padding: 0;
-  transition: opacity 0.1s;
-}
-
-.date-list-nav-btn:first-of-type {
-  justify-self: start;
-}
-
-.date-list-nav-btn:last-of-type {
-  justify-self: end;
-}
-
-@media (hover: hover) {
-  .date-list-nav-btn:hover {
-    opacity: 1;
-  }
-}
-
-.date-list-nav-label {
-  justify-self: center;
-  font-size: var(--date-label-font-size);
-  font-weight: var(--date-label-font-weight);
-  color: var(--ink);
-  font-family: var(--font-playful, sans-serif);
-  text-align: center;
 }
 
 /* Shared "icon button" look — plain icon, ink color, darkens on hover —
@@ -1171,7 +1085,7 @@
   }
 }
 
-/* Focus-Date-Pille's new spot in .sidebar-head (Overview only) — just needs
+/* Focus-Date-Pille's new spot in .sidebar-head (Overview and Current) — just needs
    to not stretch to .sidebar-head's own align-items:center cross-size. */
 .sidebar-focus-date-slot {
   display: flex;
@@ -1281,7 +1195,7 @@
   display: none;
 }
 
-/* Round prev/next buttons either side of the date pill (tablet Overview,
+/* Round prev/next buttons either side of the date pill (Overview on tablet and phone,
    shown in tablet.css) — same 2px ink border and hard downward shadow as
    the pill itself (FocusDateWidget.vue), hover darkens both the same way. */
 .date-step-btn {

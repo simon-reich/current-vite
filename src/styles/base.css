@@ -50,9 +50,8 @@
      Narrow desktop sets its own (layout.css). */
   --date-nav-font-size: calc(var(--chip-font-size) + 2px);
 
-  /* The date shown between Current's prev/next arrows (layout.css's
-     .date-list-nav-label) — Calendar's log month marker (.log-month)
-     reads the same. */
+  /* Calendar's log month marker (.log-month) — the type the date between
+     Current's former back/next arrows used. */
   --date-label-font-size: 16px;
   --date-label-font-weight: 700;
 
@@ -60,8 +59,8 @@
      tomorrow → week and week → month (layout.css) share this one value. */
   --date-nav-row-step: 12px;
 
-  /* Current's quieter secondary text — the Date-List header's back/next
-     (layout.css) and the empty-list message (Current.vue) share it. */
+  /* Current's quieter secondary text — the empty-list message
+     (Current.vue). */
   --current-aside-font-size: 15px;
 
   /* Springy ease with a slight overshoot — things that "jump in": the

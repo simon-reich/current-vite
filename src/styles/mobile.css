@@ -68,18 +68,6 @@
     flex: initial;
   }
 
-  /* layout.css's desktop-only `margin: auto 0 -10px` (which centers the
-     nav row within .main-head's fixed 130px height there) has no fixed
-     height to work with here — .main-head is sized to its own content on
-     phone. Centered "between the row above and .main-head's own bottom
-     edge" here instead just means: match the top gap to that bottom
-     edge's own padding (17px, see .main-head above), so the row sits
-     exactly as far from the input row as it does from the header's
-     bottom. */
-  .current-date-list-nav {
-    margin: 17px 0 0;
-  }
-
   .add-wrapper {
     margin-left: 0;
   }
@@ -98,12 +86,12 @@
   }
 
   /* ══ Phone Overview + Current: single header row — a rectangular Plus
-     (opens the add-todo sheet) and the date pill on the left, .sort-nav
-     (subs-toggle/grid/sort/tag icons — the exact same single element
-     desktop/tablet use, see App.vue and tablet.css, not a second phone-
-     only copy) pushed to the row's right edge via its own margin-left:
-     auto below. Scoped to #app.is-all/#app.is-current only — Settings/
-     Calendar are untouched. ══ */
+     (opens the add-todo sheet) on the left, the date pill with its
+     prev/next buttons centered, .sort-nav (here just the subs toggle — the
+     exact same single element desktop/tablet use, see App.vue and
+     tablet.css, not a second phone-only copy; sort + tags sit in the
+     bottom nav on phone) on the right. Scoped to #app.is-all/
+     #app.is-current only — Settings/Calendar are untouched. ══ */
   #app.is-all,
   #app.is-current {
     --po-icon-size: 38px;
@@ -132,6 +120,7 @@
     order: 2;
     flex-direction: row-reverse;
     margin-left: auto;
+    gap: 2px;
   }
 
   /* The desktop/tablet inline input itself — replaced at phone width by
@@ -156,7 +145,7 @@
   .sort-order-btn,
   .mobile-tags-btn,
   .desktop-subs-toggle {
-    padding: 6px;
+    padding: 4px;
   }
 
   /* Phone keeps the original stacked switch-above-label layout — only
@@ -170,8 +159,8 @@
 
   .sort-order-btn svg,
   .mobile-tags-btn svg {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
   }
 
   /* Rectangular, not the circular .tag-add-btn shape — corner radius
@@ -205,6 +194,35 @@
   #app.is-current .tablet-input-focus-date-widget-slot .focus-date-widget {
     height: var(--po-icon-size);
     border-radius: 12px;
+  }
+
+  /* Prev/next day buttons either side of the pill, Overview and Current
+     alike — the same ones tablet Overview shows (.date-step-btn,
+     layout.css), same spacing as there, a notch smaller. The whole group
+     sits dead center in the row, taken out of the flex flow and centered
+     on the row itself — so it stays put whatever sits left/right of it
+     (Current without subs has nothing on the right at all). .sort-nav
+     pushes itself right on its own (margin-left: auto below). */
+  #app.is-all .main-head-inner,
+  #app.is-current .main-head-inner {
+    position: relative;
+  }
+
+  #app.is-all .tablet-input-focus-date-widget-slot,
+  #app.is-current .tablet-input-focus-date-widget-slot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    align-items: center;
+    gap: 8px;
+  }
+
+  #app.is-all .date-step-btn,
+  #app.is-current .date-step-btn {
+    display: flex;
+    width: 30px;
+    height: 30px;
   }
 
   /* ── Add-todo panel (Plus button above opens it) — a dedicated
@@ -552,6 +570,25 @@
     display: flex;
     align-items: center;
     gap: 16px;
+  }
+
+  /* Left and right of the view icons, equal shares of the rest of the
+     row — keeps the view icons centered no matter how much sits in either
+     side (the left one holds Overview's sort + tags, see App.vue's
+     #bottom-nav-left). Tags first, nearest the edge. */
+  .mobile-bottom-nav-side {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-bottom-nav-right {
+    justify-content: flex-end;
+  }
+
+  .mobile-bottom-nav-left .mobile-tags-btn {
+    order: -1;
   }
 
   #app.is-settings .add-wrapper {

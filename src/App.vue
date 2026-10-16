@@ -2,7 +2,7 @@
 import { ref, computed, provide, watch, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, ChevronLeft, ChevronRight, Play } from '@lucide/vue'
+import { Settings, ArrowUpDown, Tag, Flag, LayoutList, LayoutGrid, X, ListChecks, Plus, Play } from '@lucide/vue'
 import PoolIcon from './components/icons/PoolIcon.vue'
 import LinesIcon from './components/icons/LinesIcon.vue'
 import CalendarIcon from './components/icons/CalendarIcon.vue'
@@ -217,7 +217,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
       calendarViewMode.value = calendarViewMode.value === 'calendar' ? 'log' : 'calendar'
       return
     }
-    if (route.path !== '/all' || !themeStore.dateListsEnabled) return
+    if ((route.path !== '/all' && route.path !== '/current') || !themeStore.dateListsEnabled) return
     e.preventDefault()
     focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget')?.click()
     return
@@ -458,7 +458,7 @@ function computeShortcutHints() {
     // first row on desktop (the only width the hints show at), so they
     // share the one line too.
     { key: 'S', el: themeStore.subsEnabled && (route.path === '/all' || route.path === '/current') ? subsToggleBtnRef.value : null },
-    { key: 'L', el: route.path === '/all' && themeStore.dateListsEnabled ? focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget') ?? null : null },
+    { key: 'L', el: (route.path === '/all' || route.path === '/current') && themeStore.dateListsEnabled ? focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget') ?? null : null },
     { key: 'N', el: (route.path === '/all' || route.path === '/current') ? todoInputRef.value : null },
     { key: 'X', el: settingsBtnRef.value },
   ]
@@ -1331,29 +1331,16 @@ watch(() => themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled,
 // tablet slide-in panel) — see useFocusDateNav's own comment.
 const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
 
-// ── Current's Date-List back/next browser — lives in the main head's
-// second row (see .current-date-list-nav below) instead of Current.vue's
-// own template, so it stays put in the header instead of scrolling away
-// with the list underneath it (that's the whole point of the move).
-// "tuesday, 23|09" — weekday before the date, the opposite order from
-// formatUpcomingDate's own "23|09 tuesday" (sidebar Date-List nav); still
-// that same function's date math, just the two pieces swapped for this
-// headline rather than a second date-formatting copy.
-const viewingDateLabel = computed(() => {
-  if (!viewingDate.value) return 'current'
-  const [datePart, weekday] = formatUpcomingDate(viewingDate.value).split(' ')
-  return `${weekday}, ${datePart}`
-})
-
 // Everything Current can show, in one fixed sequence: the same rolling
 // week the sidebar nav always offers (presetWeekDates — today through +6
 // days, regardless of whether anything's actually planned on them yet),
 // then whatever Date Lists exist further out (upcomingFocusDates,
-// membership-only beyond that window — see useFocusDateNav). Back/next
-// below just step an index through this one array and wrap at either end.
+// membership-only beyond that window — see useFocusDateNav). stepDateList
+// below just steps an index through this one array and wraps at either end.
 // No null/day-agnostic pool stop any more — Date Lists on means Current
 // has no UI left that can ever set viewingDate to null (see this file's
-// own ref decl above), so this cycle never needs to include it.
+// own ref decl above), so this cycle never needs to include it. Walked by
+// the ↑/↓ shortcut (stepFocusDate below).
 const dateListCycle = computed<(string | null)[]>(() => [...presetWeekDates.value, ...upcomingFocusDates.value])
 
 function stepDateList(delta: 1 | -1) {
@@ -1361,14 +1348,6 @@ function stepDateList(delta: 1 | -1) {
   const currentIndex = cycle.indexOf(viewingDate.value)
   const nextIndex = (currentIndex + delta + cycle.length) % cycle.length
   viewingDate.value = cycle[nextIndex]
-}
-
-function goBackDateList() {
-  stepDateList(-1)
-}
-
-function goNextDateList() {
-  stepDateList(1)
 }
 
 // The global ↑/↓ shortcut's version of stepDateList — Overview alongside
@@ -1389,14 +1368,19 @@ function stepFocusDate(delta: 1 | -1) {
   if (next) themeStore.setSelectedFocusDate(next)
 }
 
-// Tablet Overview's prev/next buttons beside the date pill: plain calendar
-// days, one at a time — not the Date-List cycle stepFocusDate walks (that
-// skips ahead to whichever list exists next, which read as jumping
-// around). Landing on a day with no list yet is the same as picking that
-// day in the pill itself. Never before today (setSelectedFocusDate clamps,
-// and the prev button is disabled there anyway).
+// The prev/next buttons beside the date pill (Overview on tablet and
+// phone, Current on phone): plain calendar days, one at a time — not the
+// Date-List cycle stepFocusDate walks (that skips ahead to whichever list
+// exists next, which read as jumping around). Landing on a day with no
+// list yet is the same as picking that day in the pill itself. Steps
+// whichever date the pill shows: Overview's selectedFocusDate, Current's
+// viewingDate. Never before today (setSelectedFocusDate clamps, Current
+// likewise, and the prev button is disabled there anyway).
+const pillDate = computed(() => route.path === '/current' ? (viewingDate.value ?? todayStr()) : themeStore.selectedFocusDate)
 function stepFocusDay(delta: 1 | -1) {
-  themeStore.setSelectedFocusDate(addDaysStr(themeStore.selectedFocusDate, delta))
+  const next = addDaysStr(pillDate.value, delta)
+  if (route.path === '/current') viewingDate.value = next < todayStr() ? todayStr() : next
+  else themeStore.setSelectedFocusDate(next)
 }
 
 // Overview and Current share one "currently focused Date List" concept —
@@ -1636,7 +1620,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
     }"
   >
 
-    <!-- ══ DESKTOP: Sidebar head — Overview-only: Focus-Date-Pille (moved
+    <!-- ══ DESKTOP: Sidebar head — Overview + Current: Focus-Date-Pille (moved
          here from the right column, see .sidebar-right below for what took
          its old spot). Every other route renders nothing here — this used
          to show an inert, grayed-out copy of the tag-filter row on
@@ -1645,8 +1629,15 @@ function onSheetHandlePointerUp(e: PointerEvent) {
          actually needed once those views got their own left-sidebar
          content (Date-List nav, or nothing at all). ══ -->
     <div class="sidebar-head desktop-only">
-      <div v-if="route.path === '/all'" ref="focusDateWidgetSlotRef" class="sidebar-focus-date-slot">
-        <FocusDateWidget v-if="themeStore.dateListsEnabled" />
+      <!-- Overview and Current alike — in Current the same pill picks which
+           Date List is shown (viewingDate) instead of the plan-ahead
+           target, same as the tablet/phone instance below. -->
+      <div v-if="route.path === '/all' || route.path === '/current'" ref="focusDateWidgetSlotRef" class="sidebar-focus-date-slot">
+        <FocusDateWidget
+          v-if="themeStore.dateListsEnabled"
+          :model-value="route.path === '/current' ? (viewingDate ?? todayStr()) : undefined"
+          @update:model-value="viewingDate = $event"
+        />
       </div>
     </div>
 
@@ -1725,6 +1716,11 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               >
                 <component :is="listView ? LayoutGrid : LayoutList" :size="22" />
               </button>
+              <!-- Phone: sort + tags move down into the bottom nav's left
+                   slot (#bottom-nav-left) — the header row is full with the
+                   date pill and its prev/next buttons. Same buttons, just
+                   teleported there; every other width keeps them here. -->
+              <Teleport to="#bottom-nav-left" :disabled="!isPhoneWidth" defer>
               <button
                 ref="sortOrderBtnRef"
                 v-tooltip="sortKey === 'createdAt' ? 'by date – switch to A–Z' : 'A–Z – switch to date'"
@@ -1756,6 +1752,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               >
                 <Flag :size="22" :fill="activeTagIds.includes(PRIORITY_TAG_ID) ? 'currentColor' : 'none'" />
               </button>
+              </Teleport>
             </template>
           </div>
 
@@ -1883,10 +1880,8 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               </div>
             </Transition>
           </div>
-          <!-- Overview always; Current only at phone width (tablet keeps
-               its existing Lists button instead, see .tablet-header-right
-               below — #app.is-current hides this slot again at the
-               tablet breakpoint, see tablet.css). In Current, this same
+          <!-- Overview and Current alike (tablet and phone; desktop has its
+               own instance in .sidebar-head above). In Current, this same
                pill switches purpose — showCalendar false and modelValue
                bound to viewingDate turns it into the "pick which Date
                List to view" picker (see FocusDateWidget.vue's own
@@ -1894,15 +1889,16 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                (mobile-bottom-nav below) entirely; Overview's own instance
                passes neither, unchanged "plan ahead" pill behavior. -->
           <div v-if="themeStore.dateListsEnabled && (route.path === '/all' || route.path === '/current')" class="tablet-input-focus-date-widget-slot">
-            <!-- Tablet Overview only (see .date-step-btn in tablet.css):
-                 one calendar day back/forward either side of the pill
-                 (stepFocusDay), not through the Date-List cycle. -->
+            <!-- Overview on tablet and phone, Current on phone (this slot
+                 is hidden in Current on tablet, see tablet.css; .date-step-btn
+                 in tablet.css/mobile.css): one calendar day back/forward
+                 either side of the pill (stepFocusDay), not through the
+                 Date-List cycle. -->
             <button
-              v-if="route.path === '/all'"
               type="button"
               class="date-step-btn"
               v-tooltip="'previous day'"
-              :disabled="themeStore.selectedFocusDate <= todayStr()"
+              :disabled="pillDate <= todayStr()"
               @click="stepFocusDay(-1)"
             >
               <Play :size="12" fill="currentColor" class="date-step-icon date-step-icon--prev" />
@@ -1914,7 +1910,6 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               @update:model-value="viewingDate = $event"
             />
             <button
-              v-if="route.path === '/all'"
               type="button"
               class="date-step-btn"
               v-tooltip="'next day'"
@@ -2128,25 +2123,6 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         </div>
       </div>
 
-      <!-- ══ Current's Date-List back/next browser — its own centered row
-           below the input/icons row, not inline in Current.vue's own
-           template any more (see CLAUDE.md's Date-Feature section). Living
-           here in the fixed header instead means it no longer scrolls away
-           with the list underneath it. Only rendered for Current with Date
-           Lists on, but #app's header row (grid-row 1) is a global fixed
-           height (layout.css) regardless of route/state — this row taking
-           up space only sometimes must never shift row 2 (sidebars, main
-           content, Settings icon, ...) up/down depending on whether it's
-           showing. -->
-      <div v-if="themeStore.dateListsEnabled && route.path === '/current'" class="current-date-list-nav">
-        <button type="button" class="date-list-nav-btn" v-tooltip="'previous list'" @click="goBackDateList">
-          <ChevronLeft :size="14" /> back
-        </button>
-        <span class="date-list-nav-label">{{ viewingDateLabel }}</span>
-        <button type="button" class="date-list-nav-btn" v-tooltip="'next list'" @click="goNextDateList">
-          next <ChevronRight :size="14" />
-        </button>
-      </div>
     </div>
 
     <!-- ══ DESKTOP: Sidebar body — Overview + Current both show the
@@ -2426,18 +2402,11 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 
     <!-- ══ MOBILE: Bottom nav ══ -->
     <nav class="mobile-bottom-nav mobile-only">
-      <!-- Phone-width only (see .sort-btn CSS in mobile.css) — Current's
-           own "browse other Date Lists" entry point used to also live in
-           this bottom-left slot (a "lists" button opening ListsPanel), now
-           replaced by tapping the Focus-Date-Pille itself instead (see
-           App.vue's .tablet-input-focus-date-widget-slot above), so this
-           slot is unconditionally empty now — kept as an invisible
-           placeholder (not removed outright) so .mobile-bottom-nav's
-           space-between doesn't shift the nav-views/settings icons over
-           into where a real button used to sit. -->
-      <div class="sort-btn" style="visibility: hidden">
-        <ArrowUpDown :size="22" />
-      </div>
+      <!-- Bottom-left slot: Overview's sort + tags buttons land here on
+           phone (teleported from .sort-nav above); empty elsewhere. Both
+           sides share the leftover width equally (mobile.css), so the
+           view icons stay centered whatever sits in this slot. -->
+      <div id="bottom-nav-left" class="mobile-bottom-nav-side mobile-bottom-nav-left" />
 
       <div class="mobile-nav-views">
         <RouterLink to="/all" class="nav-icon" v-tooltip="'all todos'" @click="showMobileTags = false">
@@ -2451,14 +2420,16 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         </RouterLink>
       </div>
 
-      <button
-        class="settings-btn"
-        :class="{ active: route.path === '/settings' }"
-        v-tooltip="'settings'"
-        @click="toggleSettings"
-      >
-        <Settings :size="24" />
-      </button>
+      <div class="mobile-bottom-nav-side mobile-bottom-nav-right">
+        <button
+          class="settings-btn"
+          :class="{ active: route.path === '/settings' }"
+          v-tooltip="'settings'"
+          @click="toggleSettings"
+        >
+          <Settings :size="24" />
+        </button>
+      </div>
     </nav>
 
   </div>

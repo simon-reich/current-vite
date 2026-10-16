@@ -29,13 +29,7 @@
     display: none;
   }
 
-  /* ── Header: input on its own line, buttons on a second line below ──
-     justify-content: flex-start (not center) — this row is auto-height, so
-     centering the group is normally a no-op either way (no free space to
-     redistribute), but pinning main-head-inner to the top explicitly is
-     what actually guarantees it never moves depending on whether Current's
-     second row (.current-date-list-nav) is present, the same reasoning as
-     the base rule in layout.css. */
+  /* ── Header: input on its own line, buttons on a second line below ── */
   .main-head {
     flex-direction: column;
     align-items: stretch;
@@ -74,54 +68,7 @@
     flex: initial;
   }
 
-  /* .current-date-list-nav's horizontal position/width here can't just be
-     "centered within .main-head" (a plain max-width + margin:auto, like
-     the first attempt at this) — .main-head spans the *full* width here,
-     sidebar column included (see #app.is-current.date-lists-enabled
-     .main-head below), but the actual todo list/scroll-divider line only
-     ever lives in the narrower *content* column next to that sidebar
-     (#app.is-current.date-lists-enabled .main-content, further down).
-     Centering within .main-head's full span would land this row too far
-     left, ignoring the 180px sidebar + 16px gap that pushes the real
-     content (and its own centered-within-itself .current-view, capped at
-     640px — see Current.vue) further right.
-     The `left`/`width` calc() below replicates that exact math instead of
-     approximating it: 216px = 180px sidebar + 16px gap + 20px
-     (.content-inner's own left padding, tablet.css below) — i.e. where
-     .current-view's box would start if the content column were narrower
-     than 640+40px (no centering slack). Once the content column *is* wide
-     enough for .current-view to center with slack on both sides, `max()`
-     adds that same slack here too: 876px = 236px (196 sidebar+gap + 40px
-     .content-inner's total side padding) + 640px (.current-view's own
-     cap) — the point past which .current-view stops growing and starts
-     centering instead. Same reasoning for `width`'s `min()`. Verified at
-     both ends of this breakpoint's range (701px and 1024px viewport) to
-     land on the exact same left edge and width .current-view itself
-     renders at.
-     `position: absolute` (rather than a normal flow row) is what a plain
-     percentage-based left/width needs to resolve against .main-head's own
-     box in the first place — vertical placement moves to `bottom`
-     accordingly, with the height it needs reserved via
-     #app.is-current.date-lists-enabled .main-head's own padding-bottom
-     below, the same way desktop reserves room for its own fixed-height
-     version of this row. */
-  #app.is-current.date-lists-enabled .main-head {
-    padding-bottom: 54px;
-  }
-
-  #app.is-current.date-lists-enabled .current-date-list-nav {
-    position: absolute;
-    top: auto;
-    bottom: 10px;
-    left: calc(216px + max(0px, (100% - 876px) / 2));
-    right: auto;
-    width: min(640px, calc(100% - 236px));
-    max-width: none;
-    transform: none;
-    margin: 0;
-  }
-
-  /* Input row: the date-picker pill (Overview only) sits directly left of
+  /* Input row: the date-picker pill (Overview and Current) sits directly left of
      the add-input itself, not down in the icon row — .add-wrapper already
      carries its own `flex: 1` (layout.css), so it just shrinks to make
      room for the pill instead of needing a centering trick. */
@@ -147,11 +94,9 @@
      head) — this row is noticeably tighter. The compact inner sizing
      itself (.fdw-* rules) lives in layout.css, breakpoint-agnostic, so
      phone's own use of this same slot (see mobile.css) shares it instead
-     of duplicating the numbers. Overview only here — Current keeps its
-     existing Lists button (.tablet-header-right below) at this
-     breakpoint; phone is the only place Current also gets this pill (see
-     mobile.css), the slot's own v-if in App.vue renders it for both
-     routes so that phone use works. */
+     of duplicating the numbers. Overview and Current alike, same spot —
+     in Current the pill picks which Date List is shown (viewingDate, see
+     the slot in App.vue). */
   .tablet-input-focus-date-widget-slot {
     display: flex;
     flex-shrink: 0;
@@ -161,10 +106,6 @@
 
   .date-step-btn {
     display: flex;
-  }
-
-  #app.is-current .tablet-input-focus-date-widget-slot {
-    display: none;
   }
 
   .top-nav {
@@ -214,8 +155,7 @@
   .main-head-inner > *,
   .tablet-left-cluster > *,
   .tablet-header-right > *,
-  .tablet-header-right-center > *,
-  .current-date-list-nav {
+  .tablet-header-right-center > * {
     pointer-events: auto;
   }
 

@@ -21,8 +21,9 @@ import FocusDatePanel from './FocusDatePanel.vue'
 // permanently (which tablet, without that sidebar, otherwise has no way
 // to reach). Static per instance — never toggled at runtime.
 //
-// `modelValue`/`showCalendar`: Current's own phone instance (App.vue)
-// passes both — repurposes this same pill, while viewing Current, into a
+// `modelValue`/`showCalendar`: Current's own instances (App.vue — the
+// tablet/phone one passes both, desktop's just modelValue, its plain
+// date-picker modal is the calendar) — repurposes this same pill, while viewing Current, into a
 // picker for which Date List is being shown (viewingDate) instead of the
 // "plan ahead" target (themeStore.selectedFocusDate), and drops the
 // calendar since Current only ever needs the plain list of existing Date
@@ -55,8 +56,12 @@ function parts(dateStr: string) {
 
 const display = computed(() => parts(props.modelValue ?? themeStore.selectedFocusDate))
 
+// Desktop's plain date-picker modal: a Current instance (modelValue set)
+// hands the picked day back to its caller (viewingDate), the plain
+// "plan ahead" one writes the pill target itself.
 function pick(dateStr: string) {
-  themeStore.setSelectedFocusDate(dateStr)
+  if (props.modelValue !== undefined) emit('update:modelValue', dateStr)
+  else themeStore.setSelectedFocusDate(dateStr)
 }
 
 // Only reachable when a caller actually gave this instance a modelValue
@@ -94,7 +99,7 @@ function open() {
 
   <DatePickerModal
     v-if="showModal"
-    :model-value="themeStore.selectedFocusDate"
+    :model-value="modelValue ?? themeStore.selectedFocusDate"
     disable-past
     @update:model-value="pick"
     @close="showModal = false"
