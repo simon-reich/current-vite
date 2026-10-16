@@ -1307,6 +1307,18 @@ watch(() => themeStore.dateListsEnabled, (enabled) => {
   viewingDate.value = enabled ? todayStr() : null
 })
 
+// Day change while the app stays open (midnight, or a tab coming back the
+// next morning — checksStore.today is the app's one reactive day anchor,
+// refreshed at those points): whoever was looking at today's list keeps
+// looking at today's, instead of silently staying on what's now
+// yesterday's (no leftovers section there, and the "today" entry no
+// longer lit). Overview's pill likewise never stays on a past day (same
+// clamp as setSelectedFocusDate).
+watch(() => checksStore.today, (today, prevToday) => {
+  if (viewingDate.value && viewingDate.value === prevToday) viewingDate.value = today
+  if (themeStore.selectedFocusDate < today) themeStore.setSelectedFocusDate(today)
+})
+
 // Switching yesterday leftovers (or Date Lists as a whole) off releases
 // whatever yesterday's list still held right away, instead of only at the
 // next midnight/refocus check — see rolloverExpiredFocusDates.

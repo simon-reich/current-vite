@@ -15,7 +15,7 @@ import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
 import { simulateYesterdayLeftovers, SIMULATE_YESTERDAY_ENABLED } from '../dev/simulateYesterday'
-import { todayStr, addDaysStr, endOfDayIso } from '../composables/useToday'
+import { addDaysStr, endOfDayIso } from '../composables/useToday'
 import { shrinkFontToFit } from '../composables/useFitFont'
 
 const store = useTodosStore()
@@ -69,7 +69,13 @@ const displayedTodos = computed(() => {
 // Only today's own Date List (if viewing one) behaves like real Current —
 // any other day is still in the future, so Done/Done-for-now stay
 // locked (see TodoCard.vue's previewLocked) until it actually arrives.
-const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== todayStr())
+// Reactive "today" anchor (see useFocusDateNav's own comment) — todayStr()
+// read inside a computed isn't a dependency, so it would freeze at the day
+// the view first rendered: past midnight, with the app left open, today's
+// list and yesterday's leftovers would keep pointing at the old days.
+const today = computed(() => checksStore.today)
+
+const viewingLockedDate = computed(() => !!viewingDate.value && viewingDate.value !== today.value)
 
 // Same pattern as Calendar.vue's own planThisDay() — points the Focus-Date-
 // Pille at this list's date and jumps to Overview, ready to swipe/assign
@@ -124,14 +130,14 @@ function doneForNow(id: string) {
 // — styled like Checks, not like cards, so they read as an offer, not a
 // second list that has to be cleared. Untouched ones simply drop into the
 // pool a day later (see stores/todos.ts's rolloverExpiredFocusDates).
-const yesterdayStr = computed(() => addDaysStr(todayStr(), -1))
+const yesterdayStr = computed(() => addDaysStr(today.value, -1))
 // Temporary dev-only test helper (off by default, see SIMULATE_YESTERDAY_ENABLED) next to "add todos" (see
 // dev/simulateYesterday.ts), on today's list — where the leftovers section
 // shows up. Not gated on the yesterday setting: that lives per device
 // (localStorage), so a click switches it on too instead of the button
 // silently missing on a phone where it's still off.
 const showSimulateYesterday = computed(() =>
-  SIMULATE_YESTERDAY_ENABLED && import.meta.env.DEV && themeStore.dateListsEnabled && viewingDate.value === todayStr()
+  SIMULATE_YESTERDAY_ENABLED && import.meta.env.DEV && themeStore.dateListsEnabled && viewingDate.value === today.value
 )
 
 function simulateYesterday() {
@@ -140,7 +146,7 @@ function simulateYesterday() {
 }
 
 const leftovers = computed(() =>
-  themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled && viewingDate.value === todayStr()
+  themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled && viewingDate.value === today.value
     ? store.leftoversFrom(yesterdayStr.value)
     : []
 )
@@ -464,7 +470,7 @@ const LEFTOVER_ALL_OPTIONS: LeftoverOption[] = [
 // it's there already. Its "remove" then only takes it off yesterday's
 // list (store.releaseToPool), "all to today" likewise.
 function isAlsoOnToday(todo: { focusDates?: string[] }): boolean {
-  return !!todo.focusDates?.includes(todayStr())
+  return !!todo.focusDates?.includes(today.value)
 }
 
 function leftoverOptions(todo: { focusDates?: string[] }, menu: LeftoverMenu): LeftoverOption[] {
@@ -481,7 +487,7 @@ function leftoverOptions(todo: { focusDates?: string[] }, menu: LeftoverMenu): L
 // both which checks show (checksDueOn) and which date isCompletedOn reads
 // off; viewingLockedDate (already used for Todos' Done/Done-for-now)
 // reused as-is to lock ticking a Check on a day that hasn't arrived yet.
-const checkDisplayDate = computed(() => viewingDate.value ?? todayStr())
+const checkDisplayDate = computed(() => viewingDate.value ?? today.value)
 const displayedChecks = computed(() => viewingDate.value ? checksStore.checksDueOn(viewingDate.value) : checksStore.todayChecks)
 
 function onToggleCheck(check: CheckItem, event: MouseEvent) {
