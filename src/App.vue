@@ -121,11 +121,15 @@ function shortcutsBlocked(e: KeyboardEvent): boolean {
 }
 
 function onGlobalKeydown(e: KeyboardEvent) {
-  // All keyboard shortcuts (view/card-cycling included) are desktop-only —
-  // below this breakpoint there's essentially never a physical keyboard
-  // around, and leaving them active here was exactly the kind of surface
-  // that kept producing odd side effects.
-  if (window.innerWidth <= DESKTOP_BREAKPOINT) return
+  // Keyboard shortcuts (view/card-cycling included) run on desktop and
+  // tablet widths — a narrowed desktop window or a tablet with a hardware
+  // keyboard. Phone stays off: there's essentially never a physical
+  // keyboard there, and it was exactly the kind of surface that kept
+  // producing odd side effects. A soft keyboard never reaches the
+  // single-letter block anyway: it only opens inside a text field, which
+  // shortcutsBlocked() already skips. The Y hints stay desktop-only
+  // (see below).
+  if (window.innerWidth <= PHONE_BREAKPOINT) return
 
   // A confirmation modal being open overrides everything else here —
   // Escape cancels it, Enter confirms it, and nothing else (view/card
@@ -147,6 +151,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
     } else {
       e.stopImmediatePropagation()
     }
+    return
+  }
+
+  // Escape closes the tag panel (tablet, opened via T or its button).
+  if (e.key === 'Escape' && showMobileTags.value && !isTypingTarget(e.target)) {
+    e.preventDefault()
+    showMobileTags.value = false
     return
   }
 
@@ -219,7 +230,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
     }
     if ((route.path !== '/all' && route.path !== '/current') || !themeStore.dateListsEnabled) return
     e.preventDefault()
-    focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget')?.click()
+    visibleFocusDatePill()?.click()
     return
   }
 
@@ -265,17 +276,16 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // T — jump into the tag input. Desktop only: below the tablet breakpoint
-  // the sidebar (and its tag input) isn't even rendered — reaching it means
-  // first opening the mobile tag panel, a touch-driven flow a keyboard
-  // shortcut doesn't fit anyway. Overview-only, unlike A — Current is
-  // deliberately unfilterable, so its whole tag/filter UI is grayed out
-  // and inert (see #app.is-current), this shortcut included.
+  // T — jump into the tag input on desktop. Below it the sidebar (and its
+  // tag input) isn't rendered, so T toggles the tag panel instead — the
+  // same panel the header's tags button opens. Overview-only, unlike A —
+  // Current is deliberately unfilterable, so its whole tag/filter UI is
+  // grayed out and inert (see #app.is-current), this shortcut included.
   if (key === 't') {
-    if (window.innerWidth <= DESKTOP_BREAKPOINT) return
-    if (route.path !== '/all') return
+    if (route.path !== '/all' || !themeStore.tagsEnabled) return
     e.preventDefault()
-    openTagInput()
+    if (window.innerWidth <= DESKTOP_BREAKPOINT) showMobileTags.value = !showMobileTags.value
+    else openTagInput()
     return
   }
 
@@ -325,6 +335,9 @@ function onGlobalKeydown(e: KeyboardEvent) {
   // (shortcutsBlocked() above already guarantees we're not in a text field
   // by this point, so there's nothing to accidentally interfere with).
   if (key === 'y') {
+    // Desktop-only: the hints are laid out over the desktop sidebar/header
+    // controls, most of which aren't rendered below it.
+    if (window.innerWidth <= DESKTOP_BREAKPOINT) return
     computeShortcutHints()
     shortcutHintsVisible.value = true
   }
@@ -371,6 +384,13 @@ const subsToggleBtnRef = ref<HTMLElement | null>(null)
 // through this wrapper for both the hint's position and the click is
 // simpler than exposing internals from the component itself.
 const focusDateWidgetSlotRef = ref<HTMLElement | null>(null)
+// The pill the L shortcut opens — the desktop sidebar instance, or below
+// desktop the header one (.tablet-input-focus-date-widget-slot), whichever
+// is actually rendered at this width.
+function visibleFocusDatePill(): HTMLElement | null {
+  if (window.innerWidth > DESKTOP_BREAKPOINT) return focusDateWidgetSlotRef.value?.querySelector<HTMLElement>('.focus-date-widget') ?? null
+  return document.querySelector<HTMLElement>('.tablet-input-focus-date-widget-slot .focus-date-widget')
+}
 // ↑/↓'s own target — the Date-List sidebar (Overview and Current share the
 // one desktop-only <aside>, see its own comment above) — for the hint
 // centered above it.
