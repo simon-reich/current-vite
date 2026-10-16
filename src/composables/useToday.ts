@@ -10,12 +10,29 @@ export function localDateStr(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-// The local calendar day an ISO timestamp (completedAt, workLog,
+// The app's day doesn't flip at midnight but at DAY_START_HOUR (3am local)
+// — working on past midnight still counts as the evening's day: today's
+// list, Current's yesterday leftovers, loop due-ness, Checks and the
+// calendar's day for a check-off all switch over at 3am instead. Every
+// "which day is it / was it" question goes through appDate below, so this
+// is the one place that shift lives.
+export const DAY_START_HOUR = 3
+
+// The moment shifted back by DAY_START_HOUR — its local calendar date is
+// the app day that moment belongs to. Pass the wall clock (default) or a
+// stored timestamp.
+export function appDate(at: Date = new Date()): Date {
+  const d = new Date(at)
+  d.setHours(d.getHours() - DAY_START_HOUR)
+  return d
+}
+
+// The app day (see DAY_START_HOUR) an ISO timestamp (completedAt, workLog,
 // createdAt, focusAddedAt, ... — all stored as UTC via toISOString) falls
 // on. Use this instead of `.slice(0, 10)`, which reads the UTC day (see
 // localDateStr above for why that's wrong).
 export function localDayOf(iso: string): string {
-  return localDateStr(new Date(iso))
+  return localDateStr(appDate(new Date(iso)))
 }
 
 // Last second of a local calendar day, as the ISO timestamp the stores
@@ -27,11 +44,11 @@ export function endOfDayIso(dateStr: string): string {
 }
 
 export function todayStr(): string {
-  return localDateStr(new Date())
+  return localDateStr(appDate())
 }
 
 export function tomorrowStr(): string {
-  const d = new Date()
+  const d = appDate()
   d.setDate(d.getDate() + 1)
   return localDateStr(d)
 }

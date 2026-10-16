@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { nextLoopDue } from '../composables/useLoopSchedule'
-import { todayStr } from '../composables/useToday'
+import { todayStr, appDate } from '../composables/useToday'
 import type { LoopInterval, LoopUnit } from '../stores/todos'
 import DatePickerModal from './DatePickerModal.vue'
 
@@ -182,7 +182,7 @@ const nextOccurrence = computed(() => props.modelValue ? nextLoopDue(props.model
 const nextOccurrenceRelative = computed(() => {
   const next = nextOccurrence.value
   if (!next) return ''
-  const today = new Date()
+  const today = appDate()
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const days = Math.round((next.getTime() - t.getTime()) / 86400000)
   if (days === 0) return 'today'

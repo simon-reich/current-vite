@@ -18,7 +18,7 @@ import { activeModal } from './composables/useModalGuard'
 import { todoDraftRequest } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast } from './composables/useToast'
-import { todayStr, tomorrowStr, addDaysStr, localDayOf } from './composables/useToday'
+import { todayStr, tomorrowStr, addDaysStr, localDayOf, appDate } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
@@ -1167,7 +1167,7 @@ function addTodo() {
   // Current just because it was typed there — same rule as any other Date
   // todo, which only ever auto-joins Current once it's due (see
   // runLoopSchedule). It's created and stays in the pool instead.
-  const dateTodoNotYetDue = !!todo.loopInterval && !isLoopDueToday(todo.loopInterval, new Date(), localDayOf(todo.createdAt))
+  const dateTodoNotYetDue = !!todo.loopInterval && !isLoopDueToday(todo.loopInterval, appDate(), localDayOf(todo.createdAt))
   if (route.path === '/current' && viewingDate.value) {
     // Viewing a Date List instead of the actual Current pool — typing a
     // todo here means "put it on that list", not "send it to Current"

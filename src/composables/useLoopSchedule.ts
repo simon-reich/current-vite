@@ -1,6 +1,6 @@
 import type { LoopInterval, Todo } from '../stores/todos'
 import { LOOP_TAG_ID } from '../stores/todos'
-import { todayStr, localDayOf } from './useToday'
+import { todayStr, localDayOf, appDate, DAY_START_HOUR } from './useToday'
 
 function parseISODate(s: string): Date | null {
   if (!s) return null
@@ -25,7 +25,7 @@ function daysBetween(a: Date, b: Date): number {
 // units. Month/year matching clamps to the last day of a shorter month
 // (e.g. a 31st-of-the-month loop lands on the 28th/29th/30th in months
 // that don't have a 31st).
-export function isLoopDueToday(interval: LoopInterval, today: Date = new Date(), fallbackStart?: string): boolean {
+export function isLoopDueToday(interval: LoopInterval, today: Date = appDate(), fallbackStart?: string): boolean {
   // Pre-dates the startDate field (loopInterval existed before it was
   // added) — fall back to whatever the caller supplies (createdAt, see
   // runLoopSchedule) instead of leaving it permanently un-due.
@@ -76,7 +76,7 @@ function addClampedMonths(start: Date, months: number): Date {
 // past (an old daily/weekly grid, a long custom interval) stays legible —
 // otherwise the "next" run is easy to lose track of. Returns null only for
 // malformed/missing data (no startDate to count from).
-export function nextLoopOccurrence(interval: LoopInterval, today: Date = new Date()): Date | null {
+export function nextLoopOccurrence(interval: LoopInterval, today: Date = appDate()): Date | null {
   const start = parseISODate(interval.startDate)
   if (!start) return null
   const t = localMidnight(today)
@@ -166,7 +166,7 @@ export function isLoopSettledToday(todo: Todo): boolean {
 // Shared by LoopPicker's "next" line (todos and Checks) and Overview's
 // Date-filter "only" sort.
 export function nextLoopDue(interval: LoopInterval, settledToday = false): Date | null {
-  const from = new Date()
+  const from = appDate()
   if (settledToday) from.setDate(from.getDate() + 1)
   return nextLoopOccurrence(interval, from)
 }
@@ -196,7 +196,7 @@ export function runLoopSchedule(store: LoopScheduleStore) {
     // rest of the list from being checked, or bubble up into App.vue's
     // onMounted and cut off whatever runs after it there.
     try {
-      if (isLoopDueToday(todo.loopInterval, new Date(), localDayOf(todo.createdAt))) {
+      if (isLoopDueToday(todo.loopInterval, appDate(), localDayOf(todo.createdAt))) {
         // Sets focusAddedAt, which also satisfies processedToday's "already
         // handled today" guard for the assignFocusDate branch below.
         store.sendToCurrent(todo.id)
@@ -219,13 +219,17 @@ export function scheduleLoopMidnightCheck(store: LoopScheduleStore, onMidnight?:
   let timer: ReturnType<typeof setTimeout> | null = null
 
   function scheduleNext() {
+    // The app's day boundary is DAY_START_HOUR, not midnight (see
+    // useToday.ts) — a few seconds past it, today's if still ahead,
+    // tomorrow's otherwise.
     const now = new Date()
-    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5)
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DAY_START_HOUR, 0, 5)
+    if (next <= now) next.setDate(next.getDate() + 1)
     timer = setTimeout(() => {
       runLoopSchedule(store)
       onMidnight?.()
       scheduleNext()
-    }, nextMidnight.getTime() - now.getTime())
+    }, next.getTime() - now.getTime())
   }
 
   scheduleNext()

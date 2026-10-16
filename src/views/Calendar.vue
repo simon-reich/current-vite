@@ -55,7 +55,7 @@ watch(viewMode, async (mode) => {
 
 onMounted(async () => {
   await nextTick()
-  calendarRef.value?.move(new Date())
+  calendarRef.value?.move(new Date(todayStr() + 'T12:00:00'))
   viewRef.value?.focus()
 })
 
@@ -134,7 +134,7 @@ const attributes = computed(() => {
         fontSize: '12px',
       },
     },
-    dates: new Date(),
+    dates: new Date(todayStr() + 'T12:00:00'),
   })
   if (activeDates.value.length) {
     attrs.push({ key: 'active', dot: { style: { backgroundColor: 'var(--ink)' } }, dates: activeDates.value })

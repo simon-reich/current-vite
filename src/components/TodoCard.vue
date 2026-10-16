@@ -600,7 +600,7 @@ import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 import { runLoopSchedule, isLoopDueToday, isLoopSettledToday } from '../composables/useLoopSchedule'
 import { shrinkFontToFit } from '../composables/useFitFont'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
-import { todayStr, tomorrowStr, addDaysStr, localDayOf, WEEKDAY_FULL_LABELS } from '../composables/useToday'
+import { todayStr, tomorrowStr, addDaysStr, localDayOf, appDate, WEEKDAY_FULL_LABELS } from '../composables/useToday'
 import { useListFlip } from '../composables/useListFlip'
 import LoopPicker from './LoopPicker.vue'
 import TagInlineCreate from './TagInlineCreate.vue'
@@ -1445,7 +1445,7 @@ watch(showTagMenu, (isOpen, wasOpen) => {
       if (isLoop.value) {
         runLoopSchedule(store)
         const interval = props.todo.loopInterval
-        if (loopChanged && interval && !props.todo.inCurrent && isLoopDueToday(interval, new Date(), localDayOf(props.todo.createdAt))) {
+        if (loopChanged && interval && !props.todo.inCurrent && isLoopDueToday(interval, appDate(), localDayOf(props.todo.createdAt))) {
           emit('send-to-current', props.todo.id)
         }
       }
