@@ -50,6 +50,12 @@
      Narrow desktop sets its own (layout.css). */
   --date-nav-font-size: calc(var(--chip-font-size) + 2px);
 
+  /* The date shown between Current's prev/next arrows (layout.css's
+     .date-list-nav-label) — Calendar's log month marker (.log-month)
+     reads the same. */
+  --date-label-font-size: 16px;
+  --date-label-font-weight: 700;
+
   /* Date-List nav's step between rows inside its near-term block —
      tomorrow → week and week → month (layout.css) share this one value. */
   --date-nav-row-step: 12px;

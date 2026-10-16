@@ -302,8 +302,8 @@
 
 .date-list-nav-label {
   justify-self: center;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: var(--date-label-font-size);
+  font-weight: var(--date-label-font-weight);
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
   text-align: center;
@@ -1448,6 +1448,16 @@
 
 #app.is-calendar .content-inner {
   height: 100%;
+}
+
+/* Desktop: the calendar view starts closer to the top than the todo views
+   — nothing above it to clear. Still leaves the room the log's month
+   marker hangs up into, right above its divider (Calendar.vue's
+   .log-month-row). */
+@media (min-width: 1025px) {
+  #app.is-calendar .content-inner {
+    padding-top: 30px;
+  }
 }
 
 /* Cosmetic breathing room below the last item — only given real height once

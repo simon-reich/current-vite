@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch, inject } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } from 'vue'
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil, ChevronDown } from '@lucide/vue'
+import { Plus, Pencil } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
-import { todayStr, addDaysStr, localDayOf } from '../composables/useToday'
+import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
@@ -36,6 +36,26 @@ const {
 
 function onDayDetailScroll() {
   checkDayDetailScrollState()
+  updateLogMonth()
+}
+
+// The log's "where am I" marker: month and year of the topmost group
+// still in view (.log-month) — a quick reference point while scrolling
+// back, since the groups themselves only name the day. Only once the log
+// is actually scrolled (same moment the divider shows), not at the very
+// top where it'd just repeat the obvious. Read off the DOM on scroll
+// (each group carries its date), nothing to keep in sync.
+const logMonth = ref('')
+const showLogMonth = computed(() => viewMode.value === 'log' && dayDetailScrolled.value && !!logMonth.value)
+function updateLogMonth() {
+  const root = dayDetailScrollRef.value
+  if (viewMode.value !== 'log' || !root) { logMonth.value = ''; return }
+  const top = root.getBoundingClientRect().top
+  const group = [...root.querySelectorAll<HTMLElement>('.log-group')].find(g => g.getBoundingClientRect().bottom > top + 1)
+  const dateStr = group?.dataset.date
+  if (!dateStr) { logMonth.value = ''; return }
+  const [y, m] = dateStr.split('-').map(Number)
+  logMonth.value = `${MONTH_LABELS[m - 1]} ${y}`
 }
 
 const selectedDate = ref<string>(todayStr())
@@ -182,13 +202,21 @@ const logGroups = computed(() => {
 })
 
 // The log only shows the last LOG_WINDOW_DAYS days (today included) at
-// first; "show older" widens that window in LOG_WINDOW_DAYS steps — far
-// enough to always reach the next day that actually has entries, so a
-// click never turns up nothing. Display-only: nothing is persisted, and
-// switching to the log again starts back at one window.
+// first; scrolling past its end widens that window in LOG_WINDOW_DAYS
+// steps on its own (see logSentinelRef below) — far enough to always
+// reach the next day that actually has entries, so a load never turns up
+// nothing. Display-only: nothing is persisted, and switching to the log
+// again starts back at one window.
 const LOG_WINDOW_DAYS = 30
 const logWindows = ref(1)
-watch(viewMode, (mode) => { if (mode === 'log') logWindows.value = 1 })
+// Groups that came in with the latest load — they domino in (see
+// .log-group--new), the ones already there stay put.
+const newLogDates = ref(new Set<string>())
+watch(viewMode, (mode) => {
+  if (mode !== 'log') return
+  logWindows.value = 1
+  newLogDates.value = new Set()
+})
 
 const logCutoff = computed(() => addDaysStr(todayStr(), 1 - LOG_WINDOW_DAYS * logWindows.value))
 const visibleLogGroups = computed(() => logGroups.value.filter(g => g.dateStr >= logCutoff.value))
@@ -198,10 +226,74 @@ const nextOlderLogGroup = computed(() => logGroups.value.find(g => g.dateStr < l
 function showOlderLog() {
   const next = nextOlderLogGroup.value
   if (!next) return
+  const before = new Set(visibleLogGroups.value.map(g => g.dateStr))
   const today = new Date(todayStr() + 'T12:00:00')
   const daysBack = Math.round((today.getTime() - new Date(next.dateStr + 'T12:00:00').getTime()) / 86_400_000)
   logWindows.value = Math.ceil((daysBack + 1) / LOG_WINDOW_DAYS)
+  newLogDates.value = new Set(visibleLogGroups.value.map(g => g.dateStr).filter(d => !before.has(d)))
 }
+
+// Domino order for a new group's label and entries: one running index
+// across everything that came in with the load, so the rows tip in one
+// after another top to bottom. Capped so a big load doesn't keep the last
+// rows waiting for seconds.
+const LOG_DOMINO_CAP = 14
+const logDominoStart = computed(() => {
+  const start = new Map<string, number>()
+  let i = 0
+  for (const g of visibleLogGroups.value) {
+    if (!newLogDates.value.has(g.dateStr)) continue
+    start.set(g.dateStr, i)
+    i += g.todos.length + 1
+  }
+  return start
+})
+function logDomino(dateStr: string, k: number) {
+  const start = logDominoStart.value.get(dateStr)
+  return start === undefined ? undefined : { '--i': Math.min(start + k, LOG_DOMINO_CAP) }
+}
+
+// Endless log: the list ends in a bit of empty run-out (.log-more) you can
+// scroll on into, past the last entry. Its far end carries an invisible
+// marker — once that's in view, the log holds for a beat (so it reads as
+// "reached the end, fetching more" rather than an unexplained stop) and
+// then the next part dominoes in. Watched against the viewport (root
+// null) rather than the scroll container, so it works whichever element
+// actually scrolls on the current layout. Re-observed after every load:
+// an observer only reports changes, so a marker that's still in view (a
+// short log that doesn't fill the screen yet) would otherwise never fire
+// again.
+const LOG_LOAD_PAUSE_MS = 350
+const logSentinelRef = ref<HTMLElement | null>(null)
+const logLoading = ref(false)
+let logLoadTimer: ReturnType<typeof setTimeout> | null = null
+const logObserver = typeof IntersectionObserver !== 'undefined'
+  ? new IntersectionObserver(entries => {
+      if (logLoading.value || !entries.some(e => e.isIntersecting)) return
+      logLoading.value = true
+      logLoadTimer = setTimeout(() => {
+        logLoading.value = false
+        showOlderLog()
+      }, LOG_LOAD_PAUSE_MS)
+    })
+  : null
+watch([logSentinelRef, () => visibleLogGroups.value.length], async ([el]) => {
+  logObserver?.disconnect()
+  if (!el) return
+  await nextTick()
+  logObserver?.observe(el)
+})
+// Content changes (switching to the log, a load) move what's on top too.
+watch([viewMode, () => visibleLogGroups.value.length], async () => {
+  await nextTick()
+  // The log fades in (unfold transition) — wait for its groups to exist.
+  requestAnimationFrame(updateLogMonth)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  logObserver?.disconnect()
+  if (logLoadTimer) clearTimeout(logLoadTimer)
+})
 
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
 const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedDate.value) : [])
@@ -307,6 +399,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     <!-- Phone only — desktop has it in App.vue's left sidebar, tablet in App.vue's header. -->
     <div class="view-toggle calendar-mode-toggle">
       <CalendarModeToggle />
+      <!-- Phone: the log's month marker sits at the right end of this row
+           (see .log-month-row below for tablet/desktop). -->
+      <Transition name="log-month" mode="out-in">
+        <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
+      </Transition>
     </div>
 
     <motion.div
@@ -327,6 +424,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
       />
     </motion.div>
 
+    <!-- Tablet/desktop: the log's month marker, left, right above the
+         divider (phone: in the toggle row above instead). -->
+    <div v-if="viewMode === 'log'" class="log-month-row">
+      <Transition name="log-month" mode="out-in">
+        <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
+      </Transition>
+    </div>
+
     <ScrollDivider class="day-scroll-divider" :visible="dayDetailScrolled" />
 
     <div ref="dayDetailScrollRef" class="day-detail-scroll" @scroll="onDayDetailScroll">
@@ -334,6 +439,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         <transition
           name="unfold"
           mode="out-in"
+          @after-enter="updateLogMonth"
           appear
           appear-active-class="unfold-appear-active"
           appear-from-class="unfold-appear-from"
@@ -341,23 +447,18 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           <div v-if="viewMode === 'log'" key="log" class="day-detail-content">
             <template v-if="logGroups.length">
               <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
-              <div v-for="group in visibleLogGroups" :key="group.dateStr" class="log-group">
-                <p class="log-day-label">{{ group.label }}</p>
+              <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
+                <p class="log-day-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
                 <div class="day-items">
-                  <div v-for="todo in group.todos" :key="todo.id" class="day-item">
+                  <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
                     <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
                     <span class="day-item-title">{{ todo.title }}</span>
                     <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
                   </div>
                 </div>
               </div>
-              <div v-if="nextOlderLogGroup" class="day-actions">
-                <span class="icon-side-label icon-side-label--right">
-                  <button type="button" class="icon-circle-btn" v-tooltip="'show older entries'" @click="showOlderLog">
-                    <ChevronDown :size="10" />
-                  </button>
-                  <span class="icon-side-label-text">show older</span>
-                </span>
+              <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
+                <div ref="logSentinelRef" class="log-sentinel" />
               </div>
             </template>
             <p v-else class="no-activity">Nothing completed yet.</p>
@@ -576,8 +677,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   text-align: center;
 }
 
-/* Sits centered under the planned list (or its empty state), and under the
-   log for its "show older" icon. Icon buttons
+/* Sits centered under the planned list (or its empty state). Icon buttons
    themselves are .icon-circle-btn, shared with Current.vue's Checks
    add/edit icons via base.css, no local redefinition. Each icon's own
    label unrolls sideways on hover — add's to its left, edit's to its
@@ -774,6 +874,98 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   display: flex;
   align-items: center;
   height: 1lh;
+}
+
+/* Month + year of the log's topmost group in view (see updateLogMonth).
+   Tablet/desktop: a little clear of the divider, in the page's own top
+   padding above it (.content-inner) — a zero-height row the label hangs
+   up out of, so it takes no space of its own and nothing above the
+   divider moves (tight line-height so it fits that padding).
+   Right-aligned (on tablet that's right under the header's settings
+   icon). Phone: right end of the calendar | log row
+   (.view-toggle) instead, this row hidden. Same type as the date between
+   Current's prev/next arrows (shared tokens). */
+.log-month-row {
+  position: relative;
+  flex-shrink: 0;
+  height: 0;
+}
+
+.log-month-row .log-month {
+  position: absolute;
+  bottom: 8px;
+  line-height: 1;
+  right: 0;
+}
+
+.log-month {
+  color: var(--ink);
+  font-size: var(--date-label-font-size);
+  line-height: 1.2;
+  font-weight: var(--date-label-font-weight);
+  font-family: var(--font-playful, sans-serif);
+  white-space: nowrap;
+}
+
+.view-toggle .log-month {
+  margin-left: auto;
+}
+
+@media (max-width: 700px) {
+  .log-month-row {
+    display: none;
+  }
+
+  .view-toggle {
+    align-items: center;
+  }
+}
+
+.log-month-enter-active,
+.log-month-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.log-month-enter-from,
+.log-month-leave-to {
+  opacity: 0;
+}
+
+.log-month-enter-from {
+  transform: translateY(4px);
+}
+
+.log-month-leave-to {
+  transform: translateY(-4px);
+}
+
+/* Run-out past the last entry (see logSentinelRef) — room to scroll on
+   into before the next part loads, the marker at its far end. Stays
+   below the list after a load, ready for the next one. */
+.log-more {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 120px;
+}
+
+.log-sentinel {
+  height: 1px;
+}
+
+/* A loaded part tips in row by row (index from logDomino) — the same
+   pop as the rest of the app's unfolding bits (--ease-pop). */
+.log-group--new .log-day-label,
+.log-group--new .day-item {
+  animation: log-domino 0.34s var(--ease-pop) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes log-domino {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
 }
 
 .log-group {
