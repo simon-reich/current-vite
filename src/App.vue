@@ -18,7 +18,7 @@ import { activeModal } from './composables/useModalGuard'
 import { todoDraftRequest } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast } from './composables/useToast'
-import { todayStr, tomorrowStr, addDaysStr, localDayOf, appDate } from './composables/useToday'
+import { todayStr, addDaysStr, localDayOf, appDate } from './composables/useToday'
 import { useFocusDateNav } from './composables/useFocusDateNav'
 import ScrollDivider from './components/ScrollDivider.vue'
 import LoopPicker from './components/LoopPicker.vue'
@@ -1349,7 +1349,7 @@ watch(() => themeStore.dateListsEnabled && themeStore.yesterdayLeftoversEnabled,
 // Date math shared by every Date-List nav rendering (this file's own
 // Current variant below, FocusDateNav.vue's Overview variant, and the
 // tablet slide-in panel) — see useFocusDateNav's own comment.
-const { hasTodayList, hasTomorrowList, presetWeekDates, upcomingFocusDates, upcomingFocusDateGroups, formatPresetDate, formatUpcomingDate } = useFocusDateNav()
+const { presetWeekDates, upcomingFocusDates } = useFocusDateNav()
 
 // Everything Current can show, in one fixed sequence: the same rolling
 // week the sidebar nav always offers (presetWeekDates — today through +6
@@ -2154,58 +2154,17 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       class="sidebar desktop-only"
     >
       <div ref="sidebarRef" class="sidebar-scroll">
-        <!-- Current view: Date-List navigation switches which date's list is
-             being viewed (viewingDate). today/tomorrow plus the rest of the
-             7-day preset window (presetWeekDates) are always selectable, even
-             empty — dimmed (not disabled) just signals nothing's on them yet,
-             same as Overview's own preset row below. Anything beyond that
-             window still only shows up once something's actually planned on
-             it (upcomingFocusDates). -->
-        <div v-if="route.path === '/current'" class="tag-list">
-          <button
-            class="all-btn date-nav-btn"
-            :class="{ active: viewingDate === todayStr(), dimmed: !hasTodayList }"
-            @click="viewingDate = todayStr()"
-          >
-            today
-          </button>
-          <button
-            class="all-btn date-nav-btn loop-btn"
-            :class="{ active: viewingDate === tomorrowStr(), dimmed: !hasTomorrowList }"
-            @click="viewingDate = tomorrowStr()"
-          >
-            tomorrow
-          </button>
-
-          <div class="date-nav-section-label">week</div>
-          <div
-            v-for="dateStr in presetWeekDates.slice(2)"
-            :key="dateStr"
-            class="tag-chip date-nav-upcoming-chip"
-            :class="{ active: viewingDate === dateStr, dimmed: !store.hasFocusDateList(dateStr) }"
-          >
-            <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatPresetDate(dateStr) }}</span>
-          </div>
-
-          <template v-for="group in upcomingFocusDateGroups" :key="group.label">
-            <div class="date-nav-section-label" :class="{ 'date-nav-section-label--section-break': group.sectionBreak, 'date-nav-section-label--month': group.label === 'month' }">{{ group.label }}</div>
-            <div
-              v-for="dateStr in group.dates"
-              :key="dateStr"
-              class="tag-chip date-nav-upcoming-chip"
-              :class="{ active: viewingDate === dateStr }"
-            >
-              <span class="tag-label date-nav-upcoming-btn" @click="viewingDate = dateStr">{{ formatUpcomingDate(dateStr) }}</span>
-            </div>
-          </template>
-        </div>
-
-        <!-- Overview: same Date-List nav, but picking a date sets the
-             Focus-Date-Pille's target (themeStore.selectedFocusDate) instead
-             of switching which list is being viewed — Overview always shows
-             the full pool, there's nothing here to "view" per date. See
-             FocusDateNav.vue — also reused by the tablet slide-in panel
-             (FocusDatePanel.vue) below. -->
+        <!-- Same Date-List nav for both views (FocusDateNav.vue, also reused
+             by the tablet slide-in panel FocusDatePanel.vue): in Current
+             picking a date switches which list is being viewed
+             (viewingDate); in Overview it sets the Focus-Date-Pille's
+             target (themeStore.selectedFocusDate) — Overview always shows
+             the full pool, there's nothing here to "view" per date. -->
+        <FocusDateNav
+          v-if="route.path === '/current'"
+          :model-value="viewingDate ?? todayStr()"
+          @update:model-value="viewingDate = $event"
+        />
         <FocusDateNav v-else-if="route.path === '/all'" />
       </div>
     </aside>

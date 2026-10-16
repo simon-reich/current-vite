@@ -9,9 +9,8 @@ import { useFocusDateNav } from '../composables/useFocusDateNav'
 // Date-Pille's target (themeStore.selectedFocusDate). Extracted out of
 // App.vue's own desktop sidebar so the tablet/phone FocusDatePanel.vue can
 // reuse the exact same markup instead of a second copy (see CLAUDE.md's
-// single-source-of-truth principle). Current's own desktop sidebar variant
-// (viewingDate-based, with its own "current" reset button) stays inline in
-// App.vue — different click targets, not a fit for this component.
+// single-source-of-truth principle). Current's desktop sidebar uses it too,
+// bound to its viewingDate through `modelValue` (see below).
 //
 // Optional `modelValue`: lets a caller override what counts as "selected"
 // and where a click goes, instead of always reading/writing
@@ -63,8 +62,11 @@ const activeDate = computed<string>({
       <span class="tag-label date-nav-upcoming-btn" @click="activeDate = dateStr">{{ formatPresetDate(dateStr, weekdayFirst) }}</span>
     </div>
 
-    <template v-for="group in upcomingFocusDateGroups" :key="group.label">
-      <div class="date-nav-section-label" :class="{ 'date-nav-section-label--section-break': group.sectionBreak, 'date-nav-section-label--month': group.label === 'month' }">{{ group.label }}</div>
+    <template v-for="group in upcomingFocusDateGroups" :key="group.key">
+      <!-- A later year's first month gets the year above it; the section
+           break's extra space then moves up to the year. -->
+      <div v-if="group.yearLabel" class="date-nav-section-label date-nav-section-label--year" :class="{ 'date-nav-section-label--section-break': group.sectionBreak }">{{ group.yearLabel }}</div>
+      <div class="date-nav-section-label" :class="{ 'date-nav-section-label--section-break': group.sectionBreak && !group.yearLabel, 'date-nav-section-label--month': group.label === 'month' }">{{ group.label }}</div>
       <div
         v-for="dateStr in group.dates"
         :key="dateStr"

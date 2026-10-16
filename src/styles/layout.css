@@ -1021,6 +1021,14 @@
   opacity: 0.5;
 }
 
+/* Year heading above a later year's first month ("2027") — same small
+   pale type as the month labels, just set off from the lists above by the
+   same step as week → month (the section break below wins where both
+   apply, it's declared after this). */
+.date-nav-section-label--year {
+  margin-top: var(--date-nav-row-step);
+}
+
 /* The only real section break in the whole nav: the near-term block
    (today/tomorrow, week and the current month's "month" group) vs.
    everything further out — see sectionBreak in useFocusDateNav.ts. Every

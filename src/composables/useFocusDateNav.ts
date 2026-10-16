@@ -58,16 +58,27 @@ export function useFocusDateNav() {
   // `sectionBreak` marks the one real break in the nav: today/tomorrow,
   // week and the current month's "month" group form one near-term block,
   // the first group past the current month starts the further-out lists.
+  // `yearLabel` heads the first group of every later year ("2027" above
+  // its first month), so lists in the next year don't read as this one's.
+  // Groups are keyed by year+month, not label — January this year and
+  // January next year are different groups even when nothing lies between.
   const upcomingFocusDateGroups = computed(() => {
     const [currentYear, currentMonth] = today.value.split('-').map(Number)
-    const groups: { label: string; dates: string[]; sectionBreak: boolean }[] = []
+    const groups: { key: string; label: string; yearLabel: string | null; dates: string[]; sectionBreak: boolean }[] = []
     for (const dateStr of upcomingFocusDates.value) {
       const [y, m] = dateStr.split('-').map(Number)
       const isCurrentMonth = y === currentYear && m === currentMonth
-      const label = isCurrentMonth ? 'month' : MONTH_LABELS[m - 1]
+      const key = `${y}-${m}`
       const last = groups[groups.length - 1]
-      if (last && last.label === label) last.dates.push(dateStr)
-      else groups.push({ label, dates: [dateStr], sectionBreak: !isCurrentMonth && !groups.some(g => g.sectionBreak) })
+      if (last && last.key === key) { last.dates.push(dateStr); continue }
+      const prevYear = last ? Number(last.key.split('-')[0]) : currentYear
+      groups.push({
+        key,
+        label: isCurrentMonth ? 'month' : MONTH_LABELS[m - 1],
+        yearLabel: y !== prevYear ? String(y) : null,
+        dates: [dateStr],
+        sectionBreak: !isCurrentMonth && !groups.some(g => g.sectionBreak),
+      })
     }
     return groups
   })
