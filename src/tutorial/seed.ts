@@ -34,6 +34,11 @@ export function seedTodos() {
   }
 }
 
+// One of the seeded todos by its title (steps further on use them).
+export function seededTodo(title: string) {
+  return useTodosStore().activeTodos.find(t => t.title === title && seededTodoIds.includes(t.id)) ?? null
+}
+
 export function unseedTodos() {
   const store = useTodosStore()
   seededTodoIds.forEach(id => store.deleteTodo(id))

@@ -104,6 +104,10 @@ export function openTourTodoCard() {
   if (todo) openTagMenuId.value = todo.id
 }
 
+export function openTodoCard(id: string) {
+  openTagMenuId.value = id
+}
+
 export function closeTodoCard() {
   openTagMenuId.value = null
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import TutorialStepText from './TutorialStepText.vue'
+import { frame } from './dom'
 import { currentStep, stageSteps, stepNumber, stepCount, stepDone, canGoNext, stepDirection, nextStep, prevStep, endTutorial } from './useTutorial'
 
 // The tutorial's coach card — always dead center, it never moves out of
@@ -200,6 +201,7 @@ const showPing = computed(() => HIGHLIGHT === 'ping' && !!spot.value && spot.val
 // wiring observers to all of it.
 let raf = 0
 function track() {
+  frame.value++
   const el = currentStep.value?.target ? findTarget() : null
   mark(el)
   updateSpot(el)

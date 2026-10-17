@@ -8,7 +8,8 @@ import { closeTodo } from './closeTodo'
 import { moreTodos } from './moreTodos'
 import { filter } from './filter'
 import { planDay } from './planDay'
-import { switchView } from './switchView'
+import { switchView, backToPool } from './switchView'
+import { dateTodo, loopTodo, dateLands } from './dateTodo'
 import { currentView } from './currentView'
 import { checkOff } from './checkOff'
 import { finish } from './finish'
@@ -27,5 +28,9 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   switchView,
   currentView,
   checkOff,
+  backToPool,
+  dateTodo,
+  loopTodo,
+  dateLands,
   finish,
 ]
