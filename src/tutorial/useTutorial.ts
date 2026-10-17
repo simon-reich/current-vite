@@ -6,6 +6,8 @@ import { enterSandbox, exitSandbox, sandboxActive } from './sandbox'
 import { startFocusTracking, stopFocusTracking } from './focus'
 import { forgetSavedTodo } from './ui'
 import { forgetSeed } from './seed'
+import { forgetSnapshots } from './snapshot'
+import { tourRouter, goTo } from './nav'
 import { activeTagIds } from '../composables/useTagFilter'
 
 // Tutorial state — module-level, one tour for the whole app. The coach UI
@@ -13,7 +15,6 @@ import { activeTagIds } from '../composables/useTagFilter'
 const stepIndex = ref(0)
 // Which way the last step change went — the card's text slides with it.
 export const stepDirection = ref<'forward' | 'back'>('forward')
-let router: Router | null = null
 
 export const tutorialActive = sandboxActive
 export const currentStep = computed(() => (tutorialActive.value ? TUTORIAL_STEPS[stepIndex.value] ?? null : null))
@@ -48,7 +49,7 @@ function openStep(index: number, direction: 'forward' | 'back' = 'forward') {
   stepIndex.value = index
   const step = TUTORIAL_STEPS[index]
   if (!step) return
-  if (step.route && router && router.currentRoute.value.path !== step.route) router.push(step.route)
+  if (step.route) goTo(step.route)
   if (direction === 'back' && step.back) step.back()
   else step.enter?.()
   // Already done on arrival (e.g. the todo got saved during the previous
@@ -77,7 +78,7 @@ watch(stepDone, (done) => {
 })
 
 export function startTutorial(r: Router) {
-  router = r
+  tourRouter.value = r
   if (!enterSandbox()) return
   completedIds.clear()
   // Filters point at tag ids — the real ones don't exist in the sandbox
@@ -109,8 +110,9 @@ export function endTutorial() {
   stopFocusTracking()
   forgetSavedTodo()
   forgetSeed()
+  forgetSnapshots()
   activeTagIds.value = []
   exitSandbox()
   stepIndex.value = 0
-  router?.push('/all')
+  goTo('/all')
 }
