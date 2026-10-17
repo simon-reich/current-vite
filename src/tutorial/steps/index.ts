@@ -4,6 +4,7 @@ import { firstTodo } from './firstTodo'
 import { subs } from './subs'
 import { openTodo } from './openTodo'
 import { tags } from './tags'
+import { closeTodo } from './closeTodo'
 import { moreTodos } from './moreTodos'
 import { filter } from './filter'
 import { finish } from './finish'
@@ -15,6 +16,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   subs,
   openTodo,
   tags,
+  closeTodo,
   moreTodos,
   filter,
   finish,

@@ -7,7 +7,7 @@ import { ADD_FIELD, collapseAddTodo, rememberNewestTodo, restoreSavedTodo, submi
 export const subs: TutorialStep = {
   id: 'subs',
   title: 'subs',
-  body: 'Enter took you to the subs — small steps inside a todo. Type one and press enter to add it, as many as you like.',
+  body: 'Enter took you to the subs — small steps with checkboxes inside a todo. Type one and press enter to add it. Add as many as you like.',
   hint: 'press enter on the empty line to save the todo',
   route: '/all',
   // Just the sub field (desktop dropdown or phone sheet, whichever is on

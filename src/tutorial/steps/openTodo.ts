@@ -5,7 +5,7 @@ import { closeTodoCard, isTodoCardOpen, openTourTodoCard } from '../ui'
 export const openTodo: TutorialStep = {
   id: 'open-todo',
   title: 'open it',
-  body: 'A click on a todo opens it — that is where you edit the title, add subs, tags or a date.',
+  body: 'A click on a todo opens it — that is where you manage it: edit the title, add subs, tags or a date.',
   hint: 'click your todo',
   route: '/all',
   target: '.content-inner .todo-card-wrap',

@@ -7,7 +7,7 @@ import { ADD_FIELD, enterAddTitle, focusAddTitle, restoreSavedTodo } from '../ui
 export const firstTodo: TutorialStep = {
   id: 'first-todo',
   title: 'your first todo',
-  body: 'Everything starts in the pool — one list of all your todos. Adding one is just typing.',
+  body: 'Everything starts in the pool — one list for all your todos. Adding one is just typing.',
   hint: 'type a title and press enter',
   route: '/all',
   // The whole add field incl. its open dropdown (desktop/tablet), on
