@@ -23,6 +23,10 @@ export interface TutorialStep {
   // A function for targets that move on within the step (the + first,
   // then the card's title to close it).
   target?: string | string[] | (() => string | string[])
+  // What the coach card must not cover, if more than the target — e.g. the
+  // whole open todo while the target is just its + (see placeCard in
+  // TutorialCoach.vue). Same selector forms as target.
+  keepClear?: string | string[] | (() => string | string[])
   // Reactive condition the user completes by doing the thing. While it's
   // false "next" stays disabled; once true the tutorial moves on by itself.
   // Steps without it are plain info steps with a "next" button.

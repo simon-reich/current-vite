@@ -6,6 +6,9 @@ export const moreTodos: TutorialStep = {
   title: 'a few more',
   body: 'So there is something to group, the tour just added a few todos — some for work, some for home, one with your own tag.',
   route: '/all',
+  // Nothing to do here, but the new todos should be seen: the card makes
+  // way for the list (it starts at the top, so the card moves below it).
+  keepClear: '.content-inner .todo-wrap',
   enter: seedTodos,
   // Re-reached via back from the filter step: they're still there.
   back: seedTodos,

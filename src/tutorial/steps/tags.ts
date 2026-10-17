@@ -19,6 +19,9 @@ export const tags: TutorialStep = {
   target: () => useTodosStore().userTags.length
     ? []
     : ['.todo-card-wrap.tag-editing .tag-row-add-editing', '.todo-card-wrap.tag-editing .tag-row-add-btn'],
+  // The card stays clear of the whole open todo, not just the + — the tag
+  // being typed, the tags around it.
+  keepClear: '.todo-card-wrap.tag-editing',
   // Tags only land on the todo when its card closes (see TodoCard.vue's
   // staged draftTags) — so "done" is the tag actually on it.
   done: hasUserTag,
