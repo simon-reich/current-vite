@@ -1473,9 +1473,12 @@
   box-shadow: 3px 3px 0 var(--priority-shadow);
 }
 
-.modal-btn--delete:hover {
-  background: var(--ink-dark);
-  border-color: var(--ink-dark);
+/* Hover devices only — on touch the state sticks after a tap. */
+@media (hover: hover) {
+  .modal-btn--delete:hover {
+    background: var(--ink-dark);
+    border-color: var(--ink-dark);
+  }
 }
 
 /* Same filled/primary look as --delete, just for a non-destructive confirm
@@ -1487,9 +1490,12 @@
   box-shadow: 3px 3px 0 var(--priority-shadow);
 }
 
-.modal-btn--save:hover {
-  background: var(--ink-dark);
-  border-color: var(--ink-dark);
+/* Hover devices only — on touch the state sticks after a tap. */
+@media (hover: hover) {
+  .modal-btn--save:hover {
+    background: var(--ink-dark);
+    border-color: var(--ink-dark);
+  }
 }
 
 .modal-btn--save:disabled {
@@ -1509,10 +1515,13 @@
   opacity: 0.45;
 }
 
-.modal-btn--pale:hover {
-  opacity: 1;
-  color: var(--ink-dark);
-  border-color: var(--ink-dark);
+/* Hover devices only — on touch the state sticks after a tap. */
+@media (hover: hover) {
+  .modal-btn--pale:hover {
+    opacity: 1;
+    color: var(--ink-dark);
+    border-color: var(--ink-dark);
+  }
 }
 
 /* ── Mobile tags panel: breakpoint-independent bits ──

@@ -19,3 +19,8 @@ export const todoDraftRequest = ref<TodoDraftRequest | null>(null)
 export function requestTodoDraft(request: TodoDraftRequest) {
   todoDraftRequest.value = request
 }
+
+// Read-only mirror of the add-todo input's current title, kept in sync by
+// App.vue (which owns the draft) — for outside code that only needs to know
+// whether something's typed there (the tour's "next", see tutorial/).
+export const todoDraftTitle = ref('')

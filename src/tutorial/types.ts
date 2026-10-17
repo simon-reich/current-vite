@@ -2,6 +2,12 @@
 // dropped just by editing the list in steps/index.ts.
 export interface TutorialStep {
   id: string
+  // Steps of one stage share one card size — the biggest of them — so the
+  // card doesn't resize with every step. By default a stage is a view: all
+  // steps with the same `route` (Overview, Current, Calendar, ...), so the
+  // card only changes size where the view changes too. Set explicitly to
+  // group differently; steps without a route stand on their own.
+  stage?: string
   title: string
   // A sentence or two on what this part of the app is for.
   body: string
@@ -27,6 +33,13 @@ export interface TutorialStep {
   // "back" — puts the app back the way it was while this step was current
   // (e.g. a saved todo back into the input), so stepping back really undoes.
   back?: () => void
+  // Lets "next" do the step's action for the user (e.g. Enter in the
+  // field) — the step then completes as usual (stamp, pause, on). Only
+  // while ready() holds: the minimum the action needs is in place (a title
+  // typed, ...). Matters most after back, where the restored draft is
+  // already there, but works the first time round too.
+  redo?: () => void
+  ready?: () => boolean
   // Pause between done() turning true and the next step (default
   // AUTO_ADVANCE_MS in useTutorial.ts) — shorter where the user is already
   // busy with the next thing (e.g. typing subs right after the title);

@@ -1,6 +1,8 @@
 import type { TutorialStep } from '../types'
+import { todoDraftTitle } from '../../composables/useTodoDraftRequest'
+import { focusIn } from '../focus'
 import { useTodosStore } from '../../stores/todos'
-import { collapseAddTodo, rememberNewestTodo, restoreSavedTodo } from '../ui'
+import { ADD_FIELD, collapseAddTodo, rememberNewestTodo, restoreSavedTodo, submitAddTodo } from '../ui'
 
 export const subs: TutorialStep = {
   id: 'subs',
@@ -19,4 +21,8 @@ export const subs: TutorialStep = {
   // Back from the next step: the saved todo goes back into the input,
   // caret in the sub field — right where this step left off.
   back: () => { restoreSavedTodo('sub') },
+  // Saving needs a title (deleted after stepping back: no way forward)
+  // and the add field open, where the save happens.
+  redo: submitAddTodo,
+  ready: () => !!todoDraftTitle.value.trim() && focusIn(ADD_FIELD),
 }

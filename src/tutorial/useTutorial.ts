@@ -15,9 +15,22 @@ let router: Router | null = null
 
 export const tutorialActive = sandboxActive
 export const currentStep = computed(() => (tutorialActive.value ? TUTORIAL_STEPS[stepIndex.value] ?? null : null))
+// Every step of the current step's stage (see TutorialStep.stage).
+const stageOf = (step: TutorialStep) => step.stage ?? step.route ?? step.id
+export const stageSteps = computed(() => {
+  const step = currentStep.value
+  return step ? TUTORIAL_STEPS.filter(s => stageOf(s) === stageOf(step)) : []
+})
 export const stepCount = TUTORIAL_STEPS.length
 export const stepNumber = computed(() => stepIndex.value + 1)
 export const stepDone = computed(() => currentStep.value?.done?.() ?? true)
+// Whether "next" is pressable: the step is done, or its action can be done
+// for the user with what's already entered (see TutorialStep.redo/ready).
+const canRedo = computed(() => {
+  const step = currentStep.value
+  return !!step?.redo && (step.ready?.() ?? true)
+})
+export const canGoNext = computed(() => stepDone.value || canRedo.value)
 
 // Once the user has done what a step asks, a short beat to see the result,
 // then on to the next one.
@@ -63,6 +76,12 @@ export function startTutorial(r: Router) {
 }
 
 export function nextStep() {
+  const step = currentStep.value
+  if (step && !stepDone.value) {
+    // Not done yet — only reachable through canGoNext's redo case.
+    if (canRedo.value) step.redo?.()
+    return
+  }
   if (stepIndex.value >= TUTORIAL_STEPS.length - 1) endTutorial()
   else openStep(stepIndex.value + 1)
 }

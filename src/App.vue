@@ -15,7 +15,7 @@ import { useChecksStore } from './stores/checks'
 import { useScrollTracking } from './composables/useScrollTracking'
 import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickExpand'
 import { activeModal } from './composables/useModalGuard'
-import { todoDraftRequest } from './composables/useTodoDraftRequest'
+import { todoDraftRequest, todoDraftTitle } from './composables/useTodoDraftRequest'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast } from './composables/useToast'
 import { todayStr, addDaysStr, localDayOf, appDate } from './composables/useToday'
@@ -904,18 +904,14 @@ function commitNewSub() {
 }
 
 // Same idea as focusTodoInput — whichever sub input is actually visible
-// right now gets focus.
-function focusSubInput() {
-  if (isPhoneWidth.value && isAddSheetRoute.value) mobileSubInputRef.value?.focus()
-  else newSubInputRef.value?.focus()
-}
-
-// focusSubInput, but waiting (up to ~1s) for the sub field to be rendered
-// visibly first — focusing it while still hidden does nothing.
-function focusSubInputOnceShown(framesLeft = 60) {
+// right now gets focus. Waits (up to ~1s) for it to be rendered visibly
+// first: the dropdown it sits in only shows once the input has grown to
+// full width (see addDropdownOpen), and focusing it while hidden does
+// nothing (a fast Enter right after focusing, the tour's restored draft).
+function focusSubInput(framesLeft = 60) {
   const el = isPhoneWidth.value && isAddSheetRoute.value ? mobileSubInputRef.value : newSubInputRef.value
   if (el && el.offsetParent) { el.focus(); return }
-  if (framesLeft > 0) requestAnimationFrame(() => focusSubInputOnceShown(framesLeft - 1))
+  if (framesLeft > 0) requestAnimationFrame(() => focusSubInput(framesLeft - 1))
 }
 
 // Tab out of the title input jumps straight into the sub draft input
@@ -934,7 +930,7 @@ function onTodoTitleTabKeydown(e: KeyboardEvent) {
 // only when subs are actually a thing to jump to; otherwise Enter still
 // just submits like before.
 function onTodoTitleEnter() {
-  if (themeStore.subsEnabled) nextTick(focusSubInput)
+  if (themeStore.subsEnabled) nextTick(() => focusSubInput())
   else addTodo()
 }
 
@@ -1158,6 +1154,8 @@ function focusTodoInput() {
   currentTodoInputEl()?.focus()
 }
 
+watch(todoInput, (title) => { todoDraftTitle.value = title }, { immediate: true })
+
 // Prefill requests from elsewhere (TodoCard.vue's sub → own todo, the
 // tour stepping back to an unsaved todo) replace
 // whatever draft was there, open the phone panel if that's where the input
@@ -1176,10 +1174,8 @@ watch(todoDraftRequest, (request) => {
     el.focus()
     const pos = request.caret === 'start' ? 0 : el.value.length
     el.setSelectionRange(pos, pos)
-    // The sub field sits in the dropdown the title's focus just opened —
-    // which only shows once the input has grown to full width (see
-    // addDropdownOpen), so wait frame by frame until it's actually there.
-    if (request.focus === 'sub' && themeStore.subsEnabled) focusSubInputOnceShown()
+    // The sub field sits in the dropdown the title's focus just opened.
+    if (request.focus === 'sub' && themeStore.subsEnabled) focusSubInput()
   })
 })
 

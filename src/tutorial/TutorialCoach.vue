@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { Check } from '@lucide/vue'
-import { currentStep, stepNumber, stepCount, stepDone, stepDirection, nextStep, prevStep, endTutorial } from './useTutorial'
+import TutorialStepText from './TutorialStepText.vue'
+import { currentStep, stageSteps, stepNumber, stepCount, stepDone, canGoNext, stepDirection, nextStep, prevStep, endTutorial } from './useTutorial'
 
 // The tutorial's coach card (centered) and whatever the current step points
 // at gently pulsing (.tutorial-target, see the unscoped style below).
@@ -51,12 +51,23 @@ let markedEl: HTMLElement | null = null
 // Re-checked every frame, not just on change: Vue rewrites an element's
 // whole class attribute whenever its own :class binding changes (the add
 // field's --open modifier as it unfolds), dropping this one with it.
+//
+// The pulse grows the element by about the same few pixels whatever its
+// size — a fixed scale would be invisible on the small plus button and far
+// too much on a full-width input — within PULSE_MIN/MAX.
+const PULSE_PX = 10
+const PULSE_MIN = 0.02
+const PULSE_MAX = 0.12
 function mark(el: HTMLElement | null) {
   if (el !== markedEl) {
     markedEl?.classList.remove('tutorial-target')
+    markedEl?.style.removeProperty('--tutorial-pulse-scale')
     markedEl = el
   }
-  if (el && !el.classList.contains('tutorial-target')) el.classList.add('tutorial-target')
+  if (!el) return
+  if (!el.classList.contains('tutorial-target')) el.classList.add('tutorial-target')
+  const grow = Math.min(PULSE_MAX, Math.max(PULSE_MIN, PULSE_PX / Math.max(el.offsetWidth, el.offsetHeight, 1)))
+  el.style.setProperty('--tutorial-pulse-scale', String(1 + grow))
 }
 
 // Followed every frame while a step has a target: the target can move
@@ -98,7 +109,7 @@ watch(() => currentStep.value?.target, (target) => {
 // Capture phase + stopImmediatePropagation so the app's own Enter (open
 // the first card, see App.vue's onGlobalKeydown) doesn't fire as well.
 function onKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Enter' || !currentStep.value || !stepDone.value) return
+  if (e.key !== 'Enter' || !currentStep.value || !canGoNext.value) return
   if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
   const el = e.target as HTMLElement | null
   const tag = el?.tagName?.toLowerCase()
@@ -158,26 +169,29 @@ const showDoneMark = computed(() => !!currentStep.value?.done && stepDone.value)
           <button v-if="!isLast" class="tutorial-skip" @mousedown.prevent @click="endTutorial">skip tour</button>
         </div>
 
-        <Transition :name="`tutorial-swipe-${stepDirection}`" mode="out-in">
-          <div :key="currentStep.id" class="tutorial-content">
-            <h2 class="tutorial-title">{{ currentStep.title }}</h2>
-            <p class="tutorial-body">{{ currentStep.body }}</p>
-            <p v-if="currentStep.hint" class="tutorial-hint" :class="{ 'tutorial-hint--done': showDoneMark }">
-              <!-- Takes no room until done, then opens up in front of the
-                   text while the check stamps down into it. -->
-              <span class="tutorial-stamp-slot">
-                <Check v-if="showDoneMark" class="tutorial-stamp" :size="20" :stroke-width="3.5" />
-              </span>
-              <span>{{ currentStep.hint }}</span>
-            </p>
-          </div>
-        </Transition>
+        <!-- The text area keeps one size through a whole stage (see
+             TutorialStep.stage): every step of it is rendered invisibly
+             in the same grid cell, so the cell — and the card — is as
+             big as the biggest of them and doesn't resize per step. -->
+        <div class="tutorial-stage">
+          <TutorialStepText
+            v-for="step in stageSteps"
+            :key="'sizer-' + step.id"
+            :step="step"
+            done
+            class="tutorial-sizer"
+            aria-hidden="true"
+          />
+          <Transition :name="`tutorial-swipe-${stepDirection}`" mode="out-in">
+            <TutorialStepText :key="currentStep.id" :step="currentStep" :done="showDoneMark" />
+          </Transition>
+        </div>
 
         <div class="tutorial-actions">
-          <button v-if="!isFirst" class="modal-btn modal-btn--cancel modal-btn--pale" @mousedown.prevent @click="prevStep">back</button>
+          <button v-if="!isFirst" class="modal-btn modal-btn--cancel" @mousedown.prevent @click="prevStep">back</button>
           <button
             class="modal-btn modal-btn--save"
-            :disabled="!stepDone"
+            :disabled="!canGoNext"
             @mousedown.prevent
             @click="nextStep"
           >{{ currentStep.nextLabel ?? 'next' }}</button>
@@ -233,72 +247,23 @@ const showDoneMark = computed(() => !!currentStep.value?.done && stepDone.value)
   cursor: pointer;
 }
 
-.tutorial-skip:hover {
-  opacity: 0.9;
+@media (hover: hover) {
+  .tutorial-skip:hover {
+    opacity: 0.9;
+  }
 }
 
-.tutorial-title {
-  font-family: var(--font-playful, sans-serif);
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.15;
-  margin: 2px 0 0;
-}
-
-.tutorial-body {
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 0;
-}
-
-/* The "now you" line — what to do in the app for this step. No box in
-   front (it read as something to click); a check pops in once done. */
-.tutorial-content {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tutorial-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 2px 0 0;
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-
-.tutorial-hint--done {
-  opacity: 1;
-}
-
-.tutorial-stamp-slot {
-  flex: 0 0 auto;
+.tutorial-stage {
   display: grid;
-  place-items: center;
-  width: 0;
-  margin-right: -8px;
-  transition: width 0.18s ease-out, margin-right 0.18s ease-out;
 }
 
-.tutorial-hint--done .tutorial-stamp-slot {
-  width: 20px;
-  margin-right: 0;
+.tutorial-stage > * {
+  grid-area: 1 / 1;
 }
 
-/* Like a stamp: comes down from big and see-through, hits its spot with a
-   small overshoot and a slight tilt that settles. */
-.tutorial-stamp {
-  animation: tutorial-stamp 0.42s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
-}
-
-@keyframes tutorial-stamp {
-  0% { opacity: 0; scale: 2.4; rotate: -18deg; }
-  55% { opacity: 1; scale: 0.88; rotate: 4deg; }
-  75% { scale: 1.08; rotate: -2deg; }
-  100% { opacity: 1; scale: 1; rotate: 0deg; }
+.tutorial-sizer {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tutorial-actions {
@@ -353,27 +318,20 @@ const showDoneMark = computed(() => !!currentStep.value?.done && stepDone.value)
     padding: 14px 16px 16px;
     gap: 8px;
   }
-
-  .tutorial-title {
-    font-size: 19px;
-  }
-
-  .tutorial-body {
-    font-size: 13px;
-  }
 }
 </style>
 
 <style>
 /* The step's target element itself, gently pulsing (unscoped: it's the
    app's own element). `scale`, so it never fights a transform the element
-   already has. */
+   already has; the amount is set per element (see mark() above). */
 .tutorial-target {
   animation: tutorial-target-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes tutorial-target-pulse {
   0%, 100% { scale: 1; }
-  50% { scale: 1.025; }
+  50% { scale: var(--tutorial-pulse-scale); }
 }
+
 </style>

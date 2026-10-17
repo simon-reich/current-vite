@@ -6,6 +6,10 @@ import { requestTodoDraft } from '../composables/useTodoDraftRequest'
 // user (or another part of the app) would cause, so App.vue's own handling
 // stays the single source of truth.
 
+// The add-todo field: the desktop/tablet input with its dropdown, or the
+// phone add sheet.
+export const ADD_FIELD = '.add-wrapper, .add-sheet'
+
 function visible(el: HTMLElement) {
   const r = el.getBoundingClientRect()
   return r.width > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth
@@ -23,7 +27,7 @@ export function collapseAddTodo() {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     }
     const active = document.activeElement as HTMLElement | null
-    if (active?.closest('.add-wrapper, .add-sheet')) active.blur()
+    if (active?.closest(ADD_FIELD)) active.blur()
   }, 0)
 }
 
@@ -31,6 +35,28 @@ export function collapseAddTodo() {
 export function focusAddTitle() {
   const input = [...document.querySelectorAll<HTMLInputElement>('.add-input')].find(visible)
   input?.focus()
+}
+
+function pressEnter(el: HTMLElement) {
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+}
+
+// Enter in the on-screen add-todo title field — on to the sub field, as if
+// typed (App.vue's onTodoTitleEnter).
+export function enterAddTitle() {
+  const input = [...document.querySelectorAll<HTMLInputElement>('.add-input')].find(visible)
+  if (input) pressEnter(input)
+}
+
+// Saves the draft in the add-todo input the way the user would: Enter in
+// the sub field (App.vue's onSubDraftKeydown) — a half-typed sub gets
+// added first, then Enter on the now-empty line saves the todo.
+export function submitAddTodo() {
+  const sub = [...document.querySelectorAll<HTMLInputElement>('.add-sub-input')].find(visible)
+  if (!sub) return
+  if (sub.value.trim()) pressEnter(sub)
+  // v-model clears the field on the next render.
+  setTimeout(() => pressEnter(sub), 0)
 }
 
 // The todo the tour had the user type, remembered when it's saved so that

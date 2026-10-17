@@ -1,7 +1,8 @@
 import type { TutorialStep } from '../types'
+import { todoDraftTitle } from '../../composables/useTodoDraftRequest'
 import { useTodosStore } from '../../stores/todos'
 import { focusIn } from '../focus'
-import { focusAddTitle, restoreSavedTodo } from '../ui'
+import { ADD_FIELD, enterAddTitle, focusAddTitle, restoreSavedTodo } from '../ui'
 
 export const firstTodo: TutorialStep = {
   id: 'first-todo',
@@ -19,4 +20,8 @@ export const firstTodo: TutorialStep = {
   // Back from the subs step: the todo (if already saved) goes back into
   // the input, caret in the title.
   back: () => { if (!restoreSavedTodo('title')) focusAddTitle() },
+  // Moving on to the subs needs a title typed and the add field open
+  // (focus in it) — closed, the subs can't be reached from here.
+  redo: enterAddTitle,
+  ready: () => !!todoDraftTitle.value.trim() && focusIn(ADD_FIELD),
 }
