@@ -7,11 +7,14 @@ import { useThemeStore } from '../stores/theme'
 import { useFontLabStore } from '../stores/fontlab'
 import { FONT_LAB_ENABLED, PLAYFUL_FONTS } from '../composables/useAppFonts'
 import { activeModal } from '../composables/useModalGuard'
+import { useRouter } from 'vue-router'
+import { startTutorial } from '../tutorial/useTutorial'
 import ColorPicker from '../components/ColorPicker.vue'
 
 const { exportData, importData, exportThemes, importThemes, exportEverything, importEverything } = useStorage()
 const themeStore = useThemeStore()
 const fontLabStore = useFontLabStore()
+const router = useRouter()
 
 async function handleImport() {
   const confirmed = window.confirm('Import will replace all current data. Continue?')
@@ -239,6 +242,14 @@ watch(deleteThemeConfirm, (open) => {
           :style="{ fontFamily: `'${font}', sans-serif` }"
           @click="fontLabStore.playfulFont = font"
         >{{ font.toLowerCase() }}</button>
+      </div>
+    </section>
+
+    <!-- Tour (see src/tutorial/) -->
+    <section class="section">
+      <h2 class="section-title">tour</h2>
+      <div class="btn-row">
+        <button class="btn-outline" @click="startTutorial(router)">start tour</button>
       </div>
     </section>
 

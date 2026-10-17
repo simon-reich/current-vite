@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
+import { createPersistedState } from 'pinia-plugin-persistedstate'
 import VCalendar from 'v-calendar'
 import 'v-calendar/style.css'
 import router from './router'
@@ -15,6 +15,12 @@ import { applyTheme } from './composables/useTheme'
 import { useFontLabStore } from './stores/fontlab'
 import { seedDevData } from './dev/seed'
 import { vTooltip } from './composables/useTooltip'
+import { tutorialAwareStorage, restoreTutorialBackup } from './tutorial/sandbox'
+
+// A tutorial cut short by a closed tab/reload puts the real data back first
+// (see tutorial/sandbox.ts) — before the theme read below and before any
+// store hydrates.
+restoreTutorialBackup()
 
 // Apply persisted theme before mount to avoid flash of default colors
 try {
@@ -28,7 +34,9 @@ try {
 if (import.meta.env.DEV) seedDevData()
 
 const pinia = createPinia()
-pinia.use(piniaPluginPersistedstate)
+// Every persisted store writes through the tutorial-aware storage, so the
+// tutorial can run in an empty sandbox without touching the real data.
+pinia.use(createPersistedState({ storage: tutorialAwareStorage }))
 
 const app = createApp(App)
 app.use(pinia)

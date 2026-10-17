@@ -30,6 +30,7 @@ import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from '
 // swap in TodoCard.vue) only makes sense while the frame animations are
 // the active celebration style.
 import { showCelebrationTeaser, hideCelebrationTeaser } from './components/TodoCard.vue'
+import TutorialCoach from './tutorial/TutorialCoach.vue'
 import { drawCelebrationKey } from './composables/useCelebrations'
 
 const router = useRouter()
@@ -909,6 +910,14 @@ function focusSubInput() {
   else newSubInputRef.value?.focus()
 }
 
+// focusSubInput, but waiting (up to ~1s) for the sub field to be rendered
+// visibly first — focusing it while still hidden does nothing.
+function focusSubInputOnceShown(framesLeft = 60) {
+  const el = isPhoneWidth.value && isAddSheetRoute.value ? mobileSubInputRef.value : newSubInputRef.value
+  if (el && el.offsetParent) { el.focus(); return }
+  if (framesLeft > 0) requestAnimationFrame(() => focusSubInputOnceShown(framesLeft - 1))
+}
+
 // Tab out of the title input jumps straight into the sub draft input
 // instead of doing whatever Tab would otherwise do (nothing here, since
 // the top-level add-todo input isn't part of any Tab-cycling) — only
@@ -1149,7 +1158,8 @@ function focusTodoInput() {
   currentTodoInputEl()?.focus()
 }
 
-// Prefill requests from elsewhere (TodoCard.vue's sub → own todo) replace
+// Prefill requests from elsewhere (TodoCard.vue's sub → own todo, the
+// tour stepping back to an unsaved todo) replace
 // whatever draft was there, open the phone panel if that's where the input
 // lives, and place the caret where the request asks for it.
 watch(todoDraftRequest, (request) => {
@@ -1158,6 +1168,7 @@ watch(todoDraftRequest, (request) => {
   resetTodoDraft()
   todoInput.value = request.title
   newTodoTagIds.value = [...request.tags]
+  newTodoSubs.value = [...(request.subs ?? [])]
   if (isPhoneWidth.value && isAddSheetRoute.value) addSheetOpen.value = true
   nextTick(() => {
     const el = currentTodoInputEl()
@@ -1165,6 +1176,10 @@ watch(todoDraftRequest, (request) => {
     el.focus()
     const pos = request.caret === 'start' ? 0 : el.value.length
     el.setSelectionRange(pos, pos)
+    // The sub field sits in the dropdown the title's focus just opened —
+    // which only shows once the input has grown to full width (see
+    // addDropdownOpen), so wait frame by frame until it's actually there.
+    if (request.focus === 'sub' && themeStore.subsEnabled) focusSubInputOnceShown()
   })
 })
 
@@ -2503,4 +2518,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       </div>
     </div>
   </template>
+
+  <!-- Interactive tour (see src/tutorial/) — renders nothing unless running. -->
+  <TutorialCoach />
 </template>

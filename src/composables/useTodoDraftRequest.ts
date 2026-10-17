@@ -5,6 +5,10 @@ export interface TodoDraftRequest {
   tags: string[]
   // Where the caret lands in the prefilled title.
   caret: 'start' | 'end'
+  // Staged subs to restore along with the title (the tour's back step).
+  subs?: string[]
+  // Which field ends up focused — the title (default) or the sub field.
+  focus?: 'title' | 'sub'
 }
 
 // A request to prefill App.vue's add-todo input from somewhere else (e.g.
