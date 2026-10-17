@@ -1,38 +1,17 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, watch } from 'vue'
 import TutorialStepText from './TutorialStepText.vue'
 import { currentStep, stageSteps, stepNumber, stepCount, stepDone, canGoNext, stepDirection, nextStep, prevStep, endTutorial } from './useTutorial'
 
-// The tutorial's coach card (centered) and whatever the current step points
+// The tutorial's coach card — always dead center, it never moves out of
+// the way (tried, looked restless) — and whatever the current step points
 // at gently pulsing (.tutorial-target, see the unscoped style below).
 // Never blocks the app — the user does each step for real in the actual
 // UI, the card just explains and waits.
 
-const spot = ref<{ top: number; left: number; width: number; height: number } | null>(null)
-const SPOT_PAD = 6
-
-// How far an element's (outer) box-shadows reach past its border box on
-// each side — counted into the target's area (the card keeps clear of the
-// hard drop shadow too, add input/phone plus button). Computed style lists each
-// shadow as "<color> x y blur spread".
-function shadowExtent(el: HTMLElement) {
-  const ext = { top: 0, right: 0, bottom: 0, left: 0 }
-  const raw = getComputedStyle(el).boxShadow
-  if (!raw || raw === 'none') return ext
-  for (const shadow of raw.split(/,(?![^(]*\))/)) {
-    if (shadow.includes('inset')) continue
-    const [x = 0, y = 0, blur = 0, spread = 0] = (shadow.replace(/[a-z-]+\([^)]*\)|#[0-9a-f]+/gi, '').match(/-?[\d.]+px/g) ?? []).map(parseFloat)
-    const reach = blur + spread
-    ext.right = Math.max(ext.right, x + reach)
-    ext.left = Math.max(ext.left, -x + reach)
-    ext.bottom = Math.max(ext.bottom, y + reach)
-    ext.top = Math.max(ext.top, -y + reach)
-  }
-  return ext
-}
-
 function findTarget(): HTMLElement | null {
-  const target = currentStep.value?.target
+  const raw = currentStep.value?.target
+  const target = typeof raw === 'function' ? raw() : raw
   if (!target) return null
   for (const selector of Array.isArray(target) ? target : [target]) {
     for (const el of document.querySelectorAll<HTMLElement>(selector)) {
@@ -52,12 +31,14 @@ let markedEl: HTMLElement | null = null
 // whole class attribute whenever its own :class binding changes (the add
 // field's --open modifier as it unfolds), dropping this one with it.
 //
-// The pulse grows the element by about the same few pixels whatever its
-// size — a fixed scale would be invisible on the small plus button and far
-// too much on a full-width input — within PULSE_MIN/MAX.
+// The pulse grows small controls (buttons, the + circle) by a clearly
+// visible PULSE_SMALL_PX, larger ones (inputs, lists) by PULSE_PX — a fixed
+// scale would be invisible on the small ones and far too much on a
+// full-width input — never below PULSE_MIN.
+const SMALL_SIZE = 60
+const PULSE_SMALL_PX = 4
 const PULSE_PX = 10
 const PULSE_MIN = 0.02
-const PULSE_MAX = 0.12
 function mark(el: HTMLElement | null) {
   if (el !== markedEl) {
     markedEl?.classList.remove('tutorial-target')
@@ -66,41 +47,23 @@ function mark(el: HTMLElement | null) {
   }
   if (!el) return
   if (!el.classList.contains('tutorial-target')) el.classList.add('tutorial-target')
-  const grow = Math.min(PULSE_MAX, Math.max(PULSE_MIN, PULSE_PX / Math.max(el.offsetWidth, el.offsetHeight, 1)))
+  const size = Math.max(el.offsetWidth, el.offsetHeight, 1)
+  const grow = size < SMALL_SIZE ? PULSE_SMALL_PX / size : Math.max(PULSE_MIN, PULSE_PX / size)
   el.style.setProperty('--tutorial-pulse-scale', String(1 + grow))
 }
 
-// Followed every frame while a step has a target: the target can move
-// (input growing on focus, layout shifts, resizes, route transitions) and
-// a frame-by-frame rect read is cheaper than wiring observers to all of it.
-// Measured without the pulse's scale (offsetWidth/Height are untransformed).
+// Followed every frame while a step has a target: the target can change
+// (another breakpoint's control, an element re-rendered or swapped in) and
+// a frame-by-frame lookup is cheaper than wiring observers to all of it.
 let raf = 0
 function track() {
-  const el = findTarget()
-  mark(el)
-  if (el) {
-    const r = el.getBoundingClientRect()
-    const sh = shadowExtent(el)
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
-    const w = el.offsetWidth, h = el.offsetHeight
-    const next = {
-      top: Math.round(cy - h / 2 - sh.top - SPOT_PAD),
-      left: Math.round(cx - w / 2 - sh.left - SPOT_PAD),
-      width: Math.round(w + sh.left + sh.right + SPOT_PAD * 2),
-      height: Math.round(h + sh.top + sh.bottom + SPOT_PAD * 2),
-    }
-    const prev = spot.value
-    if (!prev || prev.top !== next.top || prev.left !== next.left || prev.width !== next.width || prev.height !== next.height) spot.value = next
-  } else if (spot.value) {
-    spot.value = null
-  }
+  mark(findTarget())
   raf = requestAnimationFrame(track)
 }
 
 watch(() => currentStep.value?.target, (target) => {
   cancelAnimationFrame(raf)
   mark(null)
-  spot.value = null
   if (target) raf = requestAnimationFrame(track)
 }, { immediate: true })
 
@@ -124,29 +87,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown, true)
   cancelAnimationFrame(raf)
   mark(null)
-  window.removeEventListener('resize', onResize)
-})
-
-const viewport = ref({ w: window.innerWidth, h: window.innerHeight })
-function onResize() { viewport.value = { w: window.innerWidth, h: window.innerHeight } }
-window.addEventListener('resize', onResize)
-
-// The card sits in the middle of the screen — unless that would cover the
-// target, then it moves just below it (or above, if there's no room below).
-const cardRef = ref<HTMLElement | null>(null)
-const CARD_GAP = 24
-const cardStyle = computed(() => {
-  const r = spot.value
-  const card = cardRef.value
-  if (!r || !card) return undefined
-  const { h } = viewport.value
-  const ch = card.offsetHeight
-  const centerTop = (h - ch) / 2
-  const overlaps = centerTop < r.top + r.height + CARD_GAP && centerTop + ch + CARD_GAP > r.top
-  if (!overlaps) return undefined
-  const below = r.top + r.height + CARD_GAP
-  const top = below + ch <= h - CARD_GAP ? below : Math.max(CARD_GAP, r.top - CARD_GAP - ch)
-  return { top: top + 'px', transform: 'translateX(-50%)' }
 })
 
 const isFirst = computed(() => stepNumber.value === 1)
@@ -163,7 +103,7 @@ const showDoneMark = computed(() => !!currentStep.value?.done && stepDone.value)
          Buttons keep focus where it is (mousedown.prevent) — clicking
          back/next mustn't pull the caret out of the add input. -->
     <Transition name="tutorial-card" appear>
-      <div v-if="currentStep" ref="cardRef" class="tutorial-card" :style="cardStyle" role="dialog" :aria-label="currentStep.title">
+      <div v-if="currentStep" class="tutorial-card" data-keeps-card-open role="dialog" :aria-label="currentStep.title">
         <div class="tutorial-card-top">
           <span class="tutorial-progress">{{ stepNumber }} / {{ stepCount }}</span>
           <button v-if="!isLast" class="tutorial-skip" @mousedown.prevent @click="endTutorial">skip tour</button>

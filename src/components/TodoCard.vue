@@ -597,6 +597,7 @@ import { useThemeStore } from '../stores/theme'
 import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickExpand'
 import { activeModal } from '../composables/useModalGuard'
 import { requestTodoDraft } from '../composables/useTodoDraftRequest'
+import { sandboxActive } from '../tutorial/sandbox'
 import { runLoopSchedule, isLoopDueToday, isLoopSettledToday } from '../composables/useLoopSchedule'
 import { shrinkFontToFit } from '../composables/useFitFont'
 import { burstCheckbox } from '../composables/useCheckboxBurst'
@@ -1386,7 +1387,10 @@ function toggleCheckMenu() {
 
 const wrapRef = ref<HTMLElement | null>(null)
 
+// Clicks inside an element marked data-keeps-card-open (the tour's coach
+// card, see tutorial/) don't count as "outside".
 function closeOnOutside(e: MouseEvent) {
+  if ((e.target as Element | null)?.closest?.('[data-keeps-card-open]')) return
   if (wrapRef.value && !wrapRef.value.contains(e.target as Node)) {
     if (openCheckMenuId.value === props.todo.id) openCheckMenuId.value = null
     if (openTagMenuId.value === props.todo.id) openTagMenuId.value = null
@@ -1484,6 +1488,10 @@ function onCardKeydown(e: KeyboardEvent) {
   // idea as the isEditing guard right below for the title textarea.
   if ((e.target as HTMLElement)?.closest?.('.sub-row')) return
   if (isEditing.value) return
+  // The tour (see tutorial/) runs without card shortcuts — a stray D or C
+  // would delete or move the very todo it's built around. Only Enter and
+  // Escape (close the card) stay.
+  if (sandboxActive.value && e.key !== 'Enter' && e.key !== 'Escape') return
   if (showMenu.value && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
     e.preventDefault()
     focusedCheckOption.value = focusedCheckOption.value === 'now' ? 'done' : 'now'

@@ -5,6 +5,8 @@ import type { TutorialStep } from './types'
 import { enterSandbox, exitSandbox, sandboxActive } from './sandbox'
 import { startFocusTracking, stopFocusTracking } from './focus'
 import { forgetSavedTodo } from './ui'
+import { forgetSeed } from './seed'
+import { activeTagIds } from '../composables/useTagFilter'
 
 // Tutorial state — module-level, one tour for the whole app. The coach UI
 // (TutorialCoach.vue) only renders this; steps themselves live in steps/.
@@ -52,10 +54,16 @@ function openStep(index: number, direction: 'forward' | 'back' = 'forward') {
   // Already done on arrival (e.g. the todo got saved during the previous
   // step's pause) — stepDone doesn't change then (forward always comes
   // from a done step), so the watch below wouldn't fire.
-  if (direction === 'forward' && step.done?.()) completeStep(step)
+  if (direction === 'forward' && step.done?.() && !completedIds.has(step.id)) completeStep(step)
 }
 
+// Steps completed at least once this tour — arriving at one of those
+// again (forward after going back) doesn't auto-complete it a second time;
+// it just shows as done with "next" free.
+const completedIds = new Set<string>()
+
 function completeStep(step: TutorialStep) {
+  completedIds.add(step.id)
   step.onDone?.()
   clearAdvanceTimer()
   const delay = step.advanceMs ?? AUTO_ADVANCE_MS
@@ -71,6 +79,10 @@ watch(stepDone, (done) => {
 export function startTutorial(r: Router) {
   router = r
   if (!enterSandbox()) return
+  completedIds.clear()
+  // Filters point at tag ids — the real ones don't exist in the sandbox
+  // and the tour's don't outside it, so neither carries over.
+  activeTagIds.value = []
   startFocusTracking()
   openStep(0)
 }
@@ -87,13 +99,17 @@ export function nextStep() {
 }
 
 export function prevStep() {
-  if (stepIndex.value > 0) openStep(stepIndex.value - 1, 'back')
+  if (stepIndex.value <= 0) return
+  currentStep.value?.undo?.()
+  openStep(stepIndex.value - 1, 'back')
 }
 
 export function endTutorial() {
   clearAdvanceTimer()
   stopFocusTracking()
   forgetSavedTodo()
+  forgetSeed()
+  activeTagIds.value = []
   exitSandbox()
   stepIndex.value = 0
   router?.push('/all')

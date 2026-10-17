@@ -11,7 +11,8 @@ export interface TutorialStep {
   title: string
   // A sentence or two on what this part of the app is for.
   body: string
-  // What to try right now ("type a todo and press enter").
+  // What to try right now ("type a todo and press enter"). Body and hint
+  // may name an icon inline as {plus} — see TutorialStepText.vue.
   hint?: string
   // Route the step needs; the tutorial navigates there on entering.
   route?: string
@@ -19,7 +20,9 @@ export interface TutorialStep {
   // different breakpoints (desktop input vs. phone plus button) — the
   // first one actually rendered on screen wins. Steps with a target also
   // get the soft dim cover with a cut-out around it.
-  target?: string | string[]
+  // A function for targets that move on within the step (the + first,
+  // then the card's title to close it).
+  target?: string | string[] | (() => string | string[])
   // Reactive condition the user completes by doing the thing. While it's
   // false "next" stays disabled; once true the tutorial moves on by itself.
   // Steps without it are plain info steps with a "next" button.
@@ -39,6 +42,9 @@ export interface TutorialStep {
   // typed, ...). Matters most after back, where the restored draft is
   // already there, but works the first time round too.
   redo?: () => void
+  // Runs when leaving this step backwards — takes back what enter() set up
+  // (seeded todos, ...), so the earlier step finds the app as it was.
+  undo?: () => void
   ready?: () => boolean
   // Pause between done() turning true and the next step (default
   // AUTO_ADVANCE_MS in useTutorial.ts) — shorter where the user is already

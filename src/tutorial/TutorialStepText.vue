@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Check } from '@lucide/vue'
+import { Check, CirclePlus } from '@lucide/vue'
+import type { Component } from 'vue'
 import type { TutorialStep } from './types'
 
 // A step's text block on the coach card — title, body and the "now you"
@@ -7,19 +8,39 @@ import type { TutorialStep } from './types'
 // visible one, and invisible copies of every step in the stage that size
 // the card (see .tutorial-stage there).
 defineProps<{ step: TutorialStep; done?: boolean }>()
+
+// Icons a step's text can show inline, written as {name} — so the text
+// names a control by the exact symbol the app shows for it.
+const ICONS: Record<string, Component> = {
+  plus: CirclePlus,
+}
+
+function parts(text: string): (string | Component)[] {
+  return text.split(/\{(\w+)\}/).map((part, i) => (i % 2 ? ICONS[part] ?? `{${part}}` : part)).filter(p => p !== '')
+}
 </script>
 
 <template>
   <div class="tutorial-content">
     <h2 class="tutorial-title">{{ step.title }}</h2>
-    <p class="tutorial-body">{{ step.body }}</p>
+    <p class="tutorial-body">
+      <template v-for="(part, i) in parts(step.body)" :key="i">
+        <template v-if="typeof part === 'string'">{{ part }}</template>
+        <component :is="part" v-else class="tutorial-inline-icon" :size="15" />
+      </template>
+    </p>
     <p v-if="step.hint" class="tutorial-hint" :class="{ 'tutorial-hint--done': done }">
       <!-- Takes no room until done, then opens up in front of the text
            while the check stamps down into it. -->
       <span class="tutorial-stamp-slot">
         <Check v-if="done" class="tutorial-stamp" :size="20" :stroke-width="3.5" />
       </span>
-      <span>{{ step.hint }}</span>
+      <span>
+        <template v-for="(part, i) in parts(step.hint)" :key="i">
+          <template v-if="typeof part === 'string'">{{ part }}</template>
+          <component :is="part" v-else class="tutorial-inline-icon" :size="14" />
+        </template>
+      </span>
     </p>
   </div>
 </template>
@@ -87,6 +108,12 @@ defineProps<{ step: TutorialStep; done?: boolean }>()
   55% { opacity: 1; scale: 0.88; rotate: 4deg; }
   75% { scale: 1.08; rotate: -2deg; }
   100% { opacity: 1; scale: 1; rotate: 0deg; }
+}
+
+.tutorial-inline-icon {
+  display: inline-block;
+  vertical-align: -0.2em;
+  margin: 0 1px;
 }
 
 @media (max-width: 700px) {

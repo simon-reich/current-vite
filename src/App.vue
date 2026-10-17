@@ -16,6 +16,7 @@ import { useScrollTracking } from './composables/useScrollTracking'
 import { onQuickExpandEnter, onQuickExpandLeave } from './composables/useQuickExpand'
 import { activeModal } from './composables/useModalGuard'
 import { todoDraftRequest, todoDraftTitle } from './composables/useTodoDraftRequest'
+import { activeTagIds } from './composables/useTagFilter'
 import { runLoopSchedule, scheduleLoopMidnightCheck, isLoopDueToday } from './composables/useLoopSchedule'
 import { toasts, spawnToast } from './composables/useToast'
 import { todayStr, addDaysStr, localDayOf, appDate } from './composables/useToday'
@@ -31,6 +32,7 @@ import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from '
 // the active celebration style.
 import { showCelebrationTeaser, hideCelebrationTeaser } from './components/TodoCard.vue'
 import TutorialCoach from './tutorial/TutorialCoach.vue'
+import { sandboxActive } from './tutorial/sandbox'
 import { drawCelebrationKey } from './composables/useCelebrations'
 
 const router = useRouter()
@@ -161,6 +163,11 @@ function onGlobalKeydown(e: KeyboardEvent) {
     showMobileTags.value = false
     return
   }
+
+  // No shortcuts during the tour (see tutorial/) — a stray key mustn't
+  // switch views or change what the tour is pointing at. Escape still
+  // closes things.
+  if (sandboxActive.value && e.key !== 'Escape') return
 
   if (e.key === 'Tab') {
     if (isTypingTarget(e.target)) return
@@ -783,7 +790,6 @@ function onTagInputBlur() {
   if (!tagInput.value) tagInputOpen.value = false
 }
 
-const activeTagIds = ref<string[]>([])
 
 // Deleting a tag that's currently used as a filter should drop it from the
 // filter too — otherwise the list stays filtered by a tag that no longer
