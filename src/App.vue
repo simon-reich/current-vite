@@ -153,6 +153,7 @@ function onGlobalKeydown(e: KeyboardEvent) {
       activeModal.value.onConfirm?.()
     } else {
       e.stopImmediatePropagation()
+      activeModal.value.onKeydown?.(e)
     }
     return
   }

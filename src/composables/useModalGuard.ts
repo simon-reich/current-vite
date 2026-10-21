@@ -3,6 +3,10 @@ import { ref, onUnmounted } from 'vue'
 export interface ModalGuard {
   onCancel: () => void
   onConfirm?: () => void
+  // Any other key while the modal is up (App.vue's global listener swallows
+  // everything else underneath it) — e.g. a date picker's arrow-key
+  // navigation, see DatePickerModal.vue/FocusDatePanel.vue.
+  onKeydown?: (e: KeyboardEvent) => void
 }
 
 // Whichever confirmation modal is currently open (delete-todo, delete-tag,

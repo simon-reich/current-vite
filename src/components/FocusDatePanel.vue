@@ -2,7 +2,8 @@
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { useTodosStore } from '../stores/todos'
-import { todayStr } from '../composables/useToday'
+import { todayStr, addDaysStr } from '../composables/useToday'
+import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
 import { activeModal, releaseModalGuard } from '../composables/useModalGuard'
 import FocusDateNav from './FocusDateNav.vue'
 import ScrollDivider from './ScrollDivider.vue'
@@ -160,11 +161,24 @@ function updateIsPhoneWidth() { isPhoneWidth.value = window.innerWidth <= PHONE_
 onMounted(() => window.addEventListener('resize', updateIsPhoneWidth))
 onUnmounted(() => window.removeEventListener('resize', updateIsPhoneWidth))
 
+// Arrow keys (tablet with a hardware keyboard) step the picked day through
+// the calendar the same way Calendar.vue's own arrows do — applied right
+// away, just like a click here (pickDate), never into the past. Only with
+// the calendar actually shown.
+function onKeydown(e: KeyboardEvent) {
+  if (!(props.showCalendar ?? true)) return
+  const delta = arrowKeyDayDelta(e.key)
+  if (delta === null) return
+  e.preventDefault()
+  const next = addDaysStr(activeDate.value, delta)
+  pickDate({ id: next < todayStr() ? todayStr() : next })
+}
+
 // Same app-wide modal guard every other overlay uses (Escape closes this),
 // registered/cleared as `open` itself changes rather than on mount/unmount
 // — this component stays mounted the whole time the pill exists, only
 // `open` toggles.
-const guard = { onCancel: close, onConfirm: close }
+const guard = { onCancel: close, onConfirm: close, onKeydown }
 watch(() => props.open, (isOpen) => {
   if (isOpen) activeModal.value = guard
   else releaseModalGuard(guard)

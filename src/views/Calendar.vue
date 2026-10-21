@@ -9,6 +9,7 @@ import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
+import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
@@ -90,10 +91,10 @@ function shiftDate(days: number) {
 
 function onKeydown(e: KeyboardEvent) {
   if (viewMode.value === 'log') return
-  if (e.key === 'ArrowLeft')  { e.preventDefault(); shiftDate(-1) }
-  if (e.key === 'ArrowRight') { e.preventDefault(); shiftDate(1) }
-  if (e.key === 'ArrowUp')    { e.preventDefault(); shiftDate(-7) }
-  if (e.key === 'ArrowDown')  { e.preventDefault(); shiftDate(7) }
+  const delta = arrowKeyDayDelta(e.key)
+  if (delta === null) return
+  e.preventDefault()
+  shiftDate(delta)
 }
 
 // One plain dot for any activity on a day — a Todo done/worked on or a
