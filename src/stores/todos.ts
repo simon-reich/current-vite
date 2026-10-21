@@ -220,22 +220,25 @@ export const useTodosStore = defineStore('todos', () => {
   // wasn't checked off stays pending (`inCurrent`, set by runLoopSchedule,
   // cleared by done/done-for-now/move-to-next-day) and keeps showing on
   // today's list even on days its schedule itself isn't due.
-  function todosForFocusDate(dateStr: string): Todo[] {
+  // Single membership test behind todosForFocusDate — also what a card uses
+  // to tell whether it's on a given list (TodoCard.vue's isOnList), so a due
+  // Date Todo shows the list actions there too, not just "add".
+  function isOnFocusDate(t: Todo, dateStr: string): boolean {
+    if (t.completedAt || t.deletedAt) return false
+    if (t.focusDates?.includes(dateStr)) return true
+    const interval = t.loopInterval
+    if (!interval || t.excludedFocusDates?.includes(dateStr)) return false
     const today = todayStr()
-    const isDueOn = (t: Todo) => {
-      const interval = t.loopInterval!
-      if (dateStr === today && t.inCurrent) return true
-      if ((interval.mode ?? 'loop') === 'once') {
-        const start = interval.startDate || localDayOf(t.createdAt)
-        return dateStr === (start > today ? start : today)
-      }
-      return isLoopDueToday(interval, new Date(`${dateStr}T12:00:00`), localDayOf(t.createdAt))
+    if (dateStr === today && t.inCurrent) return true
+    if ((interval.mode ?? 'loop') === 'once') {
+      const start = interval.startDate || localDayOf(t.createdAt)
+      return dateStr === (start > today ? start : today)
     }
-    return todos.value.filter(t =>
-      !t.completedAt && !t.deletedAt &&
-      (t.focusDates?.includes(dateStr) ||
-        (t.loopInterval && !t.excludedFocusDates?.includes(dateStr) && isDueOn(t)))
-    )
+    return isLoopDueToday(interval, new Date(`${dateStr}T12:00:00`), localDayOf(t.createdAt))
+  }
+
+  function todosForFocusDate(dateStr: string): Todo[] {
+    return todos.value.filter(t => isOnFocusDate(t, dateStr))
   }
 
   // Completed / worked-on todos for a given calendar day (YYYY-MM-DD), used
@@ -767,7 +770,7 @@ export const useTodosStore = defineStore('todos', () => {
     todos, tags,
     // getters
     activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
-    completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, hasFocusDateList,
+    completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, isOnFocusDate, hasFocusDateList,
     // actions
     addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForNow, doneForNowOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,

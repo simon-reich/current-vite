@@ -1976,7 +1976,9 @@ function formatShortDate(dateStr: string): string {
 // that slot performs. Whether it reads as add or remove follows this
 // todo's membership on that specific date, mirroring the old
 // todo.inCurrent toggle it replaced.
-const isOnSelectedFocusDate = computed(() => props.todo.focusDates?.includes(themeStore.selectedFocusDate) ?? false)
+// Same live definition as the list itself (store.isOnFocusDate): a Date
+// todo due that day counts as on it, even without a focusDates entry.
+const isOnSelectedFocusDate = computed(() => store.isOnFocusDate(props.todo, themeStore.selectedFocusDate))
 
 // The Date List this card is currently shown as a member of, if any —
 // Overview: the Focus Date widget's selection (only once this todo is
