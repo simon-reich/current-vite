@@ -4,6 +4,7 @@ import type { Ref } from 'vue'
 import { useTodosStore, LOOP_TAG_ID, type Todo } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
+import ActiveFilterChips from '../components/ActiveFilterChips.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { nextLoopDue, isLoopSettledToday } from '../composables/useLoopSchedule'
@@ -111,6 +112,18 @@ const selectedListBoundary = computed(() => {
 // Caption on the divider: the selected list's date, worded exactly like
 // its entry in the sidebar's Date-List nav (today / tomorrow / 04|10
 // sunday), so scrolling past it reads the same as the nav.
+// Where the active-filter chips (ActiveFilterChips.vue) sit: right above
+// the pool — below the selected Date List's divider with Date Lists on,
+// otherwise (or in the Date filter's "only" mode, which has no divider)
+// simply on top. If every visible todo is on the selected list, there's no
+// pool left, so they trail the list instead (index === length).
+const filterChipsIndex = computed(() => {
+  if (!themeStore.dateListsEnabled || loopFilterMode.value === 'only') return 0
+  const onList = onSelectedListIds.value
+  const i = filteredTodos.value.findIndex(t => !onList.has(t.id))
+  return i === -1 ? filteredTodos.value.length : i
+})
+
 const { formatPresetDate } = useFocusDateNav()
 const selectedListLabel = computed(() => formatPresetDate(themeStore.selectedFocusDate))
 
@@ -154,6 +167,7 @@ function unassignFocusDate(id: string) {
         <span class="selected-list-break-label">{{ selectedListLabel }}</span>
         <div class="selected-list-break-line" aria-hidden="true" />
       </div>
+      <ActiveFilterChips v-if="index === filterChipsIndex" />
       <TodoCard
         :data-flip-id="todo.id"
         :todo="todo"
@@ -171,10 +185,14 @@ function unassignFocusDate(id: string) {
         @delete="store.deleteTodo($event)"
       />
       </template>
+      <ActiveFilterChips v-if="filterChipsIndex === filteredTodos.length" />
     </div>
-    <p v-else class="empty">
-      {{ (themeStore.dateListsEnabled ? store.activeTodos.length : store.activeTodos.filter(t => !t.inCurrent).length) === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
-    </p>
+    <template v-else>
+      <ActiveFilterChips />
+      <p class="empty">
+        {{ (themeStore.dateListsEnabled ? store.activeTodos.length : store.activeTodos.filter(t => !t.inCurrent).length) === 0 && effectiveFilterTagIds.length === 0 ? 'No todos yet.' : 'No todos for this filter.' }}
+      </p>
+    </template>
   </div>
 </template>
 
@@ -219,6 +237,12 @@ function unassignFocusDate(id: string) {
   line-height: 1.3;
 }
 
+/* Active-filter chips right below the divider belong to the pool under it,
+   so they sit close to the line — only the wrap's own gap in between. */
+.selected-list-break:has(+ .active-filters) {
+  margin-bottom: 0;
+}
+
 .selected-list-break-label {
   font-weight: 700;
   color: var(--ink);
@@ -230,6 +254,21 @@ function unassignFocusDate(id: string) {
   height: 2px;
   background: var(--ink);
   opacity: 0.35;
+}
+
+/* Full-width row of its own, so in grid mode it forces a row break like the
+   divider above it; left-aligned wherever the cards are (list view, phone). */
+.todo-wrap > .active-filters {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.todo-wrap.list-view > .active-filters {
+  justify-content: flex-start;
+}
+
+.all-todos > .active-filters + .empty {
+  margin-top: 16px;
 }
 
 .todo-wrap.list-view {
@@ -267,6 +306,9 @@ function unassignFocusDate(id: string) {
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: flex-start;
+    justify-content: flex-start;
+  }
+  .todo-wrap > .active-filters {
     justify-content: flex-start;
   }
 }
