@@ -627,7 +627,7 @@ export const useTodosStore = defineStore('todos', () => {
     })
   }
 
-  // Unfinished Date-List todos don't roll forward to the next list/default
+  // Unfinished plain Date-List todos don't roll forward to the next list/default
   // Current — they just fall back into the pool (see plan discussion), bumped
   // to the top of Overview's "date" sort via poolBumpedAt so they're easy
   // to spot again. Called from the same three App.vue hooks that already
@@ -643,10 +643,19 @@ export const useTodosStore = defineStore('todos', () => {
     const now = new Date().toISOString()
     todos.value.forEach(t => {
       if (t.focusDates?.length) {
-        const remaining = t.focusDates.filter(d => d >= cutoff)
+        // An unfinished Date Todo left on a past list (moved there via
+        // "move to next day", or planned by hand on a day it wasn't due)
+        // carries over instead: pending again (inCurrent), so it shows on
+        // today's list like any other undone occurrence (see
+        // isOnFocusDate). Never kept back for yesterday's leftovers —
+        // leftoversFrom leaves Date Todos out, so it would just vanish
+        // into the pool for a day.
+        const dateTodo = isDateTodo(t) && !t.completedAt && !t.deletedAt
+        const remaining = t.focusDates.filter(d => d >= (dateTodo ? today : cutoff))
         if (remaining.length !== t.focusDates.length) {
           t.focusDates = remaining.length ? remaining : undefined
-          t.poolBumpedAt = now
+          if (!dateTodo) t.poolBumpedAt = now
+          else if (!t.inCurrent) sendToCurrent(t.id)
         }
       }
       // Same trim for excludedFocusDates — a past exclusion is meaningless
