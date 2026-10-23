@@ -115,6 +115,9 @@ export interface Todo {
 export const useTodosStore = defineStore('todos', () => {
   const todos = ref<Todo[]>([])
   const tags = ref<Tag[]>([])
+  // Last app day runLoopSchedule ran on — lets it catch up on loop
+  // occurrences that fell on days the app was never opened (see there).
+  const loopScheduleRanOn = ref<string | undefined>(undefined)
 
   // One-time migration for the brief window this app had a separate
   // append-only `history` log (one row per Done/Done-for-now event,
@@ -776,7 +779,7 @@ export const useTodosStore = defineStore('todos', () => {
 
   return {
     // state
-    todos, tags,
+    todos, tags, loopScheduleRanOn,
     // getters
     activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
     completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, isOnFocusDate, hasFocusDateList,

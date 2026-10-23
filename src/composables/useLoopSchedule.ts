@@ -1,6 +1,6 @@
 import type { LoopInterval, Todo } from '../stores/todos'
 import { LOOP_TAG_ID } from '../stores/todos'
-import { todayStr, localDayOf, appDate, DAY_START_HOUR } from './useToday'
+import { todayStr, addDaysStr, localDayOf, appDate, DAY_START_HOUR } from './useToday'
 
 function parseISODate(s: string): Date | null {
   if (!s) return null
@@ -173,9 +173,32 @@ export function nextLoopDue(interval: LoopInterval, settledToday = false): Date 
 
 export interface LoopScheduleStore {
   todos: Todo[]
+  loopScheduleRanOn: string | undefined
   sendToCurrent: (id: string) => void
   hasFocusDateList: (dateStr: string) => boolean
   assignFocusDate: (id: string, dateStr: string) => void
+}
+
+// Catch-up: an occurrence due on a day the app was never opened (no run
+// at all between store.loopScheduleRanOn and today) would otherwise never
+// have become pending — it counts as missed and joins today the same way,
+// one pending occurrence no matter how many were missed. Has to run before
+// rolloverExpiredFocusDates on a new day (see App.vue), which trims the
+// past exclusions missedSinceLastRun respects.
+const MAX_CATCH_UP_DAYS = 366
+
+function missedSinceLastRun(todo: Todo, ranOn: string | undefined, today: string): boolean {
+  const interval = todo.loopInterval!
+  if (!ranOn || todo.inCurrent || (interval.mode ?? 'loop') === 'once') return false
+  const created = localDayOf(todo.createdAt)
+  let day = addDaysStr(ranOn, 1)
+  const earliest = addDaysStr(today, -MAX_CATCH_UP_DAYS)
+  if (day < earliest) day = earliest
+  for (; day < today; day = addDaysStr(day, 1)) {
+    if (day < created || todo.excludedFocusDates?.includes(day)) continue
+    if (isLoopDueToday(interval, new Date(`${day}T12:00:00`), created)) return true
+  }
+  return false
 }
 
 // Sends every due, not-yet-completed loop todo to Current — called once on
@@ -186,8 +209,10 @@ export interface LoopScheduleStore {
 // its own Date List — also gets today's focusDate, landing in both at once.
 // It never creates a Date List for today out of thin air — see App.vue's
 // addTodo for the same rule applied to a todo typed in directly.
+// Also catches up on missed occurrences, see missedSinceLastRun.
 export function runLoopSchedule(store: LoopScheduleStore) {
   const today = todayStr()
+  const ranOn = store.loopScheduleRanOn
   const hasDateListToday = store.hasFocusDateList(today)
   for (const todo of store.todos) {
     if (!todo.loopInterval || !todo.tags.includes(LOOP_TAG_ID) || todo.completedAt || todo.deletedAt) continue
@@ -196,7 +221,7 @@ export function runLoopSchedule(store: LoopScheduleStore) {
     // rest of the list from being checked, or bubble up into App.vue's
     // onMounted and cut off whatever runs after it there.
     try {
-      if (isLoopDueToday(todo.loopInterval, appDate(), localDayOf(todo.createdAt))) {
+      if (isLoopDueToday(todo.loopInterval, appDate(), localDayOf(todo.createdAt)) || missedSinceLastRun(todo, ranOn, today)) {
         // Sets focusAddedAt, which also satisfies processedToday's "already
         // handled today" guard for the assignFocusDate branch below.
         store.sendToCurrent(todo.id)
@@ -206,6 +231,7 @@ export function runLoopSchedule(store: LoopScheduleStore) {
       console.error('[loop schedule] skipping todo', todo.id, err)
     }
   }
+  store.loopScheduleRanOn = today
 }
 
 // Schedules runLoopSchedule to fire right after the next local midnight,
