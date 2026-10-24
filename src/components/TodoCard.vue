@@ -407,13 +407,14 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
       phone: { importer: () => import('../assets/animations/svg/cat-black_486.svg?raw'), fallbackCycleMs: 3150 },
     },
   },
-  whale: {
-    variants: {
-      desktop: { importer: () => import('../assets/animations/svg/whale-05_1920.svg?raw'), fallbackCycleMs: 1680 },
-      tablet: { importer: () => import('../assets/animations/svg/whale-05_810.svg?raw'), fallbackCycleMs: 1680 },
-      phone: { importer: () => import('../assets/animations/svg/whale-05_486.svg?raw'), fallbackCycleMs: 1680 },
-    },
-  },
+  // Currently out of the pool — see CELEBRATION_KEYS in useCelebrations.ts.
+  // whale: {
+  //   variants: {
+  //     desktop: { importer: () => import('../assets/animations/svg/whale-05_1920.svg?raw'), fallbackCycleMs: 1680 },
+  //     tablet: { importer: () => import('../assets/animations/svg/whale-05_810.svg?raw'), fallbackCycleMs: 1680 },
+  //     phone: { importer: () => import('../assets/animations/svg/whale-05_486.svg?raw'), fallbackCycleMs: 1680 },
+  //   },
+  // },
   penguin: {
     // Anchored to the bottom instead of vertically centered like
     // cat/whale — a penguin standing on the "ground" reads better than
