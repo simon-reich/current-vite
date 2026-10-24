@@ -825,14 +825,33 @@ function cycleLoopFilter() {
     loopFilterMode.value === 'hide' ? 'only' : 'default'
 }
 
+// Turning on a tag filter (Prio included) lifts "hide": once you're
+// filtering by tag, a matching Date todo is exactly what you asked for,
+// not clutter — it joins the result like any other match. Flipped to
+// "default" (not just skipped in AllTodos.vue), so the Date chip shows
+// what's really happening. Clearing the last tag puts "hide" back, but
+// only if it was this watcher that lifted it — a mode you picked yourself
+// in between (cycleLoopFilter) stays.
+let loopHideLiftedByTags = false
+watch(() => activeTagIds.value.length > 0, (filtering) => {
+  if (filtering && loopFilterMode.value === 'hide') {
+    loopFilterMode.value = 'default'
+    loopHideLiftedByTags = true
+  } else if (!filtering && loopHideLiftedByTags) {
+    if (loopFilterMode.value === 'default') loopFilterMode.value = 'hide'
+    loopHideLiftedByTags = false
+  }
+})
+watch(loopFilterMode, (mode) => { if (mode !== 'default') loopHideLiftedByTags = false })
+
 // "All" resets loop filtering back to its own starting point, "hide" —
 // not "default" (unfiltered) — for the same reason "hide" is the initial
 // state to begin with: a not-yet-due date todo sends itself to Current once
 // it's actually due, so seeing it in Overview beforehand is just clutter,
 // even after an explicit "clear everything" reset. Still reachable via D
 // if you want it. Loop's own state only resets here, on this explicit
-// clear-everything action — never as a side effect of toggling some other
-// tag.
+// clear-everything action — and when a tag filter lifts "hide" (see the
+// watcher above).
 function clearAllFilters() {
   activeTagIds.value = []
   loopFilterMode.value = 'hide'
