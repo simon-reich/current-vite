@@ -33,7 +33,7 @@ import { openTagMenuId, openCheckMenuId, cycleOpenCard, closeActiveCard } from '
 import { showCelebrationTeaser, hideCelebrationTeaser } from './components/TodoCard.vue'
 import TutorialCoach from './tutorial/TutorialCoach.vue'
 import { sandboxActive } from './tutorial/sandbox'
-import { drawCelebrationKey } from './composables/useCelebrations'
+import { ensureCelebrationKey } from './composables/useCelebrations'
 
 const router = useRouter()
 const route = useRoute()
@@ -717,10 +717,12 @@ watch(openCheckMenuId, (id) => {
   const todo = id ? store.todos.find(t => t.id === id) : undefined
   if (!todo || !themeStore.celebrationsEnabled) return
   // Falls back to drawing (and persisting) a fresh key here for a todo
-  // that was already inCurrent before Todo.celebration existed —
-  // sendToCurrent normally assigns it.
-  const key = todo.celebration ?? drawCelebrationKey()
-  if (!todo.celebration) store.updateTodo(todo.id, { celebration: key })
+  // that was already inCurrent before Todo.celebration existed, or whose
+  // stored key has since left the pool (ensureCelebrationKey) —
+  // sendToCurrent normally assigns it. Persisting it keeps the real
+  // celebration on completing the same as the teaser.
+  const key = ensureCelebrationKey(todo.celebration)
+  if (key !== todo.celebration) store.updateTodo(todo.id, { celebration: key })
   showCelebrationTeaser(key)
 })
 

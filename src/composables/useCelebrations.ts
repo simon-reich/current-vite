@@ -10,6 +10,7 @@
 export const CELEBRATION_KEYS = ['blackCat', /* 'whale', */ 'penguin', 'orca'] as const
 export type CelebrationKey = typeof CELEBRATION_KEYS[number]
 
+
 // Shuffle-bag — guarantees every one turns up once per full cycle instead
 // of the same one occasionally repeating several times in a row, same
 // trick as TodoCard.vue's old particle-effect bag.
@@ -25,4 +26,23 @@ export function drawCelebrationKey(): CelebrationKey {
     bag = shuffled
   }
   return bag.pop()!
+}
+
+// The one place that decides whether a stored celebration key is still
+// valid. Celebrations get added and retired over time (the plain 'cat',
+// 'whale' for now), but a persisted Todo.celebration — or one from an
+// imported JSON — keeps whatever key it was given back then, so it's typed
+// CelebrationKey without any guarantee it still is one. Everything that
+// reads Todo.celebration goes through ensureCelebrationKey, never through
+// its own lookup/fallback.
+export function isCelebrationKey(key: string | undefined): key is CelebrationKey {
+  return (CELEBRATION_KEYS as readonly string[]).includes(key as string)
+}
+
+// The key itself if it's still in the pool, otherwise a freshly drawn one
+// (also for a todo that never got one). Callers that can persist the
+// result (App.vue's teaser watcher) do, so teaser and real celebration
+// stay the same one.
+export function ensureCelebrationKey(key: string | undefined): CelebrationKey {
+  return isCelebrationKey(key) ? key : drawCelebrationKey()
 }

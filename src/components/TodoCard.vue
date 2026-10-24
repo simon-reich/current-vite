@@ -436,12 +436,11 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
   },
 }
 
-// Old persisted todos can still carry a celebration key retired from
-// CELEBRATION_KEYS (e.g. the plain, non-black 'cat' this replaced) —
-// ALL_CELEBRATIONS has nothing for those anymore. Re-drawing a fresh key
-// on the fly beats crashing on an undefined config.
-function resolveCelebrationConfig(key: CelebrationKey): CelebrationConfig {
-  return ALL_CELEBRATIONS[key] ?? ALL_CELEBRATIONS[drawCelebrationKey()]
+// Takes a stored key as-is — possibly retired from CELEBRATION_KEYS or
+// missing — and lets ensureCelebrationKey (useCelebrations.ts) settle it,
+// so there's never an undefined config to render.
+function resolveCelebrationConfig(key: string | undefined): CelebrationConfig {
+  return ALL_CELEBRATIONS[ensureCelebrationKey(key)]
 }
 
 // Pre-completion teaser — see the Current check-menu's showMenu watch in
@@ -467,7 +466,7 @@ let teaserToken = 0
 // card's hide() before it ever got to render. A single watcher owned by
 // one place, driven by the one ref both transitions share, has no such
 // race to lose.
-export async function showCelebrationTeaser(key: CelebrationKey) {
+export async function showCelebrationTeaser(key: string | undefined) {
   const token = ++teaserToken
   const config = resolveCelebrationConfig(key)
   const svgRaw = await loadFrameSvg(config.variants[currentViewportTier()].importer)
@@ -504,7 +503,7 @@ export function hideCelebrationTeaser() {
 // Orca) — the old particle-based shuffle-bag (hearts/confetti/balloons/
 // fireworks) stays defined above, just commented out here rather than
 // ripped out, the same swap in reverse from when it was last switched off.
-export function celebrateBackground(key: CelebrationKey) {
+export function celebrateBackground(key: string | undefined) {
   hideCelebrationTeaser()
   playFrameCelebration(resolveCelebrationConfig(key))
   // const effect = nextBgEffect()
@@ -515,7 +514,7 @@ export function celebrateBackground(key: CelebrationKey) {
 }
 
 import { ref as vueRef, nextTick as vueNextTick } from 'vue'
-import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
+import { ensureCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 // Shared across all instances – only one menu open at a time. Exported so
 // App.vue's single ↑↓ handler can tell whether a card is currently open
 // (and cycle between cards instead of scrolling/doing nothing) or closed.
@@ -1816,15 +1815,15 @@ function cancelEdit() {
 }
 
 function handleComplete(id: string) {
-  // Same fallback as the showMenu watch above — showMenu was open to even
-  // reach this button, so a key normally already exists by now.
-  if (themeStore.celebrationsEnabled) celebrateBackground(props.todo.celebration ?? drawCelebrationKey())
+  // showMenu was open to even reach this button, so the teaser watcher
+  // (App.vue) has normally already settled and persisted a valid key.
+  if (themeStore.celebrationsEnabled) celebrateBackground(props.todo.celebration)
   openCheckMenuId.value = null
   emit('complete', id)
 }
 
 function handleDoneForNow(id: string) {
-  if (themeStore.celebrationsEnabled) celebrateBackground(props.todo.celebration ?? drawCelebrationKey())
+  if (themeStore.celebrationsEnabled) celebrateBackground(props.todo.celebration)
   openCheckMenuId.value = null
   emit('done-for-now', id)
 }
