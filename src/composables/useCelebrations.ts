@@ -7,7 +7,7 @@
 // key) is the only place that needs to know what a key actually renders as.
 // 'whale' is currently taken out of the pool (its ALL_CELEBRATIONS entry in
 // TodoCard.vue is commented out too) — add it back to both to re-enable.
-export const CELEBRATION_KEYS = ['blackCat', /* 'whale', */ 'penguin', 'orca'] as const
+export const CELEBRATION_KEYS = ['blackCat', /* 'whale', */ 'penguin', 'orca', 'palmLeaf'] as const
 export type CelebrationKey = typeof CELEBRATION_KEYS[number]
 
 
