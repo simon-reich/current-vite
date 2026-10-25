@@ -97,7 +97,8 @@ export interface Todo {
   poolBumpedAt?: string
   /** Which celebration (see TodoCard.vue's "Celebration-Animationen"
    *  section) plays when this todo is completed — assigned once in
-   *  sendToCurrent below, fixed for as long as it stays in Current, rather
+   *  sendToCurrent below (or assignFocusDate, when it joins a Date List),
+   *  fixed for as long as it stays in Current, rather
    *  than re-rolled every time its check-menu happens to open. Absent for
    *  a todo that's never been sent to Current since this field existed. */
   celebration?: CelebrationKey
@@ -551,6 +552,11 @@ export const useTodosStore = defineStore('todos', () => {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
     const dates = new Set(todo.focusDates ?? [])
+    // Joining a Date List is this feature's "sent to Current" — same
+    // fresh celebration roll as sendToCurrent, or with Date Lists on a
+    // todo would keep whatever key it got the last time it went through
+    // sendToCurrent (if ever), and newly added celebrations never show up.
+    if (!dates.has(dateStr)) todo.celebration = drawCelebrationKey()
     dates.add(dateStr)
     todo.focusDates = [...dates].sort()
     if (todo.excludedFocusDates?.includes(dateStr)) {
