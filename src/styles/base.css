@@ -88,6 +88,10 @@
   --card-font-size-narrow-desktop: 15px;
   --card-font-size-tablet: 13.5px;
   --card-font-size-phone: 14px;
+  /* Phone Overview zoomed out (TodoCard.vue's compact cards). */
+  --card-font-size-compact: 10.5px;
+  --card-border-width-compact: 1.5px;
+  --card-shadow-offset-compact: 3px;
   --leftover-font-step: 1px;
 
   /* .icon-circle-btn's diameter — also what Calendar's undo column
@@ -107,6 +111,15 @@
      has to clear a card's shadow (Overview's Date List divider) read
      this one value. */
   --card-shadow-offset: 5px;
+
+  /* The pale ink fill Date todos sit on (TodoCard.vue's .swipe-container.
+     loop::before) — anything meant to read "pale, see-through" like them
+     (e.g. Overview's phone zoom icon) uses the same strength. */
+  --pale-fill-opacity: 0.35;
+
+  /* Phone: .content-inner's top padding (mobile.css) — Overview's sticky
+     zoom-out icon (AllTodos.vue) sits inside exactly this gap. */
+  --content-pad-top-phone: 40px;
 
   font-family: var(--font-playful, system-ui, -apple-system, 'Segoe UI', sans-serif);
   font-size: 16px;

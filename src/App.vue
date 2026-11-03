@@ -1476,6 +1476,9 @@ watch(() => route.path, (path, prevPath) => {
 const PHONE_BREAKPOINT = 700
 const isPhoneWidth = ref(window.innerWidth <= PHONE_BREAKPOINT)
 function updateIsPhoneWidth() { isPhoneWidth.value = window.innerWidth <= PHONE_BREAKPOINT }
+// Overview's phone-only zoom-out (AllTodos.vue) and its Settings toggle
+// read this same flag instead of measuring the width a second time.
+provide('isPhoneWidth', isPhoneWidth)
 onMounted(() => window.addEventListener('resize', updateIsPhoneWidth))
 onUnmounted(() => window.removeEventListener('resize', updateIsPhoneWidth))
 

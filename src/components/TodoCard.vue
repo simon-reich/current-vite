@@ -651,6 +651,14 @@ const props = defineProps<{
    *  locked out until that date is actually today; removing from the list
    *  still works normally. */
   previewLocked?: boolean
+  /** Phone Overview zoomed out (see AllTodos.vue's zoomedOut): a small,
+   *  icon-less card to skim. Tapping it never opens it — it emits
+   *  'zoom-in' instead, so the list can come back right at this card.
+   *  Swiping still works as usual. */
+  compact?: boolean
+  /** The card the list just zoomed back in on — plays the planned pulse
+   *  once after mounting so the eye finds it right away. */
+  landed?: boolean
 }>()
 
 // Entrance bounce when a card first mounts (a fresh view, a newly created
@@ -764,6 +772,7 @@ const emit = defineEmits<{
   'complete': [id: string]
   'done-for-now': [id: string]
   'delete': [id: string]
+  'zoom-in': [id: string]
 }>()
 
 const showMenu = computed(() => openCheckMenuId.value === props.todo.id)
@@ -1602,6 +1611,18 @@ watch([showMenu, showTagMenu], ([m, t]) => {
   }
 })
 
+// A compact (zoomed-out) card is only a pointer back into the list — see
+// the compact prop.
+function handleMainClick() {
+  if (props.compact) {
+    if (justDragged) { justDragged = false; return }
+    emit('zoom-in', props.todo.id)
+    return
+  }
+  if (props.mode === 'current') toggleCheckMenu()
+  else toggleTagMenu()
+}
+
 function toggleTagMenu() {
   if (justDragged) { justDragged = false; return }
   openCheckMenuId.value = null
@@ -1728,6 +1749,7 @@ function caretOffsetFromEvent(e: MouseEvent): number | null {
 // straight past "open" into "edit" on a single click.
 function handleTitleClick(e: MouseEvent) {
   if (justDragged) { justDragged = false; return }
+  if (props.compact) { emit('zoom-in', props.todo.id); return }
   if (!isCardOpen.value) {
     if (props.mode === 'current') toggleCheckMenu()
     else toggleTagMenu()
@@ -2363,6 +2385,13 @@ function triggerPlannedPulse() {
   })
 }
 
+// Same pulse marks where a zoom-in landed (see the landed prop) — delayed
+// past the entrance bounce, which would otherwise swallow it.
+const LANDED_PULSE_DELAY_MS = 350
+onMounted(() => {
+  if (props.landed) setTimeout(triggerPlannedPulse, LANDED_PULSE_DELAY_MS)
+})
+
 function animateOutPuff(): Promise<void> {
   const el = swipeContainerRef.value
   if (!el) return Promise.resolve()
@@ -2674,7 +2703,7 @@ onUnmounted(() => {
   <div
     ref="wrapRef"
     class="todo-card-wrap"
-    :class="{ 'tag-editing': showTagMenu, 'subs-expanded': subsExpandedWide, dragging: isLifted }"
+    :class="{ 'tag-editing': showTagMenu, 'subs-expanded': subsExpandedWide, dragging: isLifted, compact }"
     :style="isGripped && fixedOrigin ? {
       position: 'fixed',
       top: fixedOrigin.top + 'px',
@@ -2772,7 +2801,7 @@ onUnmounted(() => {
       >
         <div
           class="todo-card-main"
-          @click.stop="mode === 'current' ? toggleCheckMenu() : toggleTagMenu()"
+          @click.stop="handleMainClick"
         >
           <textarea
             v-if="isEditing"
@@ -2802,6 +2831,8 @@ onUnmounted(() => {
                (handleTitleClick), so no separate Edit trigger is needed here
                any more. Delete only lives here — not on the closed card — so
                it isn't a single stray click away during normal browsing. -->
+          <!-- Compact cards (zoomed-out Overview) carry no icons at all. -->
+          <template v-if="!compact">
           <template v-if="showTagMenu && !isEditing">
             <button
               class="card-btn card-btn--delete"
@@ -2868,6 +2899,7 @@ onUnmounted(() => {
               <CircleMinus :size="18" />
             </button>
           </div>
+          </template>
         </div>
 
         <Transition :css="false" @enter="onExpandEnter" @leave="onExpandLeave">
@@ -3490,7 +3522,7 @@ onUnmounted(() => {
      setting (--priority-shadow) — same as priority cards — instead of
      always being plain ink. */
   box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
-  opacity: 0.35;
+  opacity: var(--pale-fill-opacity);
   border-radius: var(--radius);
   z-index: -1;
   pointer-events: none;
@@ -3952,6 +3984,33 @@ onUnmounted(() => {
 
   .sub-row {
     padding: 2px 12px 10px;
+  }
+
+  /* Zoomed-out Overview (see the compact prop): small cards to skim,
+     titles capped at two lines so one long todo can't take over the grid.
+     Lighter border/shadow too — at this size the full ones would outweigh
+     the text. */
+  .todo-card-wrap.compact {
+    --card-shadow-offset: var(--card-shadow-offset-compact);
+  }
+
+  .todo-card-wrap.compact .todo-card {
+    font-size: var(--card-font-size-compact);
+    border-width: var(--card-border-width-compact);
+    max-width: 100%;
+  }
+
+  .todo-card-wrap.compact .todo-card-main {
+    padding: 4px 7px;
+  }
+
+  .todo-card-wrap.compact .todo-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.25;
   }
 }
 

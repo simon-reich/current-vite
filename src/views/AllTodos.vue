@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { inject, computed, ref, watch } from 'vue'
+import { inject, computed, ref, watch, nextTick } from 'vue'
 import type { Ref } from 'vue'
 import { useTodosStore, LOOP_TAG_ID, type Todo } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
-import TodoCard from '../components/TodoCard.vue'
+import { ZoomIn, ZoomOut } from '@lucide/vue'
+import TodoCard, { closeActiveCard } from '../components/TodoCard.vue'
 import ActiveFilterChips from '../components/ActiveFilterChips.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
@@ -21,13 +22,41 @@ const effectiveFilterTagIds = inject<Ref<string[]>>('effectiveFilterTagIds')!
 const loopFilterMode = inject<Ref<'default' | 'only' | 'hide'>>('loopFilterMode')!
 const sortKey = inject<Ref<'createdAt' | 'title'>>('sortKey')!
 const listView = inject<Ref<boolean>>('listView')!
+const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
 
-// Bumped whenever the grid/list toggle or the sort order changes, folded
-// into each card's :key below so the whole set remounts and replays its
-// entrance animation — otherwise Vue just reorders/restyles the existing
-// instances without ever re-triggering it.
+// ── Phone zoom-out ──
+// Phone only ever shows a single column — the sticky icon top right swaps
+// it for a compact wrapping grid of small, icon-less cards to skim
+// (TodoCard's compact prop). Tapping one zooms back into the list right at
+// that card (zoomInOn). Deliberately not persisted: Overview always opens
+// as the list, zooming out is a quick glance, not a mode to live in.
+const zoomAvailable = computed(() => isPhoneWidth.value && themeStore.overviewZoomEnabled)
+const zoomedOut = ref(false)
+const zoomActive = computed(() => zoomAvailable.value && zoomedOut.value)
+// The card the last zoom-in landed on — TodoCard pulses it once on mount.
+const landedId = ref<string | null>(null)
+
+function toggleZoom() {
+  closeActiveCard()
+  zoomedOut.value = !zoomedOut.value
+}
+
+async function zoomInOn(id: string) {
+  landedId.value = id
+  zoomedOut.value = false
+  // The remount (renderGen) has run by now, so the card is in the list
+  // layout already — and has read landedId in its own onMounted.
+  await nextTick()
+  document.querySelector(`.todo-wrap [data-flip-id="${id}"]`)?.scrollIntoView({ block: 'center' })
+  landedId.value = null
+}
+
+// Bumped whenever the grid/list toggle, the phone zoom or the sort order
+// changes, folded into each card's :key below so the whole set remounts and
+// replays its entrance animation — otherwise Vue just reorders/restyles the
+// existing instances without ever re-triggering it.
 const renderGen = ref(0)
-watch([listView, sortKey], () => { renderGen.value++ })
+watch([listView, zoomActive, sortKey], () => { renderGen.value++ })
 
 // A–Z sort should order by actual letters/numbers only — punctuation
 // (quotes, dashes, ...) at the start of a title was outranking every
@@ -156,7 +185,19 @@ function unassignFocusDate(id: string) {
 
 <template>
   <div class="all-todos" :class="{ 'list-view': listView }">
-    <div v-if="filteredTodos.length" class="todo-wrap" :class="{ 'list-view': listView }">
+    <!-- Phone zoom-out icon (see zoomActive) — sticks to the top right
+         while the cards scroll underneath it. -->
+    <div v-if="zoomAvailable && filteredTodos.length" class="overview-zoom-bar">
+      <button
+        type="button"
+        class="overview-zoom-btn"
+        v-tooltip="zoomActive ? 'back to list' : 'zoom out'"
+        @click="toggleZoom"
+      >
+        <component :is="zoomActive ? ZoomIn : ZoomOut" :size="18" />
+      </button>
+    </div>
+    <div v-if="filteredTodos.length" class="todo-wrap" :class="{ 'list-view': listView, compact: zoomActive }">
       <template v-for="(todo, index) in filteredTodos" :key="`${todo.id}-${renderGen}`">
       <!-- Sets the selected Date List's todos (sorted first, see
            onSelectedListIds) apart from the rest as their own little pool.
@@ -175,7 +216,9 @@ function unassignFocusDate(id: string) {
         :sibling-ids="siblingIds"
         :index="index"
         :grid-mode="true"
-        :force-expand-subs="themeStore.expandOverviewSubs"
+        :force-expand-subs="zoomActive ? 'off' : themeStore.expandOverviewSubs"
+        :compact="zoomActive"
+        :landed="todo.id === landedId"
         mode="all"
         @send-to-current="sendToCurrent"
         @send-to-focus-date="sendToFocusDate"
@@ -183,6 +226,7 @@ function unassignFocusDate(id: string) {
         @move-to-next-day="store.moveFocusDateToNextDay($event, themeStore.selectedFocusDate)"
         @remove-from-current="store.removeFromCurrent($event)"
         @delete="store.deleteTodo($event)"
+        @zoom-in="zoomInOn"
       />
       </template>
       <ActiveFilterChips v-if="filterChipsIndex === filteredTodos.length" />
@@ -311,6 +355,60 @@ function unassignFocusDate(id: string) {
   .todo-wrap > .active-filters {
     justify-content: flex-start;
   }
+
+  /* Zoomed out: back to a wrapping grid like tablet/desktop, just tighter. */
+  .todo-wrap.compact {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+  }
+}
+
+/* Zero-height sticky row, pulled up into .content-inner's top padding
+   (--content-pad-top-phone): at rest the button sits in that gap and takes no room
+   from the cards; once scrolled it stays pinned top right at the same spot
+   and the cards pass beneath. */
+.overview-zoom-bar {
+  --zoom-bar-top: 8px;
+  position: sticky;
+  top: var(--zoom-bar-top);
+  z-index: 15;
+  height: 0;
+  margin-top: calc(var(--zoom-bar-top) - var(--content-pad-top-phone));
+  display: flex;
+  justify-content: flex-end;
+}
+
+.overview-zoom-btn {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Always a circle (not tied to rounded/square) with the same pale,
+   see-through ink fill Date todos sit on — on its own layer so only the
+   fill is pale, not the icon on top. */
+.overview-zoom-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  opacity: var(--pale-fill-opacity);
+  z-index: -1;
 }
 
 /* Tablet: cards stay in a wrapping grid (unlike phone's single column),

@@ -538,7 +538,7 @@
     /* 60px reserved to clear the fixed bottom nav; any further breathing
        room below that is added dynamically (see bottom-breathing-spacer)
        only once the content actually needs to scroll. */
-    padding: 40px 14px 60px;
+    padding: var(--content-pad-top-phone) 14px 60px;
   }
 
   /* ── Bottom scroll divider ── */

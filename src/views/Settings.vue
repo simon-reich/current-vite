@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { inject, ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { motion } from 'motion-v'
 import { X } from '@lucide/vue'
 import { useStorage } from '../composables/useStorage'
@@ -13,6 +14,8 @@ import ColorPicker from '../components/ColorPicker.vue'
 
 const { exportData, importData, exportThemes, importThemes, exportEverything, importEverything } = useStorage()
 const themeStore = useThemeStore()
+// Provided by App.vue — the overview zoom setting only exists on phone.
+const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
 const fontLabStore = useFontLabStore()
 const router = useRouter()
 
@@ -226,6 +229,16 @@ watch(deleteThemeConfirm, (open) => {
         <div class="option-row">
           <button class="btn-outline" :class="{ active: themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled || themeStore.toggleCelebrations()">on</button>
           <button class="btn-outline" :class="{ active: !themeStore.celebrationsEnabled }" @click="themeStore.celebrationsEnabled && themeStore.toggleCelebrations()">off</button>
+        </div>
+      </section>
+
+      <!-- Phone only — the zoom-out icon only exists in phone Overview
+           (see AllTodos.vue). -->
+      <section v-if="isPhoneWidth" class="section">
+        <h2 class="section-title">overview zoom</h2>
+        <div class="option-row">
+          <button class="btn-outline" :class="{ active: themeStore.overviewZoomEnabled }" @click="themeStore.overviewZoomEnabled || themeStore.toggleOverviewZoom()">on</button>
+          <button class="btn-outline" :class="{ active: !themeStore.overviewZoomEnabled }" @click="themeStore.overviewZoomEnabled && themeStore.toggleOverviewZoom()">off</button>
         </div>
       </section>
     </div>

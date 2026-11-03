@@ -180,6 +180,10 @@ todo-app/
 └── package.json
 ```
 
+## Phone-Overview: Zoom-out
+
+Auf dem Phone zeigt Overview nur eine einspaltige Liste. Ein Sticky-Icon oben rechts (`.overview-zoom-bar`/`.overview-zoom-btn` in `AllTodos.vue`, sitzt im oberen Padding von `.content-inner` – `--content-pad-top-phone` –; Lupe `ZoomOut`/`ZoomIn` in einem Kreis ohne Schatten, blass-transluzent gefüllt wie Date-Todos über `--pale-fill-opacity`) schaltet auf ein kompaktes, umbrechendes Grid kleiner Karten zum Überblicken (`TodoCard`-Prop `compact`: kleinere Schrift/Border/Shadow über `--card-*-compact`-Tokens, Titel auf zwei Zeilen gekappt, keine Icons, Subs zu). Swipen funktioniert dort wie gewohnt; Antippen öffnet die Karte nicht, sondern emittiert `zoom-in`: zurück in die Liste, genau an dieser Karte (`zoomInOn`, `scrollIntoView` mittig), die einmal pulsiert (`landed`-Prop, derselbe Puls wie beim Planen). Der Zoom-Zustand wird bewusst nicht gespeichert – Overview öffnet immer als Liste. Settings-Toggle `overviewZoomEnabled` (Theme-Store, Default an, nur auf Phone-Breite sichtbar); die Phone-Breite kommt per `provide('isPhoneWidth')` aus App.vue. Vorerst nur Overview, nicht Current.
+
 ## Kalender-View
 
 `Calendar.vue` nutzt das `v-calendar`-Plugin und zeigt eine Monatsübersicht. Unter den Tagen erscheinen Dots:

@@ -26,6 +26,11 @@ export const useThemeStore = defineStore('theme', () => {
   // TodoCard.vue's subsExpandedWide.
   const subsFullWidth = ref(true)
   const dateListsEnabled = ref(true)
+  // Phone Overview's zoom-out icon (AllTodos.vue): swaps the single-column
+  // list for a compact wrapping grid of small cards to skim, tapping one
+  // drops back into the list right at that card. Only the feature itself
+  // is persisted — whether you're currently zoomed out never is.
+  const overviewZoomEnabled = ref(true)
   // Opt-in, Date Lists only: todos left unfinished on yesterday's Date List
   // stay reachable for one more day as a pale section in Current, instead
   // of dropping straight back into the pool at midnight (see stores/
@@ -98,6 +103,10 @@ export const useThemeStore = defineStore('theme', () => {
     dateListsEnabled.value = !dateListsEnabled.value
   }
 
+  function toggleOverviewZoom() {
+    overviewZoomEnabled.value = !overviewZoomEnabled.value
+  }
+
   function toggleYesterdayLeftovers() {
     yesterdayLeftoversEnabled.value = !yesterdayLeftoversEnabled.value
   }
@@ -161,8 +170,8 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     activeBg, activeGray, rounded, priorityShadow, celebrationsEnabled, tagsEnabled, checksEnabled, subsEnabled, subsFullWidth, expandCurrentSubs, expandOverviewSubs, savedThemes,
-    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, yesterdayLeftoversEnabled, selectedFocusDate, calendarViewMode,
+    dailyThemeRotationEnabled, lastThemeRotationDate, dateListsEnabled, yesterdayLeftoversEnabled, overviewZoomEnabled, selectedFocusDate, calendarViewMode,
     apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleSubsFullWidth, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
-    toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, toggleYesterdayLeftovers, setSelectedFocusDate,
+    toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, toggleYesterdayLeftovers, toggleOverviewZoom, setSelectedFocusDate,
   }
 }, { persist: true })
