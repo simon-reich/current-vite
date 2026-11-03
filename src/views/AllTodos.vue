@@ -421,6 +421,26 @@ function unassignFocusDate(id: string) {
     justify-content: center;
     gap: 6px;
   }
+
+  /* Active-filter chips scaled down to the compact cards and centered like
+     on tablet/desktop. */
+  .todo-wrap.compact > .active-filters {
+    justify-content: center;
+    /* On top of the wrap's own 6px gap: more room to the cards below, a
+       little to the divider above. */
+    margin: 4px 0 8px;
+  }
+
+  .todo-wrap.compact > .active-filters :deep(.active-filter) {
+    font-size: var(--card-font-size-compact);
+    padding: 2px 6px;
+  }
+
+  /* Same for the selected Date List's caption above its divider — set on
+     the wrapper, so the 1lh in its margin shrinks along with it. */
+  .todo-wrap.compact > .selected-list-break {
+    font-size: var(--card-font-size-compact);
+  }
 }
 
 /* Zero-height sticky row, pulled up into .content-inner's top padding
