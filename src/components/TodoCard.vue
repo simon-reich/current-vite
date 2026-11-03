@@ -444,6 +444,13 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
       phone: { importer: () => import('../assets/animations/svg/palm-leaf_1920.svg?raw'), fallbackCycleMs: 1000 },
     },
   },
+  lavaLamp: {
+    variants: {
+      desktop: { importer: () => import('../assets/animations/svg/lavalamp-01_1920.svg?raw'), fallbackCycleMs: 7830 },
+      tablet: { importer: () => import('../assets/animations/svg/lavalamp-01_810.svg?raw'), fallbackCycleMs: 7830 },
+      phone: { importer: () => import('../assets/animations/svg/lavalamp-01_486.svg?raw'), fallbackCycleMs: 4320 },
+    },
+  },
 }
 
 // Takes a stored key as-is — possibly retired from CELEBRATION_KEYS or
