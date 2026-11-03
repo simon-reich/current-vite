@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, computed, ref, watch, nextTick } from 'vue'
+import { inject, computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import { useTodosStore, LOOP_TAG_ID, type Todo } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
@@ -40,6 +40,58 @@ function toggleZoom() {
   closeActiveCard()
   zoomedOut.value = !zoomedOut.value
 }
+
+// The icon floats above the cards, so it can end up over a card's own
+// button while scrolling. Then it yields: dimmed (zoomBtnYielding), and any
+// tap on it goes to that button instead of zooming — the whole circle, not
+// just the exact point, so "pale" always means "this tap is the card's".
+// Over several buttons at once, the one nearest the tap wins. Re-checked
+// per frame while scrolling (cards move under the pinned icon) and after
+// the list re-renders.
+const zoomBtnRef = ref<HTMLElement | null>(null)
+const zoomBtnYielding = ref(false)
+let yieldFrame = 0
+
+function cardBtnsUnderZoomBtn(): HTMLElement[] {
+  const btn = zoomBtnRef.value
+  if (!btn) return []
+  const r = btn.getBoundingClientRect()
+  return [...document.querySelectorAll<HTMLElement>('.todo-wrap .todo-card .card-btn')].filter(el => {
+    const b = el.getBoundingClientRect()
+    return b.left < r.right && b.right > r.left && b.top < r.bottom && b.bottom > r.top
+  })
+}
+
+function updateZoomBtnYielding() {
+  yieldFrame = 0
+  zoomBtnYielding.value = cardBtnsUnderZoomBtn().length > 0
+}
+
+function onZoomBtnClick(e: MouseEvent) {
+  const distance = (el: HTMLElement) => {
+    const b = el.getBoundingClientRect()
+    return Math.hypot(b.left + b.width / 2 - e.clientX, b.top + b.height / 2 - e.clientY)
+  }
+  const nearest = cardBtnsUnderZoomBtn().sort((a, b) => distance(a) - distance(b))[0]
+  if (nearest) nearest.click()
+  else toggleZoom()
+}
+
+function scheduleZoomBtnYielding() {
+  if (!yieldFrame) yieldFrame = requestAnimationFrame(updateZoomBtnYielding)
+}
+
+let scrollEl: Element | null = null
+onMounted(() => {
+  scrollEl = document.querySelector('.main-content')
+  scrollEl?.addEventListener('scroll', scheduleZoomBtnYielding, { passive: true })
+  window.addEventListener('resize', scheduleZoomBtnYielding)
+})
+onUnmounted(() => {
+  scrollEl?.removeEventListener('scroll', scheduleZoomBtnYielding)
+  window.removeEventListener('resize', scheduleZoomBtnYielding)
+  if (yieldFrame) cancelAnimationFrame(yieldFrame)
+})
 
 async function zoomInOn(id: string) {
   landedId.value = id
@@ -161,6 +213,9 @@ const siblingIds = computed(() => filteredTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
 
+// Zoom icon's yielding check (see zoomBtnYielding) after the list re-renders.
+watch([renderGen, filteredTodos, zoomAvailable], () => nextTick(scheduleZoomBtnYielding))
+
 function sendToCurrent(id: string) {
   store.sendToCurrent(id)
 }
@@ -190,9 +245,11 @@ function unassignFocusDate(id: string) {
     <div v-if="zoomAvailable && filteredTodos.length" class="overview-zoom-bar">
       <button
         type="button"
+        ref="zoomBtnRef"
         class="overview-zoom-btn"
+        :class="{ yielding: zoomBtnYielding }"
         v-tooltip="zoomActive ? 'back to list' : 'zoom out'"
-        @click="toggleZoom"
+        @click="onZoomBtnClick"
       >
         <component :is="zoomActive ? ZoomIn : ZoomOut" :size="18" />
       </button>
@@ -369,7 +426,8 @@ function unassignFocusDate(id: string) {
 /* Zero-height sticky row, pulled up into .content-inner's top padding
    (--content-pad-top-phone): at rest the button sits in that gap and takes no room
    from the cards; once scrolled it stays pinned top right at the same spot
-   and the cards pass beneath. */
+   and the cards pass beneath (a tap on a card button under it still
+   reaches that button, see onZoomBtnClick). */
 .overview-zoom-bar {
   --zoom-bar-top: 8px;
   position: sticky;
@@ -384,6 +442,7 @@ function unassignFocusDate(id: string) {
 .overview-zoom-btn {
   position: relative;
   z-index: 0;
+  transition: opacity 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -396,6 +455,12 @@ function unassignFocusDate(id: string) {
   color: var(--ink);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Over a card's button (see zoomBtnYielding): dimmed, since a tap there
+   goes to that button instead. */
+.overview-zoom-btn.yielding {
+  opacity: 0.35;
 }
 
 /* Always a circle (not tied to rounded/square) with the same pale,
