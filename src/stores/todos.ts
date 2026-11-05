@@ -517,7 +517,7 @@ export const useTodosStore = defineStore('todos', () => {
   // `inCurrent` untouched — the narrower Today-list view shouldn't reach
   // back and clear the broader Current list); only for a Date Todo checked
   // off on *today's* list does it also clear `inCurrent` (same occurrence,
-  // see isDateTodo/doneForNow).
+  // see isDateTodo/doneForNow — handled inside unassignFocusDate).
   // `at` backdates the workLog entry (a yesterday leftover worked on after
   // the fact, see leftoversFrom) — otherwise it's now.
   function doneForNowOnDate(id: string, dateStr: string, at?: string) {
@@ -525,7 +525,6 @@ export const useTodosStore = defineStore('todos', () => {
     if (todo) {
       todo.workLog.push(at ?? new Date().toISOString())
       unassignFocusDate(id, dateStr)
-      if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
       applyLoopReschedule(todo)
     }
   }
@@ -588,21 +587,27 @@ export const useTodosStore = defineStore('todos', () => {
       excluded.add(dateStr)
       todo.excludedFocusDates = [...excluded].sort()
     }
+    // Today's pending occurrence of a Date Todo is one thing on two lists
+    // (see isDateTodo) — leaving today's list settles it in Current too.
+    // Otherwise inCurrent survives the removal, and the next day
+    // isOnFocusDate carries it over onto that day's list as an undone
+    // occurrence, regardless of its schedule. Covers every way off today's
+    // list: remove, done for now, move to next day, deleting the list.
+    if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
   }
 
   // "Not today after all, tomorrow" — moves this todo from one Date List
   // straight onto the following day's, in one step instead of a remove
   // plus a separate re-plan. Unassigning first reuses unassignFocusDate's
   // exclusion handling, so a due Date Todo really leaves dateStr instead
-  // of being recomputed right back onto it. Same Date-Todo/inCurrent
-  // coupling as doneForNowOnDate: moving today's occurrence away also
-  // takes it out of Current.
+  // of being recomputed right back onto it — and, same as for
+  // doneForNowOnDate, takes today's occurrence of a Date Todo out of
+  // Current along the way.
   function moveFocusDateToNextDay(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
     unassignFocusDate(id, dateStr)
     assignFocusDate(id, addDaysStr(dateStr, 1))
-    if (dateStr === todayStr() && isDateTodo(todo)) todo.inCurrent = false
   }
 
   // Plain todos still sitting on a past Date List (only ever yesterday's,

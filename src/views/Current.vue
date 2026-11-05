@@ -109,8 +109,9 @@ useListFlip(() => siblingIds.value, '.todo-wrap')
 // *that* list has to unassign the focus date regardless of whether today
 // counts as "locked". Using viewingLockedDate here used to leave today's
 // own Date List calling plain removeFromCurrent instead — which only
-// flips inCurrent, a flag todosForFocusDate never even looks at, so the
-// card just stayed put.
+// flips inCurrent and leaves the focusDates entry, so the card just
+// stayed put. unassignFocusDate clears inCurrent itself for a Date Todo
+// on today's list.
 function removeCard(id: string) {
   if (viewingDate.value) store.unassignFocusDate(id, viewingDate.value)
   else store.removeFromCurrent(id)
