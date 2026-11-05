@@ -39,6 +39,18 @@ const emit = defineEmits<{
    *  auto-closes/resets on that blur (see App.vue's onTodoBlur) know
    *  this wasn't the user leaving. */
   'focus-inside': []
+  /** Enter in the custom day count — "done here", same as
+   *  TagInlineCreate's own exit: the host moves on (App.vue's add flow:
+   *  to the sub field, or submits). */
+  exit: []
+  /** Escape in the custom day count — the field blurs itself first, the
+   *  host closes whatever it's part of (App.vue's add flow: the whole
+   *  todo input, same as Escape in the title). */
+  escape: []
+  /** The custom day count lost focus — the host can't tell from its own
+   *  inputs' blur handlers whether focus left the whole flow (App.vue's
+   *  add flow closes on an outside click this way, see onTodoBlur). */
+  'blur-inside': []
 }>()
 
 const presetRow1: { label: string; unit: LoopUnit; count: number }[] = [
@@ -305,6 +317,9 @@ const loopNextText = computed(() => {
             @focus="!isCustom && applyCustomCount(); emit('focus-inside')"
             @input="onCustomCountInput"
             @change="applyCustomCount"
+            @blur="emit('blur-inside')"
+            @keydown.enter.prevent="applyCustomCount(); emit('exit')"
+            @keydown.escape.prevent="($event.target as HTMLInputElement).blur(); emit('escape')"
           />
           <span>days</span>
         </div>

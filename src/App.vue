@@ -1117,6 +1117,9 @@ function onTodoInput() {
 // loop picker's custom day count / date fields) can cancel this — those
 // need real focus to work, which blurs the main input same as clicking
 // fully away does, but shouldn't be treated as abandoning the draft.
+// Those fields' own blur (the sub draft, LoopPicker's blur-inside) starts
+// the same timer, so an outside click closes the flow from there too —
+// hopping between fields inside it cancels it again via their focus.
 let todoBlurCloseTimer: ReturnType<typeof setTimeout> | null = null
 
 function onTodoBlur() {
@@ -1885,7 +1888,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               <div v-if="!isPhoneWidth && addTagModalTags.length" v-show="addDropdownOpen" class="add-tag-row">
                 <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
                   <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
-                    <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
+                    <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" @exit="onTodoTitleEnter" @escape="onTodoInputEscape" @blur-inside="onTodoBlur" />
                   </div>
                 </Transition>
 
@@ -1905,6 +1908,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                       class="add-sub-input"
                       placeholder="sub + enter"
                       @focus="keepTodoModalOpen"
+                      @blur="onTodoBlur"
                       @keydown="onSubDraftKeydown"
                     />
                     <button
@@ -2057,7 +2061,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             <div class="add-sheet-content">
               <Transition :css="false" @enter="onQuickExpandEnter" @leave="onQuickExpandLeave">
                 <div v-if="newTodoTagIds.includes(LOOP_TAG_ID)" class="add-loop-row">
-                  <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" />
+                  <LoopPicker v-model="newTodoLoopInterval" @focus-inside="keepTodoModalOpen" @exit="onTodoTitleEnter" @escape="onTodoInputEscape" @blur-inside="onTodoBlur" />
                 </div>
               </Transition>
 
@@ -2078,6 +2082,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                       class="add-sub-input"
                       placeholder="sub + enter"
                       @focus="keepTodoModalOpen"
+                      @blur="onTodoBlur"
                       @keydown="onSubDraftKeydown"
                     />
                     <button
