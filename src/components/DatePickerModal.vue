@@ -32,7 +32,13 @@ function close() {
 // cursor through the grid the same way Calendar.vue's own arrows do
 // (arrowKeyDayDelta) without applying yet — Enter applies the cursor's
 // day and closes, Escape closes without changing anything.
-const cursorDate = ref(props.modelValue)
+// Never starts on a past day: a value in the past (an existing Date
+// Todo's original startDate, often months back) isn't worth showing
+// anymore once it's being changed — the cursor, its highlight and with it
+// v-calendar's opening page (which follows the attributes) start on
+// today instead, so there's no paging forward first. Enter right away
+// applies today. A future value still opens on itself.
+const cursorDate = ref(props.modelValue < todayStr() ? todayStr() : props.modelValue)
 const calendarRef = ref<any>(null)
 
 function pickDate(day: { id: string }) {
