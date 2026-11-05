@@ -138,18 +138,31 @@ function select(unit: LoopUnit, count: number) {
 function applyCustomCount() {
   const count = Math.min(MAX_CUSTOM_DAYS, Math.max(1, Math.round(customCount.value) || 1))
   customCount.value = count
+  emitCustomCount(count)
+}
+
+function emitCustomCount(count: number) {
   emit('update:modelValue', { mode: 'loop', unit: 'day', count, startDate: startDate.value, rescheduleFromCompletion: props.modelValue?.rescheduleFromCompletion })
 }
 
 // maxlength doesn't actually clamp type="number" inputs in most browsers
 // — Math.min in applyCustomCount only kicks in on change/blur, so typing
 // a 4th+ digit still showed while focused. Truncate live instead.
+//
+// Also emits every valid value right away instead of waiting for change:
+// the buttons around it (updates when done, the "from" date) keep focus
+// via mousedown.prevent, so the field never blurs and change never fires
+// — they then emitted the stale count from modelValue, and the watch
+// above reset the field back to it. An empty/0 mid-edit is left alone
+// here; change still clamps whatever is left on blur.
 function onCustomCountInput(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.value.length > 3) {
     input.value = input.value.slice(0, 3)
     customCount.value = Number(input.value)
   }
+  const count = Math.round(Number(input.value))
+  if (input.value !== '' && count >= 1) emitCustomCount(count)
 }
 
 function updateStartDate(date: string) {
