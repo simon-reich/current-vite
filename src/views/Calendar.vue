@@ -64,14 +64,6 @@ const selectedDate = ref<string>(todayStr())
 // separate route or nav entry. Owned by App.vue (see CalendarModeToggle.vue).
 const viewMode = inject<Ref<'calendar' | 'log'>>('calendarViewMode')!
 
-// The grid remounts when coming back from the log — reopen it on the
-// month of the still-selected day instead of v-calendar's default.
-watch(viewMode, async (mode) => {
-  if (mode !== 'calendar') return
-  await nextTick()
-  calendarRef.value?.move(new Date(selectedDate.value + 'T12:00:00'))
-})
-
 onMounted(async () => {
   await nextTick()
   calendarRef.value?.move(new Date(todayStr() + 'T12:00:00'))
@@ -88,7 +80,6 @@ function shiftDate(days: number) {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (viewMode.value === 'log') return
   const delta = arrowKeyDayDelta(e.key)
   if (delta === null) return
   e.preventDefault()
@@ -170,10 +161,15 @@ function onDayClick(day: { id: string }) {
   selectedDate.value = day.id
 }
 
-watch([selectedDate, viewMode], async () => {
-  if (dayDetailScrollRef.value) dayDetailScrollRef.value.scrollTop = 0
+watch(viewMode, async () => {
   await nextTick()
   checkDayDetailScrollState()
+})
+
+// The calendar stays next to the log too: picking a day there scrolls the
+// log to it (see scrollLogTo).
+watch(selectedDate, (dateStr) => {
+  if (viewMode.value === 'log') scrollLogTo(dateStr, true)
 })
 
 // "Saturday, October 3, 2026" — the day detail's own heading and each of
@@ -222,14 +218,48 @@ const visibleLogGroups = computed(() => logGroups.value.filter(g => g.dateStr >=
 // Newest group still hidden (groups are newest first), if any.
 const nextOlderLogGroup = computed(() => logGroups.value.find(g => g.dateStr < logCutoff.value))
 
+// How many windows the log needs to reach back to dateStr.
+function logWindowsReaching(dateStr: string): number {
+  const today = new Date(todayStr() + 'T12:00:00')
+  const daysBack = Math.round((today.getTime() - new Date(dateStr + 'T12:00:00').getTime()) / 86_400_000)
+  return Math.ceil((daysBack + 1) / LOG_WINDOW_DAYS)
+}
+
 function showOlderLog() {
   const next = nextOlderLogGroup.value
   if (!next) return
   const before = new Set(visibleLogGroups.value.map(g => g.dateStr))
-  const today = new Date(todayStr() + 'T12:00:00')
-  const daysBack = Math.round((today.getTime() - new Date(next.dateStr + 'T12:00:00').getTime()) / 86_400_000)
-  logWindows.value = Math.ceil((daysBack + 1) / LOG_WINDOW_DAYS)
+  logWindows.value = logWindowsReaching(next.dateStr)
   newLogDates.value = new Set(visibleLogGroups.value.map(g => g.dateStr).filter(d => !before.has(d)))
+}
+
+// Scrolls the log to a day: its group, or — on a day with nothing Done —
+// the next older one (groups are newest first). Older than the loaded
+// window, the window first widens to reach it (no domino, it's a jump,
+// not a load). A future day or today lands at the top.
+async function scrollLogTo(dateStr: string, smooth: boolean) {
+  const groups = logGroups.value
+  if (!groups.length) return
+  const target = groups.find(g => g.dateStr <= dateStr) ?? groups[groups.length - 1]
+  if (target.dateStr < logCutoff.value) logWindows.value = logWindowsReaching(target.dateStr)
+  await nextTick()
+  const root = dayDetailScrollRef.value
+  if (!root) return
+  const behavior = smooth ? 'smooth' : 'instant'
+  if (target === groups[0]) { root.scrollTo({ top: 0, behavior }); return }
+  const el = root.querySelector<HTMLElement>(`.log-group[data-date="${target.dateStr}"]`)
+  if (!el) return
+  // Scrolls the log box only — scrollIntoView would also scroll every
+  // ancestor, the page's own (otherwise pinned, see layout.css) content
+  // area included. The group lands where the box's padding starts.
+  const top = el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
+  root.scrollTo({ top: top - root.clientTop - parseFloat(getComputedStyle(root).paddingTop), behavior })
+}
+
+// Opening the log starts at the selected day.
+function onLogShown() {
+  scrollLogTo(selectedDate.value, false)
+  updateLogMonth()
 }
 
 // Domino order for a new group's label and entries: one running index
@@ -422,9 +452,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     <!-- Control board: every part of the day in its own box. Desktop:
          calendar | done + checks | planned (past: not done). Tablet: the
          calendar left, the rest stacked on the right. Phone: one column,
-         the calendar pinned, the boxes scrolling under it. -->
+         the calendar pinned, the boxes scrolling under it. In log mode the
+         calendar stays, the log takes the place of the other boxes. -->
     <motion.div
-      v-if="viewMode === 'calendar'"
       class="calendar-board"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
@@ -447,148 +477,149 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         <!-- Free for now — the day's notes are meant to go here later. -->
       </div>
 
-      <div class="board-rest">
-        <!-- A future day has nothing done or ticked yet — its plan moves up
-             into this spot instead. -->
-        <div v-if="!isFutureDate" class="board-col">
-          <section class="board-box">
-            <p class="board-box-label">done</p>
-            <Transition name="unfold" mode="out-in">
-              <div :key="selectedDate" class="board-box-body">
-                <div v-if="dayEntries.length" class="day-items">
-                  <template v-for="(group, gi) in [priorityEntries, otherEntries]" :key="gi">
-                    <div v-if="gi === 1 && priorityEntries.length && otherEntries.length" class="day-group-spacer" />
-                    <div v-for="entry in group" :key="entry.todo.id" class="day-entry">
-                      <div class="day-item">
-                        <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" :filled="gi === 0" size="1em" /></span>
-                        <span class="day-item-title">{{ entry.todo.title }}</span>
-                        <span v-if="!entry.todo.deletedAt" class="day-undo-slot">
-                          <UndoDoneButton :todo-id="entry.todo.id" :worked="entry.kind === 'worked'" :date-str="selectedDate" />
-                        </span>
+      <Transition name="unfold" mode="out-in">
+        <div v-if="viewMode === 'calendar'" class="board-rest">
+          <!-- A future day has nothing done or ticked yet — its plan moves up
+               into this spot instead. -->
+          <div v-if="!isFutureDate" class="board-col">
+            <section class="board-box">
+              <p class="board-box-label">done</p>
+              <Transition name="unfold" mode="out-in">
+                <div :key="selectedDate" class="board-box-body">
+                  <div v-if="dayEntries.length" class="day-items">
+                    <template v-for="(group, gi) in [priorityEntries, otherEntries]" :key="gi">
+                      <div v-if="gi === 1 && priorityEntries.length && otherEntries.length" class="day-group-spacer" />
+                      <div v-for="entry in group" :key="entry.todo.id" class="day-entry">
+                        <div class="day-item">
+                          <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" :filled="gi === 0" size="1em" /></span>
+                          <span class="day-item-title">{{ entry.todo.title }}</span>
+                          <span v-if="!entry.todo.deletedAt" class="day-undo-slot">
+                            <UndoDoneButton :todo-id="entry.todo.id" :worked="entry.kind === 'worked'" :date-str="selectedDate" />
+                          </span>
+                        </div>
+                        <div v-if="entry.subs.length" class="day-subs">
+                          <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
+                        </div>
                       </div>
-                      <div v-if="entry.subs.length" class="day-subs">
-                        <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
+                    </template>
+                  </div>
+                  <p v-else class="no-activity">Nothing done on this day.</p>
+                </div>
+              </Transition>
+            </section>
+
+            <section v-if="themeStore.checksEnabled" class="board-box">
+              <p class="board-box-label">checks</p>
+              <Transition name="unfold" mode="out-in">
+                <div :key="selectedDate" class="board-box-body">
+                  <div v-if="checksForDay.length" class="day-items">
+                    <div
+                      v-for="{ check, done } in checksForDay"
+                      :key="check.id"
+                      class="day-item day-item--check"
+                      :class="{ 'day-item--open': !done }"
+                    >
+                      <span class="icon icon--check"><span class="icon-dot" :class="{ 'icon-dot--open': !done }" /></span>
+                      <span class="day-item-title">{{ done ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="no-activity">No checks on this day.</p>
+                </div>
+              </Transition>
+            </section>
+          </div>
+
+          <div class="board-col">
+            <section class="board-box">
+              <p class="board-box-label">{{ isPastDate ? 'not done' : 'planned' }}</p>
+              <Transition name="unfold" mode="out-in">
+                <div :key="selectedDate" class="board-box-body">
+                  <template v-if="isPastDate">
+                    <div v-if="missedOnDay.length" class="day-items">
+                      <div v-for="todo in missedOnDay" :key="todo.id" class="day-item day-item--open">
+                        <span class="day-item-bullet">–</span><span class="day-item-title">{{ todo.title }}</span>
                       </div>
+                    </div>
+                    <p v-else class="no-activity">Nothing left open.</p>
+                  </template>
+                  <template v-else>
+                    <div v-if="plannedOnDay.length" class="day-items">
+                      <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item" :class="{ 'day-item--date': store.isDateTodo(todo) }">
+                        <span v-if="store.isDateTodo(todo)" class="icon icon--clock"><Clock /></span>
+                        <span v-else class="day-item-bullet">–</span>
+                        <span class="day-item-title">{{ todo.title }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="no-activity">Nothing planned yet.</p>
+
+                    <div v-if="themeStore.dateListsEnabled" class="day-actions">
+                      <span
+                        class="icon-side-label"
+                        :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
+                      >
+                        <span class="icon-side-label-text">add</span>
+                        <button type="button" class="icon-circle-btn" v-tooltip="'plan this day in overview'" @click="planThisDay">
+                          <Plus :size="10" />
+                        </button>
+                      </span>
+                      <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
+                        <button type="button" class="icon-circle-btn" v-tooltip="'edit this day\'s list in current'" @click="editThisDayList">
+                          <Pencil :size="10" />
+                        </button>
+                        <span class="icon-side-label-text">edit</span>
+                      </span>
                     </div>
                   </template>
                 </div>
-                <p v-else class="no-activity">Nothing done on this day.</p>
-              </div>
-            </Transition>
-          </section>
-
-          <section v-if="themeStore.checksEnabled" class="board-box">
-            <p class="board-box-label">checks</p>
-            <Transition name="unfold" mode="out-in">
-              <div :key="selectedDate" class="board-box-body">
-                <div v-if="checksForDay.length" class="day-items">
-                  <div
-                    v-for="{ check, done } in checksForDay"
-                    :key="check.id"
-                    class="day-item day-item--check"
-                    :class="{ 'day-item--open': !done }"
-                  >
-                    <span class="icon icon--check"><span class="icon-dot" :class="{ 'icon-dot--open': !done }" /></span>
-                    <span class="day-item-title">{{ done ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
-                  </div>
-                </div>
-                <p v-else class="no-activity">No checks on this day.</p>
-              </div>
-            </Transition>
-          </section>
+              </Transition>
+            </section>
+          </div>
         </div>
-
-        <div class="board-col">
-          <section class="board-box">
-            <p class="board-box-label">{{ isPastDate ? 'not done' : 'planned' }}</p>
-            <Transition name="unfold" mode="out-in">
-              <div :key="selectedDate" class="board-box-body">
-                <template v-if="isPastDate">
-                  <div v-if="missedOnDay.length" class="day-items">
-                    <div v-for="todo in missedOnDay" :key="todo.id" class="day-item day-item--open">
-                      <span class="day-item-bullet">–</span><span class="day-item-title">{{ todo.title }}</span>
-                    </div>
-                  </div>
-                  <p v-else class="no-activity">Nothing left open.</p>
-                </template>
-                <template v-else>
-                  <div v-if="plannedOnDay.length" class="day-items">
-                    <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item" :class="{ 'day-item--date': store.isDateTodo(todo) }">
-                      <span v-if="store.isDateTodo(todo)" class="icon icon--clock"><Clock /></span>
-                      <span v-else class="day-item-bullet">–</span>
-                      <span class="day-item-title">{{ todo.title }}</span>
-                    </div>
-                  </div>
-                  <p v-else class="no-activity">Nothing planned yet.</p>
-
-                  <div v-if="themeStore.dateListsEnabled" class="day-actions">
-                    <span
-                      class="icon-side-label"
-                      :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
-                    >
-                      <span class="icon-side-label-text">add</span>
-                      <button type="button" class="icon-circle-btn" v-tooltip="'plan this day in overview'" @click="planThisDay">
-                        <Plus :size="10" />
-                      </button>
-                    </span>
-                    <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
-                      <button type="button" class="icon-circle-btn" v-tooltip="'edit this day\'s list in current'" @click="editThisDayList">
-                        <Pencil :size="10" />
-                      </button>
-                      <span class="icon-side-label-text">edit</span>
-                    </span>
-                  </div>
-                </template>
-              </div>
+        <div v-else class="board-log">
+          <!-- Tablet/desktop: the log's month marker, left, right above the
+               box (phone: in the toggle row above instead). -->
+          <div class="log-month-row">
+            <Transition name="log-month" mode="out-in">
+              <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
             </Transition>
-          </section>
-        </div>
-      </div>
-    </motion.div>
+          </div>
 
-    <template v-else>
-      <!-- Tablet/desktop: the log's month marker, left, right above the
-           box (phone: in the toggle row above instead). -->
-      <div class="log-month-row">
-        <Transition name="log-month" mode="out-in">
-          <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
-        </Transition>
-      </div>
-
-      <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll">
-        <div ref="dayDetailRef" class="day-detail">
-          <transition
-            name="unfold"
-            @after-enter="updateLogMonth"
-            appear
-            appear-active-class="unfold-appear-active"
-            appear-from-class="unfold-appear-from"
-          >
-            <div class="day-detail-content">
-              <template v-if="logGroups.length">
-                <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
-                <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
-                  <p class="board-box-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
-                  <div class="day-items">
-                    <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
-                      <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
-                      <span class="day-item-title">{{ todo.title }}</span>
-                      <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
+          <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll">
+            <div ref="dayDetailRef" class="day-detail">
+              <transition
+                name="unfold"
+                @after-enter="onLogShown"
+                appear
+                appear-active-class="unfold-appear-active"
+                appear-from-class="unfold-appear-from"
+              >
+                <div class="day-detail-content">
+                  <template v-if="logGroups.length">
+                    <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
+                    <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
+                      <p class="board-box-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
+                      <div class="day-items">
+                        <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
+                          <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
+                          <span class="day-item-title">{{ todo.title }}</span>
+                          <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
+                      <div ref="logSentinelRef" class="log-sentinel" />
+                    </div>
+                  </template>
+                  <p v-else class="no-activity">Nothing completed yet.</p>
                 </div>
-                <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
-                  <div ref="logSentinelRef" class="log-sentinel" />
-                </div>
-              </template>
-              <p v-else class="no-activity">Nothing completed yet.</p>
+              </transition>
+
+              <div ref="dayDetailBottomSpacerRef" class="bottom-breathing-spacer" :style="{ height: dayDetailSpacerHeight + 'px' }" />
             </div>
-          </transition>
-
-          <div ref="dayDetailBottomSpacerRef" class="bottom-breathing-spacer" :style="{ height: dayDetailSpacerHeight + 'px' }" />
+          </div>
         </div>
-      </div>
-    </template>
+      </Transition>
+    </motion.div>
   </div>
 </template>
 
@@ -876,12 +907,21 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 /* ── Log ── one big box, centered at reading width, scrolling inside. */
+/* The log's place on the board, next to the calendar — its box scrolls
+   on its own, left-aligned at a readable width. */
+.board-log {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-right: var(--board-shadow-room);
+}
+
 .day-detail-scroll {
   flex: 1;
   min-height: 0;
   width: 100%;
   max-width: 720px;
-  margin: 0 auto var(--board-gap);
+  margin-bottom: var(--board-gap);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -916,7 +956,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   height: 0;
   width: 100%;
   max-width: 720px;
-  margin: 0 auto;
 }
 
 .log-month-row .log-month {
@@ -1078,7 +1117,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     padding-bottom: var(--board-shadow-room);
   }
 
-  .board-rest {
+  .board-rest,
+  .board-log {
     flex: 1;
     padding-top: 2px;
   }
