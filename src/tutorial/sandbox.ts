@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import type { StorageLike } from 'pinia-plugin-persistedstate'
 import { useTodosStore } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
+import { useNotesStore } from '../stores/notes'
 import { useThemeStore } from '../stores/theme'
 import { applyTheme } from '../composables/useTheme'
 import { todayStr } from '../composables/useToday'
@@ -9,7 +10,7 @@ import { todayStr } from '../composables/useToday'
 // The tutorial runs in an empty app without touching the real data. Every
 // persisted store writes through tutorialAwareStorage (see main.ts): while
 // the sandbox is active, reads/writes go to an in-memory map instead of
-// localStorage, so the real todos/checks/theme stay exactly as they were.
+// localStorage, so the real todos/checks/notes/theme stay exactly as they were.
 // Leaving re-reads them from localStorage ($hydrate), a reload mid-tutorial
 // simply lands back in the real app.
 //
@@ -18,7 +19,7 @@ import { todayStr } from '../composables/useToday'
 // next start if the tab died mid-tutorial — so even a stray write that
 // slipped past the sandbox can't cost real data.
 
-const SANDBOXED_KEYS = ['todos', 'checks', 'theme'] as const
+const SANDBOXED_KEYS = ['todos', 'checks', 'notes', 'theme'] as const
 const BACKUP_KEY = 'tutorial-backup'
 
 export const sandboxActive = ref(false)
@@ -50,6 +51,7 @@ export function restoreTutorialBackup() {
 function hydrateAll() {
   useTodosStore().$hydrate()
   useChecksStore().$hydrate()
+  useNotesStore().$hydrate()
   useThemeStore().$hydrate()
 }
 
@@ -78,6 +80,7 @@ export function enterSandbox(): boolean {
   sandboxData.clear()
   sandboxData.set('todos', JSON.stringify({ todos: [], tags: [] }))
   sandboxData.set('checks', JSON.stringify({ checks: [] }))
+  sandboxData.set('notes', JSON.stringify({ notes: {} }))
   sandboxData.set('theme', JSON.stringify({ ...realTheme, ...TUTORIAL_FEATURES, selectedFocusDate: todayStr() }))
   sandboxActive.value = true
   hydrateAll()

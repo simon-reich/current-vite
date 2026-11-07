@@ -1,6 +1,7 @@
 import { useTodosStore } from '../stores/todos'
 import { useThemeStore } from '../stores/theme'
 import { useChecksStore } from '../stores/checks'
+import { useNotesStore } from '../stores/notes'
 import { todayStr } from './useToday'
 
 function readFileViaInput(): Promise<string> {
@@ -80,10 +81,16 @@ function checkKind(data: any, expected: ExportKind): string | null {
   return null
 }
 
+function isNoteMap(value: unknown): value is Record<string, string> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && Object.values(value).every(v => typeof v === 'string')
+}
+
 export function useStorage() {
   async function exportData() {
     const store = useTodosStore()
     const checksStore = useChecksStore()
+    const notesStore = useNotesStore()
     const payload = {
       version: 1,
       kind: 'todos' as ExportKind,
@@ -91,6 +98,7 @@ export function useStorage() {
       todos: store.todos,
       tags: store.tags,
       checks: checksStore.checks,
+      notes: notesStore.notes,
     }
     await writeJsonFile(payload, `todos-${todayStr()}.json`)
   }
@@ -98,6 +106,7 @@ export function useStorage() {
   async function importData() {
     const store = useTodosStore()
     const checksStore = useChecksStore()
+    const notesStore = useNotesStore()
     try {
       const text = await readJsonFile()
       if (text === null) return
@@ -113,6 +122,8 @@ export function useStorage() {
       // Absent in files exported before Checks existed — leave whatever's
       // already there instead of wiping it out.
       if (Array.isArray(data.checks)) checksStore.importChecks(data.checks)
+      // Same for the calendar's day notes.
+      if (isNoteMap(data.notes)) notesStore.importNotes(data.notes)
     } catch {
       alert('Import failed: invalid or corrupted JSON file.')
     }
@@ -159,6 +170,7 @@ export function useStorage() {
     const store = useTodosStore()
     const themeStore = useThemeStore()
     const checksStore = useChecksStore()
+    const notesStore = useNotesStore()
     const payload = {
       version: 1,
       kind: 'everything' as ExportKind,
@@ -166,6 +178,7 @@ export function useStorage() {
       todos: store.todos,
       tags: store.tags,
       checks: checksStore.checks,
+      notes: notesStore.notes,
       themes: themeStore.savedThemes,
       activeBg: themeStore.activeBg,
       activeGray: themeStore.activeGray,
@@ -182,6 +195,7 @@ export function useStorage() {
     const store = useTodosStore()
     const themeStore = useThemeStore()
     const checksStore = useChecksStore()
+    const notesStore = useNotesStore()
     try {
       const text = await readJsonFile()
       if (text === null) return
@@ -196,6 +210,8 @@ export function useStorage() {
       // Absent in backups made before Checks existed — leave whatever's
       // already there instead of wiping it out.
       if (Array.isArray(data.checks)) checksStore.importChecks(data.checks)
+      // Same for the calendar's day notes.
+      if (isNoteMap(data.notes)) notesStore.importNotes(data.notes)
       if (Array.isArray(data.themes)) themeStore.savedThemes = data.themes
       if (typeof data.activeBg === 'string' && typeof data.activeGray === 'string') {
         themeStore.apply(data.activeBg, data.activeGray)
