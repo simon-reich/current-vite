@@ -432,15 +432,16 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     >
       <div class="board-col board-col--cal">
         <section class="board-box board-box--cal">
-          <VCalendar
-            ref="calendarRef"
-            class="cal"
-            :attributes="attributes"
-            expanded
-            locale="en"
-            :first-day-of-week="2"
-            @dayclick="onDayClick"
-          />
+          <div class="cal">
+            <VCalendar
+              ref="calendarRef"
+              :attributes="attributes"
+              expanded
+              locale="en"
+              :first-day-of-week="2"
+              @dayclick="onDayClick"
+            />
+          </div>
           <p class="day-label">{{ selectedDateLabel }}</p>
         </section>
         <!-- Free for now — the day's notes are meant to go here later. -->
@@ -607,9 +608,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   outline: none;
 }
 
+/* On very wide screens the board stops growing and sits centered, instead
+   of stretching its columns edge to edge. */
 .calendar-board {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(300px, 1fr) 2fr;
   gap: var(--board-gap);
@@ -679,55 +685,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 /* ── Calendar grid ── */
+/* A wrapper, not a class on VCalendar itself: VCalendar renders a fragment,
+   so its root never gets this component's scope attribute and scoped
+   (:deep) rules on it would never match. The grid's look lives globally in
+   calendar.css; only the phone's compact sizes are set here. */
 .cal {
   width: 100%;
   flex-shrink: 0;
-}
-
-.cal :deep(.vc-container) {
-  background: var(--bg) !important;
-  border: none !important;
-  border-radius: var(--radius);
-}
-
-.cal :deep(.vc-header),
-.cal :deep(.vc-weeks),
-.cal :deep(.vc-week),
-.cal :deep(.vc-day) {
-  background: var(--bg) !important;
-  border: none !important;
-}
-
-.cal :deep(.vc-day-content:hover) {
-  background: rgba(135, 128, 128, 0.15) !important;
-}
-
-.cal :deep(.vc-title) {
-  color: var(--ink-dark) !important;
-  font-size: 22px !important;
-  font-weight: 700 !important;
-}
-
-.cal :deep(.vc-weekday) {
-  color: var(--ink) !important;
-  font-size: 15px !important;
-}
-
-.cal :deep(.vc-arrow) {
-  width: 32px !important;
-  height: 32px !important;
-}
-
-.cal :deep(.vc-arrow svg) {
-  width: 20px !important;
-  height: 20px !important;
-}
-
-.cal :deep(.vc-day-content) {
-  color: var(--ink) !important;
-  width: 34px !important;
-  height: 34px !important;
-  font-size: 17px !important;
 }
 
 /* The selected day, under the grid it was picked in. */
@@ -893,7 +857,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 .no-activity {
-  font-size: 15px;
+  font-size: var(--day-item-font-size);
   font-weight: bold;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
@@ -1037,7 +1001,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   justify-content: flex-start;
 }
 
-/* Narrow desktop: a step smaller grid, the calendar column is tighter. */
+/* Narrow desktop: the calendar column is tighter. */
 @media (min-width: 1025px) and (max-width: 1400px) {
   .calendar-view {
     --board-gap: 22px;
@@ -1045,12 +1009,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
   .calendar-board {
     grid-template-columns: minmax(270px, 1fr) 2fr;
-  }
-
-  .cal :deep(.vc-day-content) {
-    width: 30px !important;
-    height: 30px !important;
-    font-size: 15px !important;
   }
 }
 
@@ -1078,24 +1036,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     display: none;
   }
 
+  /* The stack scrolls as a whole, so a column keeps its full content
+     height — shrunk to fit, its overflow would run into the next one. */
   .board-rest > .board-col {
+    flex-shrink: 0;
     overflow: visible;
     padding: 0;
   }
 
-  .cal :deep(.vc-title) {
-    font-size: 19px !important;
-  }
-
-  .cal :deep(.vc-weekday) {
-    font-size: 13px !important;
-  }
-
-  .cal :deep(.vc-day-content) {
-    width: 30px !important;
-    height: 30px !important;
-    font-size: 15px !important;
-  }
 }
 
 /* Phone: one column — the calendar box stays pinned on top, the other
@@ -1122,9 +1070,12 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     flex-direction: column;
   }
 
+  /* Only room for the shadow below — the board's gap alone separates it
+     from the boxes scrolling underneath. */
   .board-col--cal {
     flex-shrink: 0;
     padding-right: var(--board-shadow-room);
+    padding-bottom: var(--board-shadow-room);
   }
 
   .board-rest {
@@ -1141,18 +1092,30 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     padding: 4px 6px 10px;
   }
 
+  /* A step more compact grid, so the calendar doesn't take half the
+     screen before any box shows. */
+  .cal :deep(.vc-header) {
+    height: 26px;
+    margin-top: 6px;
+  }
+
   .cal :deep(.vc-title) {
-    font-size: 16px !important;
+    font-size: 19px !important;
   }
 
   .cal :deep(.vc-weekday) {
-    font-size: 12px !important;
+    font-size: 14px !important;
+  }
+
+  .cal :deep(.vc-day) {
+    min-height: 28px;
   }
 
   .cal :deep(.vc-day-content) {
-    width: 26px !important;
-    height: 26px !important;
-    font-size: 13px !important;
+    width: 24px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    font-size: 16px !important;
   }
 
   .day-label {
