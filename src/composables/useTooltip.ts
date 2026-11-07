@@ -22,7 +22,8 @@ let tip: HTMLDivElement | null = null
 let activeEl: TooltipEl | null = null
 let showTimer: ReturnType<typeof setTimeout> | null = null
 
-const canHover = () => window.matchMedia('(hover: hover)').matches
+// Mouse/trackpad rather than touch — also picks wording like click vs. tap.
+export const canHover = () => window.matchMedia('(hover: hover)').matches
 
 function tipEl(): HTMLDivElement {
   if (!tip) {

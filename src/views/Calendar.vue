@@ -11,6 +11,7 @@ import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
 import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
+import { canHover } from '../composables/useTooltip'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
@@ -395,11 +396,13 @@ function editThisDayList() {
 }
 
 // The selected day's note — saved as you type, an emptied note is removed
-// (see stores/notes.ts).
+// (see stores/notes.ts). Escape leaves the field by focusing the view
+// again, so the arrow keys step through the calendar right away.
 const dayNote = computed({
   get: () => notesStore.noteOn(selectedDate.value),
   set: (text: string) => notesStore.setNote(selectedDate.value, text),
 })
+const notePlaceholder = `${canHover() ? 'click' : 'tap'} here to add notes`
 
 // A future day has nothing done/ticked yet — only its plan box shows.
 const isFutureDate = computed(() => !!selectedDate.value && selectedDate.value > todayStr())
@@ -589,14 +592,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         <!-- Last on the phone, where it scrolls with the other boxes; under
              the calendar on desktop, next to it on tablet. -->
         <div class="board-col board-col--notes">
-          <section class="board-box board-box--notes">
+          <section class="board-box board-box--flat board-box--notes">
             <p class="board-box-label">notes</p>
             <textarea
               v-model="dayNote"
               class="day-note"
-              placeholder="a few words about this day"
+              :placeholder="notePlaceholder"
               spellcheck="false"
-              @keydown.escape="($event.target as HTMLTextAreaElement).blur()"
+              @keydown.escape="viewRef?.focus()"
             />
           </section>
         </div>
@@ -737,6 +740,12 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   min-height: 140px;
 }
 
+/* No frame at all — just the label and the text. Doubled class so it wins over .board-box's own
+   border further down. */
+.board-box.board-box--notes {
+  border-color: transparent;
+}
+
 .day-note {
   flex: 1;
   min-height: 0;
@@ -747,10 +756,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   resize: none;
   background: transparent;
   color: var(--ink);
-  font-family: var(--font-playful, sans-serif);
+  font-family: var(--font-mono, monospace);
   font-size: var(--day-item-font-size);
-  font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.5;
   scrollbar-width: none;
 }
 
@@ -770,11 +778,22 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 18px 18px;
+  --board-box-pad-bottom: 18px;
+  padding: 16px 18px var(--board-box-pad-bottom);
   background: var(--bg);
   border: 2px solid var(--ink);
   border-radius: var(--radius);
   box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
+}
+
+/* A secondary box (notes): border only, no shadow — but taking the
+   same room a shadowed box does, out to where its shadow ends, so its
+   edges line up with the shadows next to it. */
+.board-box.board-box--flat {
+  box-shadow: none;
+  margin-right: calc(-1 * var(--board-shadow-room));
+  margin-bottom: calc(-1 * var(--board-shadow-room));
+  padding-bottom: calc(var(--board-box-pad-bottom) + var(--board-shadow-room));
 }
 
 .board-box--cal {
@@ -1240,7 +1259,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   }
 
   .board-box {
-    padding: 12px 14px 14px;
+    --board-box-pad-bottom: 14px;
+    padding: 12px 14px var(--board-box-pad-bottom);
   }
 
   .board-box--cal {
