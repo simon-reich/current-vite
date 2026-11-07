@@ -1360,8 +1360,8 @@
   padding: 36px 20px 0;
 }
 
-/* Calendar: the grid stays put; only the selected day's entries below it
-   scroll (see Calendar.vue's own .day-detail-scroll). The outer page scroll
+/* Calendar: the board stays put; only its columns (or the log's box)
+   scroll on their own (see Calendar.vue). The outer page scroll
    is disabled so the calendar itself never travels off-screen — on any
    viewport width, not just mobile. */
 #app.is-calendar .main-content {
@@ -1379,6 +1379,12 @@
 @media (min-width: 1025px) {
   #app.is-calendar .content-inner {
     padding-top: 30px;
+  }
+
+  /* The calendar board takes the right-hand column too — nothing else sits
+     there on this route (its header row only holds the settings icon). */
+  #app.is-calendar .main-content {
+    grid-column: 2 / 4;
   }
 }
 

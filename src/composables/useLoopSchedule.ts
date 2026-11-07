@@ -177,6 +177,7 @@ export interface LoopScheduleStore {
   sendToCurrent: (id: string) => void
   hasFocusDateList: (dateStr: string) => boolean
   assignFocusDate: (id: string, dateStr: string) => void
+  recordMissed: (id: string, days: string[]) => void
 }
 
 // Catch-up: an occurrence due on a day the app was never opened (no run
@@ -201,6 +202,23 @@ function missedSinceLastRun(todo: Todo, ranOn: string | undefined, today: string
   return false
 }
 
+// First run on a new day: an occurrence still pending in Current (sent on
+// some earlier day, never settled) was open at the end of every day since
+// — recorded as missed (Todo.missedDates, the Calendar's "not done" box),
+// from the later of its send day and the last run (earlier days were
+// recorded by earlier runs) up to yesterday. Days it was worked on anyway
+// (a sub ticked doesn't count, a workLog entry does) are left out.
+function recordPendingAsMissed(store: LoopScheduleStore, todo: Todo, ranOn: string | undefined, today: string) {
+  if (!ranOn || ranOn >= today || !todo.inCurrent || !todo.focusAddedAt) return
+  const sent = localDayOf(todo.focusAddedAt)
+  const worked = new Set(todo.workLog.map(localDayOf))
+  const days: string[] = []
+  for (let day = sent > ranOn ? sent : ranOn; day < today; day = addDaysStr(day, 1)) {
+    if (!worked.has(day)) days.push(day)
+  }
+  store.recordMissed(todo.id, days)
+}
+
 // Sends every due, not-yet-completed loop todo to Current — called once on
 // load and again every midnight while the app stays open (see
 // scheduleLoopMidnightCheck below). Current and today's Date List are
@@ -216,6 +234,7 @@ export function runLoopSchedule(store: LoopScheduleStore) {
   const hasDateListToday = store.hasFocusDateList(today)
   for (const todo of store.todos) {
     if (!todo.loopInterval || !todo.tags.includes(LOOP_TAG_ID) || todo.completedAt || todo.deletedAt) continue
+    recordPendingAsMissed(store, todo, ranOn, today)
     if (processedToday(todo)) continue
     // One malformed todo (unexpected data shape) should never stop the
     // rest of the list from being checked, or bubble up into App.vue's

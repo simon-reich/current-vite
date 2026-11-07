@@ -95,6 +95,13 @@ export interface Todo {
    *  faking a real workLog entry (which would wrongly show up on the
    *  calendar as a worked-on day). */
   poolBumpedAt?: string
+  /** Sorted ISO dates (YYYY-MM-DD) this todo was still open on at the end
+   *  of that day — left on that day's Date List (see
+   *  rolloverExpiredFocusDates) or, for a Date Todo, still pending in
+   *  Current across the day change (see runLoopSchedule). Only recorded,
+   *  never derived: past focusDates don't survive the rollover otherwise.
+   *  Read by the Calendar's "not done" box for past days. */
+  missedDates?: string[]
   /** Which celebration (see TodoCard.vue's "Celebration-Animationen"
    *  section) plays when this todo is completed — assigned once in
    *  sendToCurrent below (or assignFocusDate, when it joins a Date List),
@@ -473,6 +480,34 @@ export const useTodosStore = defineStore('todos', () => {
     if (todo) todo.completedAt = undefined
   }
 
+  // Undoes a day's "worked on" — the Calendar's per-day undo, for a
+  // check-off made by accident: that day's Done for now (workLog entries)
+  // and the subs ticked that day go together, since the Calendar shows
+  // them as one entry. The subs are unticked the same way as by hand
+  // (toggleSub), back to their old spot. Any list membership the Done for
+  // now cleared back then stays cleared (same as uncompleteTodo), and a
+  // loop's shifted startDate (updates when done) isn't rolled back — the
+  // old one isn't remembered.
+  function undoWorkedOn(id: string, dateStr: string) {
+    const todo = todos.value.find(t => t.id === id)
+    if (!todo) return
+    todo.workLog = todo.workLog.filter(ts => localDayOf(ts) !== dateStr)
+    todo.subs
+      .filter(s => s.completedAt && localDayOf(s.completedAt) === dateStr)
+      .forEach(s => toggleSub(id, s.id))
+  }
+
+  // Adds past days to missedDates (see there) — deduped and sorted.
+  function recordMissed(id: string, days: string[]) {
+    const todo = todos.value.find(t => t.id === id)
+    if (!todo || !days.length) return
+    todo.missedDates = [...new Set([...(todo.missedDates ?? []), ...days])].sort()
+  }
+
+  function missedOn(dateStr: string): Todo[] {
+    return todos.value.filter(t => !t.deletedAt && t.missedDates?.includes(dateStr))
+  }
+
   // `at` backdates the check-off (a yesterday leftover done after the
   // fact, see leftoversFrom) — otherwise it's now.
   function completeTodo(id: string, at?: string) {
@@ -667,6 +702,8 @@ export const useTodosStore = defineStore('todos', () => {
         const dateTodo = isDateTodo(t) && !t.completedAt && !t.deletedAt
         const remaining = t.focusDates.filter(d => d >= (dateTodo ? today : cutoff))
         if (remaining.length !== t.focusDates.length) {
+          // Still on those lists when their day ended — not done there.
+          if (!t.completedAt && !t.deletedAt) recordMissed(t.id, t.focusDates.filter(d => !remaining.includes(d)))
           t.focusDates = remaining.length ? remaining : undefined
           if (!dateTodo) t.poolBumpedAt = now
           else if (!t.inCurrent) sendToCurrent(t.id)
@@ -793,9 +830,9 @@ export const useTodosStore = defineStore('todos', () => {
     todos, tags, loopScheduleRanOn,
     // getters
     activeTodos, currentTodos, userTags, futureFocusDates, datesWithFocusList,
-    completedOn, completedTodos, workedOn, subsCompletedOn, todosForFocusDate, isOnFocusDate, hasFocusDateList,
+    completedOn, completedTodos, workedOn, subsCompletedOn, missedOn, todosForFocusDate, isOnFocusDate, hasFocusDateList, isDateTodo,
     // actions
-    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, doneForNow, doneForNowOnDate,
+    addTodo, updateTodo, deleteTodo, sendToCurrent, removeFromCurrent, completeTodo, uncompleteTodo, undoWorkedOn, recordMissed, doneForNow, doneForNowOnDate,
     addSub, toggleSub, deleteSub, updateSub, reorderSub, SUB_SINK_DELAY_MS,
     addTag, deleteTag, ensureSystemTags, ensureSubsField, ensureInCurrentField,
     assignFocusDate, unassignFocusDate, moveFocusDateToNextDay, deleteFocusDateList, rolloverExpiredFocusDates, leftoversFrom, releaseToPool,

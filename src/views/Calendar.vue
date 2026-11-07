@@ -3,14 +3,13 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } fr
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil } from '@lucide/vue'
+import { Plus, Pencil, Bell } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
 import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
-import ScrollDivider from '../components/ScrollDivider.vue'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
@@ -30,7 +29,6 @@ const dayDetailRef = ref<HTMLElement | null>(null)
 const dayDetailBottomSpacerRef = ref<HTMLElement | null>(null)
 const {
   scrolled: dayDetailScrolled,
-  scrolledToBottom: dayDetailScrolledToBottom,
   spacerHeight: dayDetailSpacerHeight,
   check: checkDayDetailScrollState,
 } = useScrollTracking({ scrollEl: dayDetailScrollRef, resizeTarget: dayDetailRef, spacerEl: dayDetailBottomSpacerRef, targetGap: 40 })
@@ -307,21 +305,40 @@ const checksOnDay = computed(() => selectedDate.value && themeStore.checksEnable
 // which is exactly why subs-only progress still lands on the calendar.
 const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? store.subsCompletedOn(selectedDate.value) : [])
 
-// Todos actually planned onto the selected day's Date List (see
-// stores/todos.ts's focusDates) — deliberately excludes Date-todos
-// (loopInterval set): todosForFocusDate live-computes those as "due that
-// day" off their recurrence rule, which is true on literally every matching
-// day including ones long past, so they'd otherwise sit here forever
-// mislabeled as "planned" instead of the automatic recurrence they actually
-// are. Meaningful for today or any future day, shown in its own section
-// since nothing here has actually happened yet (unlike dayEntries/
-// checksOnDay, which are all history).
-// A past day is left out — the only past focusDates that still exist are
-// yesterday's leftovers (see stores/todos.ts's leftoversFrom), which never
-// happened on that day and shouldn't read as its plan in hindsight.
+// What's on the selected day's list — today or a future day only (a past
+// day shows what was left undone instead, see missedOnDay). Everything
+// todosForFocusDate counts, Date Todos due that day included: the board's
+// "planned" box is the day's whole preview, same as Current shows it.
+// Planned by hand first, Date Todos (due by their own schedule, see
+// isDateTodo in stores/todos.ts) after them — those show pale with a bell
+// instead of the dash, so they don't read as deliberately planned.
 const plannedOnDay = computed(() => {
-  if (!selectedDate.value || !themeStore.dateListsEnabled || selectedDate.value < todayStr()) return []
-  return store.todosForFocusDate(selectedDate.value).filter(t => !t.loopInterval)
+  if (!selectedDate.value || selectedDate.value < todayStr()) return []
+  const all = store.todosForFocusDate(selectedDate.value)
+  return [...all.filter(t => !store.isDateTodo(t)), ...all.filter(store.isDateTodo)]
+})
+
+// A past day's open leftovers — recorded at the day change (Todo.missedDates,
+// see rolloverExpiredFocusDates/runLoopSchedule), never derived. Anything
+// that did get done/worked on that day after all is left out.
+const missedOnDay = computed(() => {
+  if (!isPastDate.value) return []
+  const handled = new Set(dayEntries.value.filter(e => e.kind === 'done' || e.worked).map(e => e.todo.id))
+  return store.missedOn(selectedDate.value).filter(t => !handled.has(t.id))
+})
+
+// The day's Checks: ticked ones plus the ones due that day but not ticked
+// (open on today/a future day, missed on a past one). Ticked first. A
+// Check created after that day never counts as due on it.
+const checksForDay = computed(() => {
+  if (!selectedDate.value || !themeStore.checksEnabled) return []
+  const day = selectedDate.value
+  const ticked = checksOnDay.value.map(check => ({ check, done: true }))
+  const tickedIds = new Set(checksOnDay.value.map(c => c.id))
+  const open = checksStore.checksDueOn(day)
+    .filter(c => !tickedIds.has(c.id) && localDayOf(c.createdAt) <= day)
+    .map(check => ({ check, done: false }))
+  return [...ticked, ...open]
 })
 
 // Jumps to Overview with the widget already pointed at this day, ready to
@@ -343,18 +360,11 @@ function editThisDayList() {
   router.push('/current')
 }
 
-const hasActivity = computed(() => dayEntries.value.length > 0 || checksOnDay.value.length > 0)
+// A future day has nothing done/ticked yet — only its plan box shows.
+const isFutureDate = computed(() => !!selectedDate.value && selectedDate.value > todayStr())
 
-// Today can show both the planned-for-today list and today's own completed/
-// worked history at once — history reads more relevant there (what did I
-// actually get done today) so it goes first, plan second. Any other day
-// only ever has one of the two in practice, but keeps plan-first regardless
-// (matches every other day's reading order: what's coming, not a review).
-const isSelectedToday = computed(() => selectedDate.value === todayStr())
-
-// The plan section (empty state + Add/Edit) only makes sense for today or a
-// future day — a past day is done, "no activities planned for this day yet"
-// plus an Add button that plans into the past is nonsensical there.
+// A past day is done — its third box shows what was left open instead of
+// a plan (and no add/edit, which would plan into the past).
 const isPastDate = computed(() => !!selectedDate.value && selectedDate.value < todayStr())
 
 // Each entry keeps its own done/worked "kind" (double vs. single circle check) even
@@ -366,7 +376,9 @@ const isPastDate = computed(() => !!selectedDate.value && selectedDate.value < t
 // for-today is about closing a todo back into the pool for later, not the
 // only way of showing you touched it; ticking subs across several days is
 // the same kind of progress and should read the same way in the calendar.
-interface DayEntry { todo: Todo; kind: 'done' | 'worked'; subs: Sub[] }
+// `worked`: there's a real Done for now that day (a workLog entry), not
+// just ticked subs — only that counts as having handled a missed todo.
+interface DayEntry { todo: Todo; kind: 'done' | 'worked'; subs: Sub[]; worked: boolean }
 
 // Merges doneOnDay/workedOnDay/subsOnDay into one entry per todo — a todo
 // touched in more than one way the same day (e.g. Done *and* some subs
@@ -374,14 +386,14 @@ interface DayEntry { todo: Todo; kind: 'done' | 'worked'; subs: Sub[] }
 // of appearing twice.
 const dayEntries = computed<DayEntry[]>(() => {
   const map = new Map<string, DayEntry>()
-  doneOnDay.value.forEach(todo => map.set(todo.id, { todo, kind: 'done', subs: [] }))
+  doneOnDay.value.forEach(todo => map.set(todo.id, { todo, kind: 'done', subs: [], worked: false }))
   workedOnDay.value.forEach(todo => {
-    if (!map.has(todo.id)) map.set(todo.id, { todo, kind: 'worked', subs: [] })
+    if (!map.has(todo.id)) map.set(todo.id, { todo, kind: 'worked', subs: [], worked: true })
   })
   subsOnDay.value.forEach(({ todo, subs }) => {
     const existing = map.get(todo.id)
     if (existing) existing.subs = subs
-    else map.set(todo.id, { todo, kind: 'worked', subs })
+    else map.set(todo.id, { todo, kind: 'worked', subs, worked: false })
   })
   return [...map.values()]
 })
@@ -407,170 +419,269 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
       </Transition>
     </div>
 
+    <!-- Control board: every part of the day in its own box. Desktop:
+         calendar | done + checks | planned (past: not done). Tablet: the
+         calendar left, the rest stacked on the right. Phone: one column,
+         the calendar pinned, the boxes scrolling under it. -->
     <motion.div
       v-if="viewMode === 'calendar'"
-      class="calendar-inner"
+      class="calendar-board"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
       :transition="{ type: 'spring', stiffness: 380, damping: 26, mass: 0.8 }"
     >
-      <VCalendar
-        ref="calendarRef"
-        class="cal"
-        :attributes="attributes"
-        expanded
-        locale="en"
-        :first-day-of-week="2"
-        @dayclick="onDayClick"
-      />
+      <div class="board-col board-col--cal">
+        <section class="board-box board-box--cal">
+          <VCalendar
+            ref="calendarRef"
+            class="cal"
+            :attributes="attributes"
+            expanded
+            locale="en"
+            :first-day-of-week="2"
+            @dayclick="onDayClick"
+          />
+          <p class="day-label">{{ selectedDateLabel }}</p>
+        </section>
+        <!-- Free for now — the day's notes are meant to go here later. -->
+      </div>
+
+      <div class="board-rest">
+        <!-- A future day has nothing done or ticked yet — its plan moves up
+             into this spot instead. -->
+        <div v-if="!isFutureDate" class="board-col">
+          <section class="board-box">
+            <p class="board-box-label">done</p>
+            <Transition name="unfold" mode="out-in">
+              <div :key="selectedDate" class="board-box-body">
+                <div v-if="dayEntries.length" class="day-items">
+                  <template v-for="(group, gi) in [priorityEntries, otherEntries]" :key="gi">
+                    <div v-if="gi === 1 && priorityEntries.length && otherEntries.length" class="day-group-spacer" />
+                    <div v-for="entry in group" :key="entry.todo.id" class="day-entry">
+                      <div class="day-item">
+                        <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" :filled="gi === 0" size="1em" /></span>
+                        <span class="day-item-title">{{ entry.todo.title }}</span>
+                        <span v-if="!entry.todo.deletedAt" class="day-undo-slot">
+                          <UndoDoneButton :todo-id="entry.todo.id" :worked="entry.kind === 'worked'" :date-str="selectedDate" />
+                        </span>
+                      </div>
+                      <div v-if="entry.subs.length" class="day-subs">
+                        <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                <p v-else class="no-activity">Nothing done on this day.</p>
+              </div>
+            </Transition>
+          </section>
+
+          <section v-if="themeStore.checksEnabled" class="board-box">
+            <p class="board-box-label">checks</p>
+            <Transition name="unfold" mode="out-in">
+              <div :key="selectedDate" class="board-box-body">
+                <div v-if="checksForDay.length" class="day-items">
+                  <div
+                    v-for="{ check, done } in checksForDay"
+                    :key="check.id"
+                    class="day-item day-item--check"
+                    :class="{ 'day-item--open': !done }"
+                  >
+                    <span class="icon icon--check"><span class="icon-dot" :class="{ 'icon-dot--open': !done }" /></span>
+                    <span class="day-item-title">{{ done ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
+                  </div>
+                </div>
+                <p v-else class="no-activity">No checks on this day.</p>
+              </div>
+            </Transition>
+          </section>
+        </div>
+
+        <div class="board-col">
+          <section class="board-box">
+            <p class="board-box-label">{{ isPastDate ? 'not done' : 'planned' }}</p>
+            <Transition name="unfold" mode="out-in">
+              <div :key="selectedDate" class="board-box-body">
+                <template v-if="isPastDate">
+                  <div v-if="missedOnDay.length" class="day-items">
+                    <div v-for="todo in missedOnDay" :key="todo.id" class="day-item day-item--open">
+                      <span class="day-item-bullet">–</span><span class="day-item-title">{{ todo.title }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="no-activity">Nothing left open.</p>
+                </template>
+                <template v-else>
+                  <div v-if="plannedOnDay.length" class="day-items">
+                    <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item" :class="{ 'day-item--date': store.isDateTodo(todo) }">
+                      <span v-if="store.isDateTodo(todo)" class="icon icon--bell"><Bell /></span>
+                      <span v-else class="day-item-bullet">–</span>
+                      <span class="day-item-title">{{ todo.title }}</span>
+                    </div>
+                  </div>
+                  <p v-else class="no-activity">Nothing planned yet.</p>
+
+                  <div v-if="themeStore.dateListsEnabled" class="day-actions">
+                    <span
+                      class="icon-side-label"
+                      :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
+                    >
+                      <span class="icon-side-label-text">add</span>
+                      <button type="button" class="icon-circle-btn" v-tooltip="'plan this day in overview'" @click="planThisDay">
+                        <Plus :size="10" />
+                      </button>
+                    </span>
+                    <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
+                      <button type="button" class="icon-circle-btn" v-tooltip="'edit this day\'s list in current'" @click="editThisDayList">
+                        <Pencil :size="10" />
+                      </button>
+                      <span class="icon-side-label-text">edit</span>
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </Transition>
+          </section>
+        </div>
+      </div>
     </motion.div>
 
-    <!-- Tablet/desktop: the log's month marker, left, right above the
-         divider (phone: in the toggle row above instead). -->
-    <div v-if="viewMode === 'log'" class="log-month-row">
-      <Transition name="log-month" mode="out-in">
-        <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
-      </Transition>
-    </div>
-
-    <ScrollDivider class="day-scroll-divider" :visible="dayDetailScrolled" />
-
-    <div ref="dayDetailScrollRef" class="day-detail-scroll" @scroll="onDayDetailScroll">
-      <div ref="dayDetailRef" class="day-detail calendar-inner">
-        <transition
-          name="unfold"
-          mode="out-in"
-          @after-enter="updateLogMonth"
-          appear
-          appear-active-class="unfold-appear-active"
-          appear-from-class="unfold-appear-from"
-        >
-          <div v-if="viewMode === 'log'" key="log" class="day-detail-content">
-            <template v-if="logGroups.length">
-              <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
-              <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
-                <p class="log-day-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
-                <div class="day-items">
-                  <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
-                    <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
-                    <span class="day-item-title">{{ todo.title }}</span>
-                    <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
-                  </div>
-                </div>
-              </div>
-              <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
-                <div ref="logSentinelRef" class="log-sentinel" />
-              </div>
-            </template>
-            <p v-else class="no-activity">Nothing completed yet.</p>
-          </div>
-
-          <div v-else :key="selectedDate" class="day-detail-content">
-            <div class="day-label-row">
-              <p class="day-label">{{ selectedDateLabel }}</p>
-            </div>
-
-            <div
-              v-if="themeStore.dateListsEnabled && !isPastDate"
-              class="day-plan-block"
-              :style="{ order: isSelectedToday ? 2 : 1 }"
-            >
-              <div v-if="plannedOnDay.length" class="day-items planned-items">
-                <p class="planned-items-label">planned</p>
-                <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item day-item--planned">
-                  <span class="day-item-bullet">–</span>{{ todo.title }}
-                </div>
-              </div>
-              <!-- Only while the day has no history either — once something
-                   is already done/worked on, "nothing planned yet" reads
-                   as if nothing happened. -->
-              <p v-else-if="!hasActivity" class="day-plan-empty">no activities planned for this day yet</p>
-
-              <div class="day-actions">
-                <span
-                  class="icon-side-label"
-                  :class="plannedOnDay.length ? 'icon-side-label--left' : 'icon-side-label--right'"
-                >
-                  <span class="icon-side-label-text">add</span>
-                  <button type="button" class="icon-circle-btn" v-tooltip="'plan this day in overview'" @click="planThisDay">
-                    <Plus :size="10" />
-                  </button>
-                </span>
-                <span v-if="plannedOnDay.length" class="icon-side-label icon-side-label--right">
-                  <button type="button" class="icon-circle-btn" v-tooltip="'edit this day\'s list in current'" @click="editThisDayList">
-                    <Pencil :size="10" />
-                  </button>
-                  <span class="icon-side-label-text">edit</span>
-                </span>
-              </div>
-            </div>
-
-            <div
-              v-if="hasActivity || !themeStore.dateListsEnabled || isPastDate"
-              class="day-history-block"
-              :style="{ order: isSelectedToday ? 1 : 2 }"
-            >
-              <div v-if="hasActivity" class="day-items">
-                <div v-for="entry in priorityEntries" :key="entry.todo.id" class="day-entry">
-                  <div class="day-item">
-                    <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" filled size="1em" /></span>
-                    <span class="day-item-title">{{ entry.todo.title }}</span>
-                    <span v-if="entry.kind === 'done' && !entry.todo.deletedAt" class="day-undo-slot"><UndoDoneButton :todo-id="entry.todo.id" /></span>
-                  </div>
-                  <div v-if="entry.subs.length" class="day-subs">
-                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
-                  </div>
-                </div>
-                <div v-if="priorityEntries.length && otherEntries.length" class="day-group-spacer" />
-                <div v-for="entry in otherEntries" :key="entry.todo.id" class="day-entry">
-                  <div class="day-item">
-                    <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" size="1em" /></span>
-                    <span class="day-item-title">{{ entry.todo.title }}</span>
-                    <span v-if="entry.kind === 'done' && !entry.todo.deletedAt" class="day-undo-slot"><UndoDoneButton :todo-id="entry.todo.id" /></span>
-                  </div>
-                  <div v-if="entry.subs.length" class="day-subs">
-                    <div v-for="sub in entry.subs" :key="sub.id" class="day-sub-item"><span>–</span><span>{{ sub.title }}</span></div>
-                  </div>
-                </div>
-                <div v-if="(priorityEntries.length || otherEntries.length) && checksOnDay.length" class="day-group-spacer" />
-                <div v-for="check in checksOnDay" :key="check.id" class="day-item day-item--check">
-                  <span class="icon icon--check"><span class="icon-dot" /></span>{{ checksStore.titleOn(check, selectedDate) }}
-                </div>
-              </div>
-
-              <p v-else class="no-activity">No activity for this day.</p>
-            </div>
-          </div>
-        </transition>
-
-        <div ref="dayDetailBottomSpacerRef" class="bottom-breathing-spacer" :style="{ height: dayDetailSpacerHeight + 'px' }" />
+    <template v-else>
+      <!-- Tablet/desktop: the log's month marker, left, right above the
+           box (phone: in the toggle row above instead). -->
+      <div class="log-month-row">
+        <Transition name="log-month" mode="out-in">
+          <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
+        </Transition>
       </div>
-    </div>
 
-    <ScrollDivider class="day-scroll-divider-bottom" :visible="!dayDetailScrolledToBottom" />
+      <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll">
+        <div ref="dayDetailRef" class="day-detail">
+          <transition
+            name="unfold"
+            @after-enter="updateLogMonth"
+            appear
+            appear-active-class="unfold-appear-active"
+            appear-from-class="unfold-appear-from"
+          >
+            <div class="day-detail-content">
+              <template v-if="logGroups.length">
+                <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
+                <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
+                  <p class="board-box-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
+                  <div class="day-items">
+                    <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
+                      <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
+                      <span class="day-item-title">{{ todo.title }}</span>
+                      <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
+                  <div ref="logSentinelRef" class="log-sentinel" />
+                </div>
+              </template>
+              <p v-else class="no-activity">Nothing completed yet.</p>
+            </div>
+          </transition>
+
+          <div ref="dayDetailBottomSpacerRef" class="bottom-breathing-spacer" :style="{ height: dayDetailSpacerHeight + 'px' }" />
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
+/* ── Board ── The view itself fills the (non-scrolling, see layout.css)
+   content area; each column scrolls on its own where it has to. */
 .calendar-view {
+  /* Space between boxes, and the room left around them for their drop
+     shadow (offset right + down) — a scrolling column clips anything past
+     its edge, so it pads that much on those two sides. */
+  --board-gap: 28px;
+  --board-shadow-room: var(--card-shadow-offset);
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
   outline: none;
 }
 
-/* Caps the calendar grid and the day's entries at the same reading width,
-   while the divider lines (siblings, outside this wrapper) span the full
-   .calendar-view width like every other divider in the app. */
-.calendar-inner {
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
+.calendar-board {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 2fr;
+  gap: var(--board-gap);
 }
 
+.board-rest {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--board-gap);
+}
+
+.board-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--board-gap);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 var(--board-shadow-room) calc(var(--board-shadow-room) + var(--board-gap)) 0;
+  scrollbar-width: none;
+}
+
+.board-col::-webkit-scrollbar {
+  display: none;
+}
+
+
+.board-col--cal {
+  overflow: visible;
+}
+
+/* One box per part of the day — the same surface as a todo card: ink
+   border, the app's hard drop shadow, corners from Settings. */
+.board-box {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  background: var(--bg);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
+}
+
+.board-box--cal {
+  gap: 10px;
+  padding: 10px 10px 16px;
+}
+
+.board-box-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* A box's title (done / checks / planned …) and the log's day labels. */
+.board-box-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Calendar grid ── */
 .cal {
   width: 100%;
+  flex-shrink: 0;
 }
 
 .cal :deep(.vc-container) {
@@ -587,74 +698,42 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   border: none !important;
 }
 
-.cal :deep(.vc-day-content) {
-  color: var(--ink) !important;
-  font-size: 20px !important;
-}
-
 .cal :deep(.vc-day-content:hover) {
   background: rgba(135, 128, 128, 0.15) !important;
 }
 
 .cal :deep(.vc-title) {
   color: var(--ink-dark) !important;
-  font-size: 26px !important;
+  font-size: 22px !important;
   font-weight: 700 !important;
 }
 
 .cal :deep(.vc-weekday) {
   color: var(--ink) !important;
-  font-size: 18px !important;
+  font-size: 15px !important;
 }
 
 .cal :deep(.vc-arrow) {
-  width: 36px !important;
-  height: 36px !important;
+  width: 32px !important;
+  height: 32px !important;
 }
 
 .cal :deep(.vc-arrow svg) {
-  width: 22px !important;
-  height: 22px !important;
+  width: 20px !important;
+  height: 20px !important;
 }
 
 .cal :deep(.vc-day-content) {
-  width: 36px !important;
-  height: 36px !important;
-  font-size: 20px !important;
+  color: var(--ink) !important;
+  width: 34px !important;
+  height: 34px !important;
+  font-size: 17px !important;
 }
 
-/* The day's entries share the calendar grid's own width cap
-   (.calendar-inner, 640px) on every viewport — a narrower column left long
-   titles wrapping in a thin strip with lots of empty space beside it. */
-.day-detail {
-  /* An entry's text size and the gap after its icon — shared by .day-item
-     itself and .day-subs' indent, which has to clear exactly that icon
-     column (the icon is 1em of this size, see .icon). Phone shrinks the
-     size below. */
-  --day-item-font-size: 20px;
-  --day-item-icon-gap: 10px;
-  /* Quieter secondary text in the day detail — the empty-state messages
-     (.day-plan-empty/.no-activity) and the planned entries share it.
-     Phone shrinks it along with the entries (see below). */
-  --day-aside-font-size: 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-.day-detail-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 28px;
-  width: 100%;
-}
-
+/* The selected day, under the grid it was picked in. */
 .day-label {
-  font-size: 24px;
+  text-align: center;
+  font-size: 17px;
   font-weight: 600;
   color: var(--ink-dark);
   text-transform: uppercase;
@@ -662,69 +741,23 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-family: var(--font-playful, sans-serif);
 }
 
-.day-label-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Same look as .no-activity below — it replaces that message whenever Date
-   Lists are on, so it should read the same, not like a smaller aside. */
-.day-plan-empty {
-  font-size: var(--day-aside-font-size);
-  font-weight: bold;
-  color: var(--ink);
-  font-family: var(--font-playful, sans-serif);
-  text-align: center;
-}
-
-/* Sits centered under the planned list (or its empty state). Icon buttons
-   themselves are .icon-circle-btn, shared with Current.vue's Checks
-   add/edit icons via base.css, no local redefinition. Each icon's own
-   label unrolls sideways on hover — add's to its left, edit's to its
-   right — via base.css's .icon-side-label, absolutely positioned so an
-   unrolling label never affects layout: the two icons stay exactly where
-   they are, only the label grows into the empty space beside them. */
-.day-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.planned-items-label,
-.log-day-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-  opacity: 0.5;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  font-family: var(--font-mono, monospace);
-}
-
-.day-item--planned {
-  opacity: 0.7;
-}
-
-/* Same size as the empty-state messages (--day-aside-font-size) — doubled
-   class so it beats .day-item's own font-size, which comes later in this
-   file at the same specificity. */
-.day-item.day-item--planned {
-  font-size: var(--day-aside-font-size);
-}
-
-/* Own flex item (like .icon above) rather than inline text — a wrapped
-   second line then lines up under the title, not under the dash. */
-.day-item-bullet {
-  flex-shrink: 0;
+/* ── Entries ── */
+.calendar-view {
+  /* An entry's text size and the gap after its icon — shared by .day-item
+     itself and .day-subs' indent, which has to clear exactly that icon
+     column (the icon is 1em of this size, see .icon). */
+  --day-item-font-size: 16px;
+  --day-item-icon-gap: 9px;
+  --day-sub-font-size: 13px;
 }
 
 .day-items {
+  /* The undo button gets its own column at the right edge: every entry
+     (and its subs) keeps that column free, whether or not it has a button
+     itself — so long titles all wrap at the same edge. */
+  --day-undo-col: calc(var(--icon-circle-btn-size) + var(--day-item-icon-gap));
   display: flex;
   flex-direction: column;
-  align-self: flex-start;
   width: 100%;
   gap: 6px;
 }
@@ -746,11 +779,27 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-family: var(--font-playful, sans-serif);
 }
 
-/* Completed subs for that same day, nested under their parent todo — same
-   lower-weight opacity treatment as Checks (.day-item--check) rather than
-   a new color, matching the app's four-value color rule. Indented past
-   the circle-check icon column (+ its 10px gap) so it reads as belonging to
-   the todo above it. */
+.day-item,
+.day-subs {
+  padding-right: var(--day-undo-col);
+}
+
+/* Takes the rest of the row so an undo button after it sits at the far
+   right, and a wrapped second line stays under the title. */
+.day-item-title {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Own flex item rather than inline text — a wrapped second line then lines
+   up under the title, not under the dash. */
+.day-item-bullet {
+  flex-shrink: 0;
+}
+
+/* Completed subs for that same day, nested under their parent todo,
+   indented past the icon column. */
 .day-subs {
   display: flex;
   flex-direction: column;
@@ -759,13 +808,10 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   opacity: 0.65;
 }
 
-/* Dash and title as two flex items, so a wrapped title's further lines
-   stay aligned under its own first line (hanging indent) instead of
-   running back under the dash. */
 .day-sub-item {
   display: flex;
   gap: 0.3em;
-  font-size: 15px;
+  font-size: var(--day-sub-font-size);
   font-weight: 600;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
@@ -781,9 +827,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 .icon {
-  /* Inherits .day-item's font-size (the icon itself is 1em) and is exactly
-     one of its line-heights tall, so the icon centers on the first line of
-     the title at any text size — no per-size nudging needed. */
+  /* 1em icon, one line-height tall — centers on the title's first line at
+     any text size. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -792,16 +837,31 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   color: var(--ink);
 }
 
-/* Checks read as lower-weight than Todos everywhere else in the app (see
-   Current's own check-row) — same treatment here via opacity rather than a
-   separate color, which the app's four-value color rule doesn't allow. */
+/* Checks read lower-weight than Todos everywhere in the app. */
 .day-item--check {
   opacity: 0.65;
 }
 
-/* Dot instead of a circle icon, but in the same 1em-wide column. */
+/* Not done (yet): a check due but not ticked, a past day's leftover —
+   paler still, set back from what actually happened. */
+.day-item--open,
+.day-item--check.day-item--open {
+  opacity: 0.4;
+}
+
+/* A Date Todo on a plan — due by its own schedule, not planned by hand:
+   pale like Date todo cards, a bell instead of the dash. */
+.day-item--date {
+  opacity: 0.5;
+}
+
 .icon--check {
   width: 1em;
+}
+
+.icon--bell :deep(svg) {
+  width: 0.8em;
+  height: 0.8em;
 }
 
 .icon-dot {
@@ -811,63 +871,18 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   background: currentColor;
 }
 
-/* Plain space between the priority / other / checks groups — the filled
-   vs. outlined icons already tell priority apart, no line needed. Adds to
-   .day-items' own gap on both sides. */
+.icon-dot--open {
+  background: transparent;
+  border: 1px solid currentColor;
+}
+
+/* Plain space between the priority / other groups — the filled vs.
+   outlined icons already tell priority apart. */
 .day-group-spacer {
-  height: 12px;
+  height: 10px;
 }
 
-.no-activity {
-  font-size: var(--day-aside-font-size);
-  font-weight: bold;
-  color: var(--ink);
-  font-family: var(--font-playful, sans-serif);
-}
-
-/* Empty-state messages read pale, set back from real entries — both of
-   them, since .day-plan-empty stands in for .no-activity (see above). */
-.no-activity,
-.day-plan-empty {
-  opacity: 0.5;
-}
-
-/* calendar | log switch for phone — desktop shows it in App.vue's left
-   sidebar, tablet in App.vue's header row instead. */
-.view-toggle {
-  display: none;
-  justify-content: flex-start;
-}
-
-@media (max-width: 700px) {
-  .view-toggle {
-    display: flex;
-  }
-}
-
-/* Takes the rest of the row so an Undo button after it sits at the far
-   right, and a wrapped second line stays under the title. */
-.day-item-title {
-  flex: 1;
-  min-width: 0;
-  word-break: break-word;
-}
-
-/* The undo button gets its own column at the right edge: every entry (and
-   its subs) keeps that column free, whether or not it has an undo button
-   itself — so long titles all wrap at the same edge instead of some
-   running on into the space others leave for the button. */
-.day-items {
-  --day-undo-col: calc(var(--icon-circle-btn-size) + var(--day-item-icon-gap));
-}
-
-.day-item,
-.day-subs {
-  padding-right: var(--day-undo-col);
-}
-
-/* One line-height tall, like .icon — centers the button on the title's
-   first line at any text size. */
+/* Undo button column, one line-height tall like .icon. */
 .day-undo-slot {
   position: absolute;
   top: 0;
@@ -877,19 +892,67 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   height: 1lh;
 }
 
-/* Month + year of the log's topmost group in view (see updateLogMonth).
-   Tablet/desktop: a little clear of the divider, in the page's own top
-   padding above it (.content-inner) — a zero-height row the label hangs
-   up out of, so it takes no space of its own and nothing above the
-   divider moves (tight line-height so it fits that padding).
-   Right-aligned (on tablet that's right under the header's settings
-   icon). Phone: right end of the calendar | log row
-   (.view-toggle) instead, this row hidden. Same type as the date between
-   Current's prev/next arrows (shared tokens). */
+.no-activity {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--ink);
+  font-family: var(--font-playful, sans-serif);
+  opacity: 0.5;
+}
+
+/* Add/edit under the planned list. Icon buttons are base.css's
+   .icon-circle-btn; each label unrolls sideways on hover
+   (.icon-side-label), absolutely positioned, so the icons never move. */
+.day-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ── Log ── one big box, centered at reading width, scrolling inside. */
+.day-detail-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto var(--board-gap);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.day-detail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.day-detail,
+.day-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+}
+
+.log-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Month + year of the log's topmost group in view (see updateLogMonth),
+   hanging up out of a zero-height row above the box, right-aligned with
+   it. Phone: right end of the calendar | log row instead. */
 .log-month-row {
   position: relative;
   flex-shrink: 0;
   height: 0;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .log-month-row .log-month {
@@ -912,16 +975,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   margin-left: auto;
 }
 
-@media (max-width: 700px) {
-  .log-month-row {
-    display: none;
-  }
-
-  .view-toggle {
-    align-items: center;
-  }
-}
-
 .log-month-enter-active,
 .log-month-leave-active {
   transition: opacity 0.15s, transform 0.15s;
@@ -941,8 +994,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 /* Run-out past the last entry (see logSentinelRef) — room to scroll on
-   into before the next part loads, the marker at its far end. Stays
-   below the list after a load, ready for the next one. */
+   into before the next part loads, the marker at its far end. */
 .log-more {
   display: flex;
   flex-direction: column;
@@ -954,9 +1006,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   height: 1px;
 }
 
-/* A loaded part tips in row by row (index from logDomino) — the same
-   pop as the rest of the app's unfolding bits (--ease-pop). */
-.log-group--new .log-day-label,
+/* A loaded part tips in row by row (index from logDomino). */
+.log-group--new .board-box-label,
 .log-group--new .day-item {
   animation: log-domino 0.34s var(--ease-pop) backwards;
   animation-delay: calc(var(--i, 0) * 45ms);
@@ -969,83 +1020,129 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   }
 }
 
-.log-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
 .unfold-enter-active,
 .unfold-leave-active { transition: opacity 0.09s; }
 .unfold-enter-from,
 .unfold-leave-to { opacity: 0; }
 
-/* Only for the very first mount (switching into the Calendar view) — timed
-   to match the calendar grid's own entrance spring (see .calendar-inner)
-   so both arrive together, instead of the day's entry (day-switch fade
-   above) finishing far ahead of the grid. */
+/* First mount only (switching into the log) — timed to the board's own
+   entrance spring. */
 .unfold-appear-active { transition: opacity 0.32s var(--ease-pop), transform 0.32s var(--ease-pop); }
 .unfold-appear-from { opacity: 0; transform: translateY(8px); }
 
-/* Pin the calendar in place, scroll the day's entries underneath it
-   instead of scrolling the whole page — the calendar grid otherwise
-   travels out of view along with everything else. Applies on any viewport
-   width; only the bottom divider's clearance differs on mobile (fixed
-   bottom nav) vs. desktop (none). */
-.calendar-view {
-  height: 100%;
-  gap: 0;
-}
-
-.cal {
-  flex-shrink: 0;
-}
-
-/* Top divider (entries scrolled under the calendar) on every viewport.
-   The bottom one only makes sense on phone, above its fixed bottom nav —
-   hidden everywhere else. */
-.day-scroll-divider {
-  flex-shrink: 0;
-}
-
-.day-scroll-divider-bottom {
+/* calendar | log switch for phone — desktop shows it in App.vue's left
+   sidebar, tablet in App.vue's header row instead. */
+.view-toggle {
   display: none;
+  justify-content: flex-start;
 }
 
-.day-detail-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding: 20px 0 0;
-  scrollbar-width: none;
-}
-
-.day-detail-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-@media (max-width: 700px) {
-  .day-scroll-divider-bottom {
-    display: block;
-    position: fixed;
-    bottom: 60px;
-    left: 0;
-    right: 0;
-    pointer-events: none;
+/* Narrow desktop: a step smaller grid, the calendar column is tighter. */
+@media (min-width: 1025px) and (max-width: 1400px) {
+  .calendar-view {
+    --board-gap: 22px;
   }
 
-  /* Room between the calendar | log switch and the calendar below it. */
-  .view-toggle {
-    margin-bottom: 18px;
+  .calendar-board {
+    grid-template-columns: minmax(270px, 1fr) 2fr;
   }
 
-  /* Smaller grid on phone than on tablet (see the tablet block below) and
-     desktop (base sizes above). */
+  .cal :deep(.vc-day-content) {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 15px !important;
+  }
+}
+
+/* Tablet: calendar left, every other box stacked in one scrolling column
+   on the right. */
+@media (max-width: 1024px) {
+  .calendar-view {
+    --board-gap: 20px;
+  }
+
+  .calendar-board {
+    grid-template-columns: minmax(280px, 1fr) 1fr;
+  }
+
+  .board-rest {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 var(--board-shadow-room) calc(var(--board-shadow-room) + var(--board-gap)) 0;
+    scrollbar-width: none;
+  }
+
+  .board-rest::-webkit-scrollbar {
+    display: none;
+  }
+
+  .board-rest > .board-col {
+    overflow: visible;
+    padding: 0;
+  }
+
   .cal :deep(.vc-title) {
-    font-size: 17px !important;
+    font-size: 19px !important;
+  }
+
+  .cal :deep(.vc-weekday) {
+    font-size: 13px !important;
+  }
+
+  .cal :deep(.vc-day-content) {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 15px !important;
+  }
+}
+
+/* Phone: one column — the calendar box stays pinned on top, the other
+   boxes scroll underneath it. */
+@media (max-width: 700px) {
+  .calendar-view {
+    --board-gap: 16px;
+    --day-item-font-size: 15px;
+    --day-sub-font-size: 12px;
+  }
+
+  .view-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .log-month-row {
+    display: none;
+  }
+
+  .calendar-board {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .board-col--cal {
+    flex-shrink: 0;
+    padding-right: var(--board-shadow-room);
+  }
+
+  .board-rest {
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .board-box {
+    padding: 12px 14px 14px;
+  }
+
+  .board-box--cal {
+    gap: 4px;
+    padding: 4px 6px 10px;
+  }
+
+  .cal :deep(.vc-title) {
+    font-size: 16px !important;
   }
 
   .cal :deep(.vc-weekday) {
@@ -1053,44 +1150,14 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   }
 
   .cal :deep(.vc-day-content) {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 14px !important;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 13px !important;
   }
 
-  /* Day headline — uppercase, so the longest one ("WEDNESDAY, SEPTEMBER
-     30, 2026") needs to get this small to stay on one line on a phone. */
   .day-label {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-  }
-
-  /* The day's/log's entries, scaled down along with the grid — plus the
-     empty-state messages standing in for them, so those never read bigger
-     than the entries they replace. */
-  .day-detail {
-    --day-item-font-size: 16px;
-    --day-aside-font-size: 16px;
-  }
-
-  .day-sub-item {
-    font-size: 13px;
-  }
-}
-/* Tablet: a step down from desktop's grid, a step up from phone's. */
-@media (min-width: 701px) and (max-width: 1024px) {
-  .cal :deep(.vc-title) {
-    font-size: 20px !important;
-  }
-
-  .cal :deep(.vc-weekday) {
-    font-size: 14px !important;
-  }
-
-  .cal :deep(.vc-day-content) {
-    width: 32px !important;
-    height: 32px !important;
-    font-size: 16px !important;
   }
 }
 </style>

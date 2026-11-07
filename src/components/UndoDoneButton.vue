@@ -2,6 +2,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { Undo2 } from '@lucide/vue'
 import { useTodosStore } from '../stores/todos'
+import { localDayOf } from '../composables/useToday'
 import { runLoopSchedule } from '../composables/useLoopSchedule'
 import { activeModal, releaseModalGuard } from '../composables/useModalGuard'
 
@@ -11,11 +12,20 @@ import { activeModal, releaseModalGuard } from '../composables/useModalGuard'
 // rejoins Current right away instead of waiting for the next schedule run.
 // Asks first (same confirm modal as the delete confirmations) — a single
 // click on a small icon was too easy to hit by accident.
-const props = defineProps<{ todoId: string }>()
+//
+// `worked` (with dateStr): the same button for a day's "worked on" entry
+// instead — takes that day's Done for now and ticked subs back (see
+// undoWorkedOn), the todo itself stays wherever it is now.
+const props = defineProps<{ todoId: string; worked?: boolean; dateStr?: string }>()
 const store = useTodosStore()
 
 const confirming = ref(false)
-const title = computed(() => store.todos.find(t => t.id === props.todoId)?.title ?? '')
+const todo = computed(() => store.todos.find(t => t.id === props.todoId))
+const title = computed(() => todo.value?.title ?? '')
+// Subs that undoWorkedOn would untick too — mentioned in the confirm text.
+const subsThatDay = computed(() => props.worked && props.dateStr
+  ? (todo.value?.subs ?? []).filter(s => s.completedAt && localDayOf(s.completedAt) === props.dateStr).length
+  : 0)
 
 function cancel() {
   confirming.value = false
@@ -23,6 +33,10 @@ function cancel() {
 
 function undo() {
   confirming.value = false
+  if (props.worked && props.dateStr) {
+    store.undoWorkedOn(props.todoId, props.dateStr)
+    return
+  }
   store.uncompleteTodo(props.todoId)
   runLoopSchedule(store)
 }
@@ -36,7 +50,7 @@ onUnmounted(() => releaseModalGuard(guard))
 </script>
 
 <template>
-  <button type="button" class="icon-circle-btn undo-done-btn" v-tooltip="'undo done'" @click.stop="confirming = true">
+  <button type="button" class="icon-circle-btn undo-done-btn" v-tooltip="worked ? 'undo done for now' : 'undo done'" @click.stop="confirming = true">
     <Undo2 :size="10" />
   </button>
 
@@ -46,7 +60,11 @@ onUnmounted(() => releaseModalGuard(guard))
   <Teleport v-if="confirming" to="body">
     <div class="modal-backdrop" @click="cancel" />
     <div class="modal-box" role="dialog">
-      <p class="modal-text">move <strong>{{ title }}</strong> back to the pool?</p>
+      <template v-if="worked">
+        <p class="modal-text">remove <strong>{{ title }}</strong> from this day's done list?</p>
+        <p v-if="subsThatDay" class="modal-text">this also unchecks all subs checked off that day.</p>
+      </template>
+      <p v-else class="modal-text">move <strong>{{ title }}</strong> back to the pool?</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn--cancel" @click="cancel">cancel</button>
         <button class="modal-btn modal-btn--save" @click="undo">undo</button>
