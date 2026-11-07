@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } fr
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil, Bell } from '@lucide/vue'
+import { Plus, Pencil, Clock } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -310,7 +310,7 @@ const subsOnDay = computed(() => selectedDate.value && themeStore.subsEnabled ? 
 // todosForFocusDate counts, Date Todos due that day included: the board's
 // "planned" box is the day's whole preview, same as Current shows it.
 // Planned by hand first, Date Todos (due by their own schedule, see
-// isDateTodo in stores/todos.ts) after them — those show pale with a bell
+// isDateTodo in stores/todos.ts) after them — those show pale with a clock
 // instead of the dash, so they don't read as deliberately planned.
 const plannedOnDay = computed(() => {
   if (!selectedDate.value || selectedDate.value < todayStr()) return []
@@ -514,7 +514,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                 <template v-else>
                   <div v-if="plannedOnDay.length" class="day-items">
                     <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item" :class="{ 'day-item--date': store.isDateTodo(todo) }">
-                      <span v-if="store.isDateTodo(todo)" class="icon icon--bell"><Bell /></span>
+                      <span v-if="store.isDateTodo(todo)" class="icon icon--clock"><Clock /></span>
                       <span v-else class="day-item-bullet">–</span>
                       <span class="day-item-title">{{ todo.title }}</span>
                     </div>
@@ -814,7 +814,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 }
 
 /* A Date Todo on a plan — due by its own schedule, not planned by hand:
-   pale like Date todo cards, a bell instead of the dash. */
+   pale like Date todo cards, a clock instead of the dash. */
 .day-item--date {
   opacity: 0.5;
 }
@@ -823,7 +823,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   width: 1em;
 }
 
-.icon--bell :deep(svg) {
+.icon--clock :deep(svg) {
   width: 0.8em;
   height: 0.8em;
 }
