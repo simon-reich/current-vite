@@ -6,15 +6,14 @@ import { motion } from 'motion-v'
 import { Plus, Pencil, Clock } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
-import { useNotesStore } from '../stores/notes'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
 import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
 import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
-import { canHover } from '../composables/useTooltip'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
+import DayNotes from '../components/DayNotes.vue'
 
 const store = useTodosStore()
 const router = useRouter()
@@ -23,7 +22,6 @@ const router = useRouter()
 // Current opens straight into this day's list instead of its default pool.
 const viewingDate = inject<Ref<string | null>>('viewingDate')!
 const checksStore = useChecksStore()
-const notesStore = useNotesStore()
 const themeStore = useThemeStore()
 const calendarRef = ref<any>(null)
 const viewRef = ref<HTMLElement | null>(null)
@@ -66,6 +64,9 @@ const selectedDate = ref<string>(todayStr())
 // todo (see logGroups below) — the calendar's own "look back" area, so no
 // separate route or nav entry. Owned by App.vue (see CalendarModeToggle.vue).
 const viewMode = inject<Ref<'calendar' | 'log'>>('calendarViewMode')!
+// The notes box sits under the calendar, except on the phone: there the
+// calendar is pinned, so the notes go last in the scrolling stack instead.
+const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
 
 onMounted(async () => {
   await nextTick()
@@ -395,15 +396,6 @@ function editThisDayList() {
   router.push('/current')
 }
 
-// The selected day's note — saved as you type, an emptied note is removed
-// (see stores/notes.ts). Escape leaves the field by focusing the view
-// again, so the arrow keys step through the calendar right away.
-const dayNote = computed({
-  get: () => notesStore.noteOn(selectedDate.value),
-  set: (text: string) => notesStore.setNote(selectedDate.value, text),
-})
-const notePlaceholder = `${canHover() ? 'click' : 'tap'} here to add notes`
-
 // A future day has nothing done/ticked yet — only its plan box shows.
 const isFutureDate = computed(() => !!selectedDate.value && selectedDate.value > todayStr())
 
@@ -468,10 +460,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
          calendar left, the rest stacked on the right. Phone: one column,
          the calendar pinned, the boxes scrolling under it. In log mode the
          calendar stays, the log takes the place of the other boxes. The
-         placement per layout lives in the CSS (grid areas). -->
+         placement per layout lives in the CSS (grid areas). Notes go under
+         the calendar, on the phone last in the scrolling stack. -->
     <motion.div
       class="calendar-board"
-      :class="{ 'calendar-board--log': viewMode === 'log', 'calendar-board--future': viewMode === 'calendar' && isFutureDate }"
+      :class="{ 'calendar-board--log': viewMode === 'log' }"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
       :transition="{ type: 'spring', stiffness: 380, damping: 26, mass: 0.8 }"
@@ -490,12 +483,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           </div>
           <p class="day-label">{{ selectedDateLabel }}</p>
         </section>
+        <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
       <div v-if="viewMode === 'calendar'" class="board-rest">
         <!-- A future day has nothing done or ticked yet — its plan moves up
              into this spot instead. -->
-        <div v-if="!isFutureDate" class="board-col board-col--done">
+        <div v-if="!isFutureDate" class="board-col">
           <section class="board-box">
             <p class="board-box-label">done</p>
             <Transition name="unfold" mode="out-in">
@@ -543,7 +537,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           </section>
         </div>
 
-        <div class="board-col board-col--plan">
+        <div class="board-col">
           <section class="board-box">
             <p class="board-box-label">{{ isPastDate ? 'not done' : 'planned' }}</p>
             <Transition name="unfold" mode="out-in">
@@ -589,20 +583,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           </section>
         </div>
 
-        <!-- Last on the phone, where it scrolls with the other boxes; under
-             the calendar on desktop, next to it on tablet. -->
-        <div class="board-col board-col--notes">
-          <section class="board-box board-box--flat board-box--notes">
-            <p class="board-box-label">notes</p>
-            <textarea
-              v-model="dayNote"
-              class="day-note"
-              :placeholder="notePlaceholder"
-              spellcheck="false"
-              @keydown.escape="viewRef?.focus()"
-            />
-          </section>
-        </div>
+        <DayNotes v-if="isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
       <div v-else class="board-log">
@@ -668,11 +649,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   outline: none;
 }
 
-/* One grid for every box, placed by area — desktop: calendar with notes
-   under it | done + checks | planned; a future day's plan moves into
-   done's place. The log spans both right-hand columns, so the calendar
-   keeps its width switching modes. On very wide screens the board stops
-   growing and sits centered, instead of stretching edge to edge. */
+/* Desktop: calendar with notes under it | done + checks | planned (a
+   future day's plan moves into done's place). The log spans both
+   right-hand columns, so the calendar keeps its width switching modes. On
+   very wide screens the board stops growing and sits centered, instead
+   of stretching edge to edge. */
 .calendar-board {
   --board-cal-col: minmax(300px, 1fr);
   flex: 1;
@@ -682,36 +663,25 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   margin-inline: auto;
   display: grid;
   grid-template-columns: var(--board-cal-col) 1fr 1fr;
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas:
-    "cal   done plan"
-    "notes done plan";
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "cal rest rest";
   gap: var(--board-gap);
 }
 
-.calendar-board--future {
-  grid-template-areas:
-    "cal   plan ."
-    "notes plan .";
-}
-
 .calendar-board--log {
-  grid-template-areas:
-    "cal log log"
-    ".   log log";
-}
-
-/* Only a wrapper — its boxes take their own places on the board (on the
-   phone it's the one scrolling stack instead, see below). */
-.board-rest {
-  display: contents;
+  grid-template-areas: "cal log log";
 }
 
 .board-col--cal { grid-area: cal; }
-.board-col--done { grid-area: done; }
-.board-col--plan { grid-area: plan; }
-.board-col--notes { grid-area: notes; }
+.board-rest { grid-area: rest; }
 .board-log { grid-area: log; }
+
+.board-rest {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--board-gap);
+}
 
 .board-col {
   min-height: 0;
@@ -731,44 +701,21 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 .board-col--cal {
   overflow: visible;
-  padding-bottom: var(--board-shadow-room);
 }
 
-/* The notes box fills its place; the text scrolls inside it. */
-.board-box--notes {
+/* The notes fill the calendar column below the calendar; the text
+   scrolls inside. No frame at all, just the label and the text — but the
+   box keeps the room a shadowed one takes, out to where its shadow would
+   end, so its edges line up with the shadows around it. Doubled class so
+   it wins over .board-box further down. */
+.board-box.board-box--notes {
   flex: 1;
   min-height: 140px;
-}
-
-/* No frame at all — just the label and the text. Doubled class so it wins over .board-box's own
-   border further down. */
-.board-box.board-box--notes {
   border-color: transparent;
-}
-
-.day-note {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  padding: 0;
-  border: none;
-  outline: none;
-  resize: none;
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--font-mono, monospace);
-  font-size: var(--day-item-font-size);
-  line-height: 1.5;
-  scrollbar-width: none;
-}
-
-.day-note::-webkit-scrollbar {
-  display: none;
-}
-
-.day-note::placeholder {
-  color: var(--ink);
-  opacity: 0.4;
+  box-shadow: none;
+  margin-right: calc(-1 * var(--board-shadow-room));
+  margin-bottom: calc(-1 * var(--board-shadow-room));
+  padding-bottom: calc(var(--board-box-pad-bottom) + var(--board-shadow-room));
 }
 
 /* One box per part of the day — the same surface as a todo card: ink
@@ -786,16 +733,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
 }
 
-/* A secondary box (notes): border only, no shadow — but taking the
-   same room a shadowed box does, out to where its shadow ends, so its
-   edges line up with the shadows next to it. */
-.board-box.board-box--flat {
-  box-shadow: none;
-  margin-right: calc(-1 * var(--board-shadow-room));
-  margin-bottom: calc(-1 * var(--board-shadow-room));
-  padding-bottom: calc(var(--board-box-pad-bottom) + var(--board-shadow-room));
-}
-
 .board-box--cal {
   gap: 10px;
   padding: 10px 10px 16px;
@@ -807,8 +744,9 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   gap: 14px;
 }
 
-/* A box's title (done / checks / planned …) and the log's day labels. */
-.board-box-label {
+/* A box's title (done / checks / planned …) and the log's day labels.
+   :deep for DayNotes.vue's label. */
+.calendar-view :deep(.board-box-label) {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
@@ -1154,70 +1092,71 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   }
 }
 
-/* Tablet: two equal columns — calendar | notes on top, done + checks |
-   planned under them, side by side like on desktop. The log sits next to
-   the calendar, the same width as the notes. */
+/* Tablet: two equal columns — the calendar with notes under it, every
+   other box stacked in one scrolling column next to it (the log alike).
+   The phone below builds on this. */
 @media (max-width: 1024px) {
-  .calendar-view {
-    --board-gap: 20px;
-  }
-
-  .calendar-board {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "cal  notes"
-      "done plan";
-  }
-
-  .calendar-board--future {
-    grid-template-areas:
-      "cal  notes"
-      "plan .";
-  }
-
-  .calendar-board--log {
-    grid-template-areas:
-      "cal log"
-      ".   log";
-  }
-
-  /* Same height as the calendar next to it. */
-  .board-col--notes {
-    padding-bottom: var(--board-shadow-room);
-  }
-
-  .board-box--notes {
-    min-height: 0;
-  }
-}
-
-/* Phone: one column — the calendar box stays pinned on top, the other
-   boxes scroll underneath it. */
-@media (max-width: 700px) {
+  /* Everything a size smaller (the phone shares these) — two columns
+     side by side don't have the width for the desktop sizes. */
   .calendar-view {
     --board-gap: 16px;
     --day-item-font-size: 15px;
     --day-sub-font-size: 12px;
   }
 
-  .view-toggle {
-    display: flex;
-    align-items: center;
-    margin-bottom: 14px;
+  .board-box {
+    --board-box-pad-bottom: 14px;
+    padding: 12px 14px var(--board-box-pad-bottom);
   }
 
-  .log-month-row {
-    display: none;
+  .board-box--cal {
+    gap: 4px;
+    padding: 4px 6px 10px;
+  }
+
+  /* A step more compact grid — on the phone so it doesn't take half the
+     screen before any box shows, on the tablet so it fits its column. */
+  .cal :deep(.vc-header) {
+    height: 26px;
+    margin-top: 6px;
+  }
+
+  .cal :deep(.vc-title) {
+    font-size: 19px !important;
+  }
+
+  .cal :deep(.vc-weekday) {
+    font-size: 14px !important;
+  }
+
+  /* Rows tall enough to hit with a finger (~40px is the usual touch
+     target); the phone trades that back for space, see below. */
+  .cal :deep(.vc-day) {
+    min-height: 38px;
+  }
+
+  .cal :deep(.vc-day-content) {
+    width: 24px !important;
+    height: 24px !important;
+    line-height: 24px !important;
+    font-size: 16px !important;
+  }
+
+  .day-label {
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .calendar-board {
-    display: flex;
-    flex-direction: column;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "cal rest";
   }
 
-  /* All boxes but the calendar in one scrolling stack, the notes last. */
+  .calendar-board--log {
+    grid-template-areas: "cal log";
+  }
+
   .board-rest {
-    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: var(--board-gap);
@@ -1238,65 +1177,47 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     overflow: visible;
     padding: 0;
   }
+}
 
-  .board-col--notes {
-    order: 1;
+/* Phone: one column — the calendar box stays pinned on top, the other
+   boxes scroll underneath it. */
+@media (max-width: 700px) {
+  .view-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 14px;
   }
 
-  .board-box--notes {
-    min-height: 160px;
+  .log-month-row {
+    display: none;
   }
 
+  .calendar-board {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* The calendar's column holds only the calendar here (the notes go last
+     in the stack, see the template) — room for its shadow below, the
+     board's gap does the rest. */
   .board-col--cal {
     flex-shrink: 0;
     padding-right: var(--board-shadow-room);
+    padding-bottom: var(--board-shadow-room);
   }
 
-  .board-rest,
-  .board-log {
-    flex: 1;
-    padding-top: 2px;
-  }
-
-  .board-box {
-    --board-box-pad-bottom: 14px;
-    padding: 12px 14px var(--board-box-pad-bottom);
-  }
-
-  .board-box--cal {
-    gap: 4px;
-    padding: 4px 6px 10px;
-  }
-
-  /* A step more compact grid, so the calendar doesn't take half the
-     screen before any box shows. */
-  .cal :deep(.vc-header) {
-    height: 26px;
-    margin-top: 6px;
-  }
-
-  .cal :deep(.vc-title) {
-    font-size: 19px !important;
-  }
-
-  .cal :deep(.vc-weekday) {
-    font-size: 14px !important;
+  .board-box.board-box--notes {
+    min-height: 160px;
   }
 
   .cal :deep(.vc-day) {
     min-height: 28px;
   }
 
-  .cal :deep(.vc-day-content) {
-    width: 24px !important;
-    height: 24px !important;
-    line-height: 24px !important;
-    font-size: 16px !important;
-  }
-
-  .day-label {
-    font-size: 14px;
-    font-weight: 700;
+  .board-rest,
+  .board-log {
+    flex: 1;
+    padding-top: 2px;
   }
 }
 </style>
