@@ -3,17 +3,18 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } fr
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil, Clock, Check, RefreshCw } from '@lucide/vue'
+import { Plus, Pencil, Clock, Check, RefreshCw, ChevronUp } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import { useScrollTracking } from '../composables/useScrollTracking'
-import { todayStr, addDaysStr, localDayOf, MONTH_LABELS } from '../composables/useToday'
+import { todayStr, addDaysStr, localDayOf, localDateStr, MONTH_LABELS } from '../composables/useToday'
 import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 import DayNotes from '../components/DayNotes.vue'
+import CalendarIcon from '../components/icons/CalendarIcon.vue'
 import { useCheckToggle } from '../composables/useCheckToggle'
 
 const store = useTodosStore()
@@ -38,6 +39,7 @@ const {
 function onDayDetailScroll() {
   checkDayDetailScrollState()
   updateLogMonth()
+  followLogWithCalendar()
 }
 
 // The log's "where am I" marker: month and year of the topmost group
@@ -46,14 +48,19 @@ function onDayDetailScroll() {
 // is actually scrolled (same moment the divider shows), not at the very
 // top where it'd just repeat the obvious. Read off the DOM on scroll
 // (each group carries its date), nothing to keep in sync.
+// Tablet/phone: always shown — it sits next to the folded calendar there
+// (see logCalOpen), the log's one header.
 const logMonth = ref('')
-const showLogMonth = computed(() => viewMode.value === 'log' && dayDetailScrolled.value && !!logMonth.value)
+// The topmost group's day — what the calendar unfolds to (see openLogCal).
+const logTopDate = ref('')
+const showLogMonth = computed(() => viewMode.value === 'log' && !!logMonth.value && (dayDetailScrolled.value || isBelowDesktopWidth.value))
 function updateLogMonth() {
   const root = dayDetailScrollRef.value
-  if (viewMode.value !== 'log' || !root) { logMonth.value = ''; return }
+  if (viewMode.value !== 'log' || !root) { logMonth.value = ''; logTopDate.value = ''; return }
   const top = root.getBoundingClientRect().top
   const group = [...root.querySelectorAll<HTMLElement>('.log-group')].find(g => g.getBoundingClientRect().bottom > top + 1)
   const dateStr = group?.dataset.date
+  logTopDate.value = dateStr ?? ''
   if (!dateStr) { logMonth.value = ''; return }
   const [y, m] = dateStr.split('-').map(Number)
   logMonth.value = `${MONTH_LABELS[m - 1]} ${y}`
@@ -65,6 +72,23 @@ const selectedDate = ref<string>(todayStr())
 // todo (see logGroups below) — the calendar's own "look back" area, so no
 // separate route or nav entry. Owned by App.vue (see CalendarModeToggle.vue).
 const viewMode = inject<Ref<'calendar' | 'log'>>('calendarViewMode')!
+// Tablet and phone, log mode: the calendar box folds shut to a small
+// ink-filled icon box, the log's month marker next to it — two columns
+// side by side (tablet) or a calendar pinned over the log (phone) leave
+// the log too little room. Tapping it unfolds the box into the calendar,
+// on the month the log is currently at. It's a navigator there: picking a
+// day folds it back (the log is then at that day), and so does its own
+// fold icon. Paging months or scrolling the log leaves it open — folding
+// on scroll was tried and felt abrupt. Desktop keeps the calendar out
+// regardless (CSS-only, the fold isn't shown there).
+const isBelowDesktopWidth = inject<Ref<boolean>>('isBelowDesktopWidth')!
+const logCalOpen = ref(false)
+watch(viewMode, () => { logCalOpen.value = false })
+function openLogCal() {
+  logCalOpen.value = true
+  calendarRef.value?.move(new Date((logTopDate.value || selectedDate.value) + 'T12:00:00'))
+}
+
 // The notes box sits under the calendar, except on the phone: there the
 // calendar is pinned, so the notes go last in the scrolling stack instead.
 const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
@@ -166,6 +190,8 @@ const attributes = computed(() => {
 
 function onDayClick(day: { id: string }) {
   selectedDate.value = day.id
+  // Tablet/phone log: the folding calendar has done its job (see logCalOpen).
+  if (viewMode.value === 'log') logCalOpen.value = false
 }
 
 watch(viewMode, async () => {
@@ -245,6 +271,7 @@ function showOlderLog() {
 // window, the window first widens to reach it (no domino, it's a jump,
 // not a load). A future day or today lands at the top.
 async function scrollLogTo(dateStr: string, smooth: boolean) {
+  logScrolledByUser = false
   const groups = logGroups.value
   if (!groups.length) return
   const target = groups.find(g => g.dateStr <= dateStr) ?? groups[groups.length - 1]
@@ -261,6 +288,42 @@ async function scrollLogTo(dateStr: string, smooth: boolean) {
   // area included. The group lands where the box's padding starts.
   const top = el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
   root.scrollTo({ top: top - root.clientTop - parseFloat(getComputedStyle(root).paddingTop), behavior })
+}
+
+// Calendar and log run in sync, both ways. Paging the calendar to another
+// month scrolls the log there (its newest entry in that month, or the
+// next older one if it has none — see scrollLogTo). Scrolling the log by
+// hand into another month pages the calendar along. Only by hand
+// (wheel/touch, logScrolledByUser): the log scrolling itself — to a picked
+// day or a paged month — never pages the calendar, or paging to an empty
+// month would land the calendar on the older month the log ended up at.
+// Each side skips a month the other already shows, so neither echoes back.
+const calPage = ref<{ month: number; year: number } | null>(null)
+let logScrolledByUser = false
+
+function sameMonth(dateStr: string, page: { month: number; year: number } | null) {
+  if (!dateStr || !page) return false
+  const [y, m] = dateStr.split('-').map(Number)
+  return y === page.year && m === page.month
+}
+
+function onCalendarMove(pages: { month: number; year: number }[]) {
+  const page = pages[0]
+  if (!page) return
+  calPage.value = { month: page.month, year: page.year }
+  if (viewMode.value !== 'log' || sameMonth(logTopDate.value, page)) return
+  scrollLogTo(localDateStr(new Date(page.year, page.month, 0)), true)
+}
+
+function followLogWithCalendar() {
+  if (!logScrolledByUser || viewMode.value !== 'log' || !logTopDate.value) return
+  if (sameMonth(logTopDate.value, calPage.value)) return
+  calendarRef.value?.move(new Date(logTopDate.value + 'T12:00:00'))
+}
+
+// Scrolling the log by hand lets the calendar page along (see above).
+function onLogScrolledByUser() {
+  logScrolledByUser = true
 }
 
 // Opening the log starts at the selected day.
@@ -447,11 +510,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
     <!-- Phone only — desktop has it in App.vue's left sidebar, tablet in App.vue's header. -->
     <div class="view-toggle calendar-mode-toggle">
       <CalendarModeToggle />
-      <!-- Phone: the log's month marker sits at the right end of this row
-           (see .log-month-row below for tablet/desktop). -->
-      <Transition name="log-month" mode="out-in">
-        <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
-      </Transition>
     </div>
 
     <!-- Control board: every part of the day in its own box. Desktop:
@@ -463,24 +521,35 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
          the calendar, on the phone last in the scrolling stack. -->
     <motion.div
       class="calendar-board"
-      :class="{ 'calendar-board--log': viewMode === 'log' }"
+      :class="{ 'calendar-board--log': viewMode === 'log', 'calendar-board--cal-closed': viewMode === 'log' && !logCalOpen }"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
       :transition="{ type: 'spring', stiffness: 380, damping: 26, mass: 0.8 }"
     >
       <div class="board-col board-col--cal">
         <section class="board-box board-box--cal">
-          <div class="cal">
-            <VCalendar
-              ref="calendarRef"
-              :attributes="attributes"
-              expanded
-              locale="en"
-              :first-day-of-week="2"
-              @dayclick="onDayClick"
-            />
+          <button v-if="viewMode === 'log'" type="button" class="cal-toggle" aria-label="show calendar" @click="openLogCal">
+            <CalendarIcon :size="20" />
+          </button>
+          <div class="cal-collapse">
+            <div class="cal-collapse-inner">
+              <div class="cal">
+                <VCalendar
+                  ref="calendarRef"
+                  :attributes="attributes"
+                  expanded
+                  locale="en"
+                  :first-day-of-week="2"
+                  @dayclick="onDayClick"
+                  @did-move="onCalendarMove"
+                />
+              </div>
+              <p v-if="viewMode === 'calendar' && !isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
+              <button v-if="viewMode === 'log'" type="button" class="icon-circle-btn cal-fold-btn" v-tooltip="'hide calendar'" @click="logCalOpen = false">
+                <ChevronUp :size="12" />
+              </button>
+            </div>
           </div>
-          <p v-if="!isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
         </section>
         <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
@@ -594,15 +663,15 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
       </div>
 
       <div v-else class="board-log">
-        <!-- Tablet/desktop: the log's month marker, left, right above the
-             box (phone: in the toggle row above instead). -->
+        <!-- The log's month marker: desktop right above the box, tablet/
+             phone next to the folded calendar (see the CSS at the end). -->
         <div class="log-month-row">
           <Transition name="log-month" mode="out-in">
             <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
           </Transition>
         </div>
 
-        <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll">
+        <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll" @wheel.passive="onLogScrolledByUser" @touchmove.passive="onLogScrolledByUser">
           <div ref="dayDetailRef" class="day-detail">
             <transition
               name="unfold"
@@ -740,9 +809,15 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
 }
 
+/* The gap between grid and day label sits on the folding content, not the
+   box: folded shut (tablet/phone log), nothing of it may stay behind. */
 .board-box--cal {
-  gap: 10px;
+  gap: 0;
   padding: 10px 10px 16px;
+}
+
+.board-box--cal .cal-collapse-inner {
+  gap: 10px;
 }
 
 .board-box-body {
@@ -829,6 +904,40 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   text-transform: uppercase;
   letter-spacing: 0.4px;
   font-family: var(--font-playful, sans-serif);
+}
+
+/* Tablet/phone log mode only (see the media block at the end): the
+   calendar box folded shut — a small ink-filled square, just the calendar
+   icon in --bg. Tapping it unfolds the same box into the calendar; the
+   fold icon under the grid folds it back. */
+.cal-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The calendar's content, folding away (0fr ↔ 1fr) — only in use on
+   tablet/phone log mode. */
+.cal-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+.cal-collapse-inner {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-fold-btn {
+  display: none;
+  align-self: center;
 }
 
 /* ── Entries ── */
@@ -1070,10 +1179,6 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   white-space: nowrap;
 }
 
-.view-toggle .log-month {
-  margin-left: auto;
-}
-
 .log-month-enter-active,
 .log-month-leave-active {
   transition: opacity 0.15s, transform 0.15s;
@@ -1165,8 +1270,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   }
 
   .board-box--cal {
-    gap: 4px;
     padding: 4px 6px 10px;
+  }
+
+  .board-box--cal .cal-collapse-inner {
+    gap: 4px;
   }
 
   /* A step more compact grid — on the phone so it doesn't take half the
@@ -1273,6 +1381,108 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   .board-log {
     flex: 1;
     padding-top: 2px;
+  }
+}
+
+/* Tablet and phone, log mode: the calendar box on top left, folded shut
+   to a small ink-filled icon square unless logCalOpen, the log's month
+   marker top right next to it, the log filling the rest. Open, the box
+   grows to at most --cal-fold-max wide (a calendar stretched across a
+   tablet looks off); the marker stays, its bottom level with the box's
+   bottom edge (folded or open — it rides along as the box unfolds; phone:
+   under the open box, see below). The
+   board turns into a grid with .board-log dissolved into it (display:
+   contents), so its month row can sit up there without a second copy.
+   After the phone block so it wins over its rules. */
+@media (max-width: 1024px) {
+  .calendar-board--log {
+    --cal-fold-size: 44px;
+    --cal-fold-max: 360px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "top" "log";
+  }
+
+  .calendar-board--log .board-log {
+    display: contents;
+  }
+
+  .calendar-board--log .board-col--cal {
+    grid-area: top;
+    z-index: 1;
+    flex-shrink: 0;
+    padding: 0 var(--board-shadow-room) 0 0;
+    overflow: visible;
+  }
+
+  .calendar-board--log .board-box--cal {
+    width: var(--cal-fold-max);
+    max-width: 100%;
+    transition: width 0.3s ease, background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease;
+  }
+
+  .calendar-board--log .cal-collapse {
+    transition: grid-template-rows 0.3s ease;
+  }
+
+  .calendar-board--log .cal-collapse-inner {
+    overflow: hidden;
+  }
+
+  .calendar-board--log .cal-fold-btn {
+    display: flex;
+  }
+
+  .calendar-board--cal-closed .board-box--cal {
+    width: var(--cal-fold-size);
+    padding: 0;
+    background: var(--ink);
+    color: var(--bg);
+    box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
+  }
+
+  .calendar-board--cal-closed .cal-toggle {
+    display: flex;
+    /* The box's 2px border on either side makes up the rest. */
+    height: calc(var(--cal-fold-size) - 4px);
+  }
+
+  .calendar-board--cal-closed .cal-collapse {
+    grid-template-rows: 0fr;
+  }
+
+  .calendar-board--log .log-month-row {
+    grid-area: top;
+    align-self: end;
+    display: flex;
+    justify-content: flex-end;
+    /* Desktop's row is 0 tall (the marker hangs above the log box there);
+       here it's the marker's own height, so its bottom is the box's. */
+    height: auto;
+    max-width: none;
+    padding-right: var(--board-shadow-room);
+  }
+
+  .calendar-board--log .log-month-row .log-month {
+    position: static;
+  }
+
+  .calendar-board--log .day-detail-scroll {
+    grid-area: log;
+    margin-right: var(--board-shadow-room);
+  }
+}
+/* Phone: an unfolded calendar takes the whole width — the month marker
+   moves to its own row under it instead of next to it. */
+@media (max-width: 700px) {
+  .calendar-board--log:not(.calendar-board--cal-closed) {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "top" "month" "log";
+  }
+
+  .calendar-board--log:not(.calendar-board--cal-closed) .log-month-row {
+    grid-area: month;
   }
 }
 </style>

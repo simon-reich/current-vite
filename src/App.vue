@@ -1478,10 +1478,16 @@ watch(() => route.path, (path, prevPath) => {
 // see mobileTodoInputRef) is actually the visible one.
 const PHONE_BREAKPOINT = 700
 const isPhoneWidth = ref(window.innerWidth <= PHONE_BREAKPOINT)
-function updateIsPhoneWidth() { isPhoneWidth.value = window.innerWidth <= PHONE_BREAKPOINT }
+// Tablet or phone — e.g. Calendar's log folding its calendar away.
+const isBelowDesktopWidth = ref(window.innerWidth <= DESKTOP_BREAKPOINT)
+function updateIsPhoneWidth() {
+  isPhoneWidth.value = window.innerWidth <= PHONE_BREAKPOINT
+  isBelowDesktopWidth.value = window.innerWidth <= DESKTOP_BREAKPOINT
+}
 // Overview's phone-only zoom-out (AllTodos.vue) and its Settings toggle
 // read this same flag instead of measuring the width a second time.
 provide('isPhoneWidth', isPhoneWidth)
+provide('isBelowDesktopWidth', isBelowDesktopWidth)
 onMounted(() => window.addEventListener('resize', updateIsPhoneWidth))
 onUnmounted(() => window.removeEventListener('resize', updateIsPhoneWidth))
 
