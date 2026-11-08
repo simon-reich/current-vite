@@ -435,6 +435,7 @@ watch(viewMode, (mode) => {
   if (mode !== 'log') return
   logWindows.value = 1
   newLogDates.value = new Set()
+  fillLogOnOpen()
 })
 
 const logCutoff = computed(() => addDaysStr(todayStr(), 1 - LOG_WINDOW_DAYS * logWindows.value))
@@ -516,6 +517,51 @@ function followLogWithCalendar() {
 function onLogScrolledByUser() {
   logScrolledByUser = true
 }
+
+// The log's box is kept full: if the loaded entries don't reach its
+// bottom and there are older ones, the next windows load straight in — no
+// load pause, no domino, it's how the log stands, not a load — until the
+// box is full or nothing older is left. On opening, and whenever the box
+// grows (tablet/phone: the calendar folds to its square right after
+// opening, so the box only gets its real height then; also rotating /
+// resizing). Measured on layout heights (the log fades in with a
+// transform), the endless-load run-out (.log-more) not counted. The
+// sentinel's own loading is held off meanwhile.
+let logFilling = false
+async function fillLogOnOpen() {
+  if (logFilling) return
+  logFilling = true
+  logLoading.value = true
+  try {
+    for (let i = 0; i < 100; i++) {
+      await nextTick()
+      const root = dayDetailScrollRef.value
+      const content = root?.querySelector<HTMLElement>('.day-detail-content')
+      const next = nextOlderLogGroup.value
+      if (!root || !content || !next) return
+      const runOut = content.querySelector<HTMLElement>('.log-more')?.offsetHeight ?? 0
+      const cs = getComputedStyle(root)
+      const room = root.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+      if (content.offsetHeight - runOut >= room) return
+      logWindows.value = logWindowsReaching(next.dateStr)
+    }
+  } finally {
+    logLoading.value = false
+    logFilling = false
+  }
+}
+
+let logBoxObserver: ResizeObserver | null = null
+watch(dayDetailScrollRef, (el) => {
+  logBoxObserver?.disconnect()
+  if (!el) return
+  logBoxObserver = new ResizeObserver(() => fillLogOnOpen())
+  logBoxObserver.observe(el)
+})
+onBeforeUnmount(() => logBoxObserver?.disconnect())
+
+// Also when the calendar opens straight into the log (the mode is kept).
+onMounted(() => { if (viewMode.value === 'log') fillLogOnOpen() })
 
 // The log opens at its top — today (see the viewMode watcher above).
 function onLogShown() {
