@@ -14,6 +14,7 @@ import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 import DayNotes from '../components/DayNotes.vue'
+import ScrollDivider from '../components/ScrollDivider.vue'
 import CalendarIcon from '../components/icons/CalendarIcon.vue'
 import { useCheckToggle } from '../composables/useCheckToggle'
 
@@ -88,6 +89,31 @@ function openLogCal() {
   logCalOpen.value = true
   calendarRef.value?.move(new Date((logTopDate.value || selectedDate.value) + 'T12:00:00'))
 }
+
+// Phone: the line above the bottom nav, ink while there's more to scroll
+// to — the same divider (and class, mobile.css) as App.vue's own, which
+// stays blank here since the page itself never scrolls on this route.
+// What scrolls is the board's stack — calendar mode only: the log scrolls
+// inside its own box, nothing runs past its edge. The stack's children
+// are watched too, so content growing or shrinking (another day) re-checks,
+// not just scrolling.
+const boardRestRef = ref<HTMLElement | null>(null)
+const boardScrollEl = computed(() => boardRestRef.value)
+const boardScrolledToBottom = ref(true)
+function checkBoardBottom() {
+  const el = boardScrollEl.value
+  boardScrolledToBottom.value = !el || el.scrollTop + el.clientHeight >= el.scrollHeight - 2
+}
+let boardResizeObserver: ResizeObserver | null = null
+watch(boardScrollEl, (el) => {
+  boardResizeObserver?.disconnect()
+  checkBoardBottom()
+  if (!el) return
+  boardResizeObserver = new ResizeObserver(checkBoardBottom)
+  boardResizeObserver.observe(el)
+  for (const child of el.children) boardResizeObserver.observe(child)
+}, { flush: 'post' })
+onBeforeUnmount(() => boardResizeObserver?.disconnect())
 
 // The notes box sits under the calendar, except on the phone: there the
 // calendar is pinned, so the notes go last in the scrolling stack instead.
@@ -559,7 +585,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
-      <div v-if="viewMode === 'calendar'" class="board-rest">
+      <div v-if="viewMode === 'calendar'" ref="boardRestRef" class="board-rest" @scroll="checkBoardBottom">
         <p v-if="isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
         <!-- A future day has nothing done or ticked yet — its plan moves up
              into this spot instead. -->
@@ -711,6 +737,10 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
         </div>
       </div>
     </motion.div>
+
+    <!-- Outside the board: its entrance animation scales it, which would
+         pin a fixed element to the board instead of the viewport. -->
+    <ScrollDivider class="scroll-divider-bottom mobile-only" :visible="!boardScrolledToBottom" />
   </div>
 </template>
 
