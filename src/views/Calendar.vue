@@ -1166,9 +1166,11 @@ function todoFont(id: string) {
   height: 1lh;
 }
 
+/* An empty box's placeholder — quieter than real entries: the subs' smaller
+   size, regular weight. */
 .no-activity {
-  font-size: var(--day-item-font-size);
-  font-weight: bold;
+  font-size: var(--day-sub-font-size);
+  font-weight: normal;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
   opacity: 0.5;
