@@ -3,6 +3,7 @@ import { computed, inject, nextTick, onMounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useNotesStore } from '../stores/notes'
 import { canHover } from '../composables/useTooltip'
+import { Check } from '@lucide/vue'
 
 // The calendar's notes box for one day — its own component because
 // Calendar.vue places it in different spots per layout (under the
@@ -35,17 +36,40 @@ function fitHeight() {
 }
 watch([note, isPhoneWidth], () => nextTick(fitHeight))
 onMounted(fitHeight)
+
+// While typing, a tick in the box's head offers a way out by click/tap —
+// on the phone there's otherwise no obvious one. Same as Escape: the
+// calendar takes the focus back (which also closes a phone's keyboard).
+// Always in the layout, only shown while focused, so the head never
+// changes height. pointerdown.prevent keeps the field focused until the
+// click lands — otherwise the blur would hide the button first.
+const focused = ref(false)
 </script>
 
 <template>
   <section class="board-box board-box--notes">
-    <p class="board-box-label">notes</p>
+    <div class="board-box-head">
+      <p class="board-box-label">notes</p>
+      <button
+        type="button"
+        class="icon-circle-btn note-done-btn"
+        :class="{ visible: focused }"
+        :tabindex="focused ? 0 : -1"
+        v-tooltip="'done'"
+        @pointerdown.prevent
+        @click="emit('leave')"
+      >
+        <Check :size="10" />
+      </button>
+    </div>
     <textarea
       ref="fieldRef"
       v-model="note"
       class="day-note"
       :placeholder="placeholder"
       spellcheck="false"
+      @focus="focused = true"
+      @blur="focused = false"
       @keydown.escape="emit('leave')"
     />
   </section>
@@ -78,6 +102,11 @@ onMounted(fitHeight)
     flex: none;
     overflow: hidden;
   }
+}
+
+.note-done-btn:not(.visible) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Italic like the boxes' empty-state texts (Calendar.vue's .no-activity). */

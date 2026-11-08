@@ -888,11 +888,13 @@ function todoFont(id: string) {
   font-family: var(--font-mono, monospace);
 }
 
-/* A box head with a switch on the right (checks: done ↔ open, a
-   two-arrow "other side" icon that turns half a round per flip). The switch sits in the label's own paleness; off ("done") it's
-   paler again on top of that, on ("open", label then reads "open checks")
-   it reads like the label itself. */
-.board-box-head {
+/* A box head: label left, an icon on the right — checks' done ↔ open
+   switch (a two-arrow "other side" icon that turns half a round per
+   flip) and the notes' done tick while typing. :deep for DayNotes.vue.
+   The switch sits in the label's own paleness; off ("done") it's paler
+   again on top of that, on ("open", label then reads "open checks") it
+   reads like the label itself. */
+.calendar-view :deep(.board-box-head) {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1548,8 +1550,12 @@ function todoFont(id: string) {
     position: static;
   }
 
+  /* Full width — desktop's 720px cap would leave the month marker (full
+     width up top) hanging past the box's right edge. */
   .calendar-board--log .day-detail-scroll {
     grid-area: log;
+    width: auto;
+    max-width: none;
     margin-right: var(--board-shadow-room);
   }
 }
