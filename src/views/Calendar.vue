@@ -14,6 +14,7 @@ import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 import DayNotes from '../components/DayNotes.vue'
+import { assignFonts } from '../composables/useTodoFonts'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import CalendarIcon from '../components/icons/CalendarIcon.vue'
 import { useCheckToggle } from '../composables/useCheckToggle'
@@ -534,6 +535,20 @@ const dayEntries = computed<DayEntry[]>(() => {
 // bookkeeping-flavored "did I finish it or just poke at it".
 const priorityEntries = computed(() => dayEntries.value.filter(e => e.todo.tags.includes(PRIORITY_TAG_ID)))
 const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.includes(PRIORITY_TAG_ID)))
+
+// TRIAL: each todo title in its own todo font, as on its card — one
+// assignFonts pass over everything the board shows, in display order, so
+// neighbours never share a font.
+const todoFontMap = computed(() => assignFonts([
+  ...priorityEntries.value, ...otherEntries.value,
+].map(e => e.todo.id).concat(
+  missedOnDay.value.map(t => t.id),
+  plannedOnDay.value.map(t => t.id),
+  visibleLogGroups.value.flatMap(g => g.todos.map(t => t.id)),
+)))
+function todoFont(id: string) {
+  return { fontFamily: todoFontMap.value.get(id) }
+}
 </script>
 
 <template>
@@ -600,7 +615,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                     <div v-for="entry in group" :key="entry.todo.id" class="day-entry">
                       <div class="day-item">
                         <span class="icon"><CircleCheckIcon :double="entry.kind === 'done'" :filled="gi === 0" size="1em" /></span>
-                        <span class="day-item-title">{{ entry.todo.title }}</span>
+                        <span class="day-item-title" :style="todoFont(entry.todo.id)">{{ entry.todo.title }}</span>
                         <span v-if="!entry.todo.deletedAt" class="day-undo-slot">
                           <UndoDoneButton :todo-id="entry.todo.id" :worked="entry.kind === 'worked'" :date-str="selectedDate" />
                         </span>
@@ -652,7 +667,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                 <template v-if="isPastDate">
                   <div v-if="missedOnDay.length" class="day-items">
                     <div v-for="todo in missedOnDay" :key="todo.id" class="day-item day-item--open">
-                      <span class="day-item-bullet">–</span><span class="day-item-title">{{ todo.title }}</span>
+                      <span class="day-item-bullet">–</span><span class="day-item-title" :style="todoFont(todo.id)">{{ todo.title }}</span>
                     </div>
                   </div>
                   <p v-else class="no-activity">Nothing left open.</p>
@@ -662,7 +677,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                     <div v-for="todo in plannedOnDay" :key="todo.id" class="day-item" :class="{ 'day-item--date': store.isDateTodo(todo) }">
                       <span v-if="store.isDateTodo(todo)" class="icon icon--clock"><Clock /></span>
                       <span v-else class="day-item-bullet">–</span>
-                      <span class="day-item-title">{{ todo.title }}</span>
+                      <span class="day-item-title" :style="todoFont(todo.id)">{{ todo.title }}</span>
                     </div>
                   </div>
                   <p v-else class="no-activity">Nothing planned yet.</p>
@@ -719,7 +734,7 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
                     <div class="day-items">
                       <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
                         <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
-                        <span class="day-item-title">{{ todo.title }}</span>
+                        <span class="day-item-title" :style="todoFont(todo.id)">{{ todo.title }}</span>
                         <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
                       </div>
                     </div>
@@ -1092,6 +1107,30 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
 
 .day-item--check.done {
   opacity: var(--check-done-opacity);
+}
+
+/* The box around the done icons' size, not Current's 16px — they matter
+   more and shouldn't be outweighed. Measured off CircleCheckIcon (1em, see
+   .icon): its circle spans 22 of its 24 units, its stroke is 2 of them.
+   The box takes that line width but a notch less than that size — with
+   its drop shadow, a box at the circle's full size still reads heavier.
+   The tick inside scales with it. */
+.icon--check .check-box {
+  width: calc(1em * 19 / 24);
+  height: calc(1em * 19 / 24);
+  border-width: calc(1em * 2 / 24);
+}
+
+/* Titles in Current's check font (.check-label: mono, 600) — at the
+   entries' own size here. */
+.day-item--check .day-item-title {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+}
+
+.icon--check .check-box svg {
+  width: 0.55em;
+  height: 0.55em;
 }
 
 /* The box is the toggle — brightens the row on hover like Current's
