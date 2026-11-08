@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } fr
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil, Clock } from '@lucide/vue'
+import { Plus, Pencil, Clock, Check } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -521,13 +521,8 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
             <Transition name="unfold" mode="out-in">
               <div :key="selectedDate" class="board-box-body">
                 <div v-if="checksForDay.length" class="day-items">
-                  <div
-                    v-for="{ check, done } in checksForDay"
-                    :key="check.id"
-                    class="day-item day-item--check"
-                    :class="{ 'day-item--open': !done }"
-                  >
-                    <span class="icon icon--check"><span class="icon-dot" :class="{ 'icon-dot--open': !done }" /></span>
+                  <div v-for="{ check, done } in checksForDay" :key="check.id" class="day-item">
+                    <span class="icon icon--check"><span class="check-box" :class="{ checked: done }"><Check v-if="done" :size="10" /></span></span>
                     <span class="day-item-title">{{ done ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
                   </div>
                 </div>
@@ -873,15 +868,10 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   color: var(--ink);
 }
 
-/* Checks read lower-weight than Todos everywhere in the app. */
-.day-item--check {
-  opacity: 0.65;
-}
-
-/* Not done (yet): a check due but not ticked, a past day's leftover —
-   paler still, set back from what actually happened. */
-.day-item--open,
-.day-item--check.day-item--open {
+/* Not done: a past day's leftover — pale, set back from what actually
+   happened. Checks stay in full ink either way; their box shows ticked
+   or not. */
+.day-item--open {
   opacity: 0.4;
 }
 
@@ -891,25 +881,15 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   opacity: 0.5;
 }
 
+/* A check's box, the same one as in Current (base.css's .check-box) —
+   pale like the checks there. */
 .icon--check {
-  width: 1em;
+  opacity: 0.55;
 }
 
 .icon--clock :deep(svg) {
   width: 0.8em;
   height: 0.8em;
-}
-
-.icon-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.icon-dot--open {
-  background: transparent;
-  border: 1px solid currentColor;
 }
 
 /* Plain space between the priority / other groups — the filled vs.

@@ -1104,26 +1104,10 @@ function editFromAllChecks(check: CheckItem) {
   opacity: 0.3;
 }
 
+/* The box itself is shared with the calendar (base.css); here it's the
+   toggle. */
 .check-box {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--ink);
-  /* var(--radius) is 6px in rounded mode — on a box this small that's
-     effectively half its size, i.e. a circle, not a rounded corner. Capped
-     at 3px so it still follows the rounded/square setting (0px stays 0px)
-     without going further than a corner. */
-  border-radius: min(var(--radius), 3px);
-  box-shadow: 2px 2px 0 var(--priority-shadow);
-  color: var(--bg);
   cursor: pointer;
-}
-
-.check-box.checked {
-  background: var(--ink);
 }
 
 /* Same "not due yet" lock as TodoCard's Done/Done-for-now row for a
