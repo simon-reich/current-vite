@@ -1167,10 +1167,11 @@ function todoFont(id: string) {
 }
 
 /* An empty box's placeholder — quieter than real entries: the subs' smaller
-   size, regular weight. */
+   size, regular weight, italic (like the notes field's placeholder). */
 .no-activity {
   font-size: var(--day-sub-font-size);
   font-weight: normal;
+  font-style: italic;
   color: var(--ink);
   font-family: var(--font-playful, sans-serif);
   opacity: 0.5;
@@ -1445,7 +1446,10 @@ function todoFont(id: string) {
     padding-bottom: var(--board-shadow-room);
   }
 
+  /* Grows with the note's text (DayNotes.vue) rather than shrinking to fit
+     and scrolling inside — the stack it sits in scrolls instead. */
   .board-box.board-box--notes {
+    flex: 1 0 auto;
     min-height: 160px;
   }
 
