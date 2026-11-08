@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch, inject } fr
 import type { Ref } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { motion } from 'motion-v'
-import { Plus, Pencil, Clock, Check } from '@lucide/vue'
+import { Plus, Pencil, Clock, Check, RefreshCw } from '@lucide/vue'
 import { useTodosStore, PRIORITY_TAG_ID, type Todo, type Sub } from '../stores/todos'
 import { useChecksStore } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
@@ -14,6 +14,7 @@ import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 import DayNotes from '../components/DayNotes.vue'
+import { useCheckToggle } from '../composables/useCheckToggle'
 
 const store = useTodosStore()
 const router = useRouter()
@@ -332,10 +333,6 @@ onBeforeUnmount(() => {
 
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
 const workedOnDay = computed(() => selectedDate.value ? store.workedOn(selectedDate.value) : [])
-// Own section at the end of the day's list (see the template) rather than
-// mixed into doneOnDay/workedOnDay — Checks aren't Todos, ticking one is a
-// different kind of event than completing/working a Todo.
-const checksOnDay = computed(() => selectedDate.value && themeStore.checksEnabled ? checksStore.completedOn(selectedDate.value) : [])
 // Subs completed this day, per parent todo — a todo can show up here even
 // on a day it was never itself Done/Done-for-now (see dayEntries below),
 // which is exactly why subs-only progress still lands on the calendar.
@@ -363,19 +360,21 @@ const missedOnDay = computed(() => {
   return store.missedOn(selectedDate.value).filter(t => !handled.has(t.id))
 })
 
-// The day's Checks: ticked ones plus the ones due that day but not ticked
-// (open on today/a future day, missed on a past one). Ticked first. A
-// Check created after that day never counts as due on it.
+// The day's Checks, one side at a time: ticked ones by default, or —
+// switched to "open" — the ones due that day but not ticked, where they
+// can be caught up on (ticking one moves it over to "done"). Both at once
+// was too much on the board. Not persisted: the calendar always opens on
+// "done", but the switch stays put while stepping through days. A Check
+// created after that day never counts as due on it.
+const checksMode = ref<'done' | 'open'>('done')
 const checksForDay = computed(() => {
   if (!selectedDate.value || !themeStore.checksEnabled) return []
   const day = selectedDate.value
-  const ticked = checksOnDay.value.map(check => ({ check, done: true }))
-  const tickedIds = new Set(checksOnDay.value.map(c => c.id))
-  const open = checksStore.checksDueOn(day)
-    .filter(c => !tickedIds.has(c.id) && localDayOf(c.createdAt) <= day)
-    .map(check => ({ check, done: false }))
-  return [...ticked, ...open]
+  if (checksMode.value === 'done') return checksStore.completedOn(day)
+  return checksStore.checksDueOn(day).filter(c => localDayOf(c.createdAt) <= day && !checksStore.isCompletedOn(c, day))
 })
+
+const toggleCheck = useCheckToggle()
 
 // Jumps to Overview with the widget already pointed at this day, ready to
 // assign todos to it without a separate date-picker step — see
@@ -517,16 +516,28 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
           </section>
 
           <section v-if="themeStore.checksEnabled" class="board-box">
-            <p class="board-box-label">checks</p>
+            <div class="board-box-head">
+              <p class="board-box-label">{{ checksMode === 'open' ? 'open checks' : 'checks' }}</p>
+              <div class="board-box-label board-box-switch">
+                <button
+                  type="button"
+                  :class="{ active: checksMode === 'open' }"
+                  v-tooltip="checksMode === 'open' ? 'show done checks' : 'show open checks'"
+                  @click="checksMode = checksMode === 'open' ? 'done' : 'open'"
+                >
+                  <RefreshCw :size="16" />
+                </button>
+              </div>
+            </div>
             <Transition name="unfold" mode="out-in">
-              <div :key="selectedDate" class="board-box-body">
+              <div :key="`${selectedDate}-${checksMode}`" class="board-box-body">
                 <div v-if="checksForDay.length" class="day-items">
-                  <div v-for="{ check, done } in checksForDay" :key="check.id" class="day-item">
-                    <span class="icon icon--check"><span class="check-box" :class="{ checked: done }"><Check v-if="done" :size="10" /></span></span>
-                    <span class="day-item-title">{{ done ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
+                  <div v-for="check in checksForDay" :key="check.id" class="day-item day-item--check" :class="{ done: checksMode === 'done' }">
+                    <span class="icon icon--check"><span class="check-box" :class="{ checked: checksMode === 'done' }" @click="toggleCheck(check, selectedDate, $event.currentTarget as HTMLElement)"><Check v-if="checksMode === 'done'" :size="10" /></span></span>
+                    <span class="day-item-title">{{ checksMode === 'done' ? checksStore.titleOn(check, selectedDate) : check.title }}</span>
                   </div>
                 </div>
-                <p v-else class="no-activity">No checks on this day.</p>
+                <p v-else class="no-activity">{{ checksMode === 'done' ? 'No checks done on this day.' : 'Nothing left open.' }}</p>
               </div>
             </Transition>
           </section>
@@ -751,6 +762,50 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   font-family: var(--font-mono, monospace);
 }
 
+/* A box head with a switch on the right (checks: done ↔ open, a
+   two-arrow "other side" icon that turns half a round per flip). The switch sits in the label's own paleness; off ("done") it's
+   paler again on top of that, on ("open", label then reads "open checks")
+   it reads like the label itself. */
+.board-box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.board-box-switch {
+  display: flex;
+}
+
+.board-box-switch button {
+  display: flex;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.1s;
+}
+
+.board-box-switch button.active {
+  opacity: 1;
+}
+
+.board-box-switch svg {
+  transition: transform 0.3s var(--ease-pop, ease);
+}
+
+.board-box-switch button.active svg {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .board-box-switch button:hover {
+    opacity: 1;
+  }
+}
+
 /* ── Calendar grid ── */
 /* A wrapper, not a class on VCalendar itself: VCalendar renders a fragment,
    so its root never gets this component's scope attribute and scoped
@@ -881,10 +936,26 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   opacity: 0.5;
 }
 
-/* A check's box, the same one as in Current (base.css's .check-box) —
-   pale like the checks there. */
-.icon--check {
-  opacity: 0.55;
+/* A check, box and title, pale exactly like in Current (.check-pill):
+   ticked paler than open, same shared values. */
+.day-item--check {
+  opacity: var(--check-opacity);
+}
+
+.day-item--check.done {
+  opacity: var(--check-done-opacity);
+}
+
+/* The box is the toggle — brightens the row on hover like Current's
+   .check-pill. */
+.day-item--check .check-box {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .day-item--check:has(.check-box:hover) {
+    opacity: var(--check-hover-opacity);
+  }
 }
 
 .icon--clock :deep(svg) {

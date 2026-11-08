@@ -14,6 +14,7 @@ import IconLabelButton from '../components/IconLabelButton.vue'
 import { assignFonts } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
+import { useCheckToggle } from '../composables/useCheckToggle'
 import { simulateYesterdayLeftovers, SIMULATE_YESTERDAY_ENABLED } from '../dev/simulateYesterday'
 import { addDaysStr, endOfDayIso } from '../composables/useToday'
 import { shrinkFontToFit } from '../composables/useFitFont'
@@ -491,13 +492,11 @@ function leftoverOptions(todo: { focusDates?: string[] }, menu: LeftoverMenu): L
 const checkDisplayDate = computed(() => viewingDate.value ?? today.value)
 const displayedChecks = computed(() => viewingDate.value ? checksStore.checksDueOn(viewingDate.value) : checksStore.todayChecks)
 
+const toggleCheck = useCheckToggle()
+
 function onToggleCheck(check: CheckItem, event: MouseEvent) {
   if (viewingLockedDate.value) return
-  const becomingChecked = !checksStore.isCompletedOn(check, checkDisplayDate.value)
-  checksStore.toggleCompletion(check.id, checkDisplayDate.value)
-  if (becomingChecked && themeStore.celebrationsEnabled) {
-    burstCheckbox(event.currentTarget as HTMLElement)
-  }
+  toggleCheck(check, checkDisplayDate.value, event.currentTarget as HTMLElement)
 }
 
 // Which of the two icon buttons is currently hovered — drives the single
@@ -1090,18 +1089,18 @@ function editFromAllChecks(check: CheckItem) {
   padding: 0;
   cursor: pointer;
   text-align: left;
-  opacity: 0.55;
+  opacity: var(--check-opacity);
   transition: opacity 0.1s;
 }
 
 @media (hover: hover) {
   .check-pill:hover {
-    opacity: 0.9;
+    opacity: var(--check-hover-opacity);
   }
 }
 
 .check-pill.done {
-  opacity: 0.3;
+  opacity: var(--check-done-opacity);
 }
 
 /* The box itself is shared with the calendar (base.css); here it's the
