@@ -480,12 +480,13 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
               @dayclick="onDayClick"
             />
           </div>
-          <p class="day-label">{{ selectedDateLabel }}</p>
+          <p v-if="!isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
         </section>
         <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
       <div v-if="viewMode === 'calendar'" class="board-rest">
+        <p v-if="isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
         <!-- A future day has nothing done or ticked yet — its plan moves up
              into this spot instead. -->
         <div v-if="!isFutureDate" class="board-col">
@@ -816,8 +817,11 @@ const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.in
   flex-shrink: 0;
 }
 
-/* The selected day, under the grid it was picked in. */
+/* The selected day, under the grid it was picked in. On the phone it
+   heads the scrolling stack instead (see the template), so it scrolls up
+   with the boxes rather than taking room in the pinned calendar. */
 .day-label {
+  flex-shrink: 0;
   text-align: center;
   font-size: 17px;
   font-weight: 600;
