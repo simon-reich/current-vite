@@ -40,10 +40,10 @@ export const useThemeStore = defineStore('theme', () => {
   // where new "plan ahead" assignments go. Persists across reloads (see
   // plan discussion) so multi-day planning doesn't reset on every visit.
   const selectedFocusDate = ref(todayStr())
-  // Calendar view's calendar | log switch (CalendarModeToggle.vue, L key) —
+  // Calendar view's journal | archive switch (CalendarModeToggle.vue, A key) —
   // persisted so coming back to Calendar (C) or reloading lands on
   // whichever of the two you left it on.
-  const calendarViewMode = ref<'calendar' | 'log'>('calendar')
+  const calendarViewMode = ref<'journal' | 'archive'>('journal')
   // Force every card's sub-list open without having to expand each one
   // individually — see App.vue's desktop-subs-toggle (and Current.vue's/
   // AllTodos.vue's own force-expand-subs prop on TodoCard). Binary: 'off'
@@ -174,4 +174,14 @@ export const useThemeStore = defineStore('theme', () => {
     apply, toggleRounded, togglePriorityShadow, toggleCelebrations, toggleTags, toggleChecks, toggleSubs, toggleSubsFullWidth, toggleExpandCurrentSubs, toggleExpandOverviewSubs, saveTheme, deleteTheme, loadTheme,
     toggleDailyThemeRotation, runDailyThemeRotation, toggleDateLists, toggleYesterdayLeftovers, toggleOverviewZoom, setSelectedFocusDate,
   }
-}, { persist: true })
+}, {
+  persist: {
+    // The calendar's modes used to be called 'calendar' and 'log' — a
+    // stored old name lands in its new one instead of an unknown mode.
+    afterHydrate: (ctx) => {
+      const old = ctx.store.calendarViewMode as string
+      if (old === 'log') ctx.store.calendarViewMode = 'archive'
+      if (old === 'calendar') ctx.store.calendarViewMode = 'journal'
+    },
+  },
+})

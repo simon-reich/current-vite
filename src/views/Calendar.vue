@@ -40,55 +40,55 @@ const {
 
 function onDayDetailScroll() {
   checkDayDetailScrollState()
-  updateLogMonth()
-  followLogWithCalendar()
+  updateArchiveMonth()
+  followArchiveWithCalendar()
 }
 
-// The log's "where am I" marker: month and year of the topmost group
-// still in view (.log-month) — a quick reference point while scrolling
-// back, since the groups themselves only name the day. Only once the log
+// The archive's "where am I" marker: month and year of the topmost group
+// still in view (.archive-month) — a quick reference point while scrolling
+// back, since the groups themselves only name the day. Only once the archive
 // is actually scrolled (same moment the divider shows), not at the very
 // top where it'd just repeat the obvious. Read off the DOM on scroll
 // (each group carries its date), nothing to keep in sync.
 // Tablet/phone: always shown — it sits next to the folded calendar there
-// (see logCalOpen), the log's one header.
-const logMonth = ref('')
-// The topmost group's day — what the calendar unfolds to (see openLogCal).
-const logTopDate = ref('')
-const showLogMonth = computed(() => viewMode.value === 'log' && !!logMonth.value && (dayDetailScrolled.value || isBelowDesktopWidth.value))
-function updateLogMonth() {
+// (see archiveCalOpen), the archive's one header.
+const archiveMonth = ref('')
+// The topmost group's day — what the calendar unfolds to (see openArchiveCal).
+const archiveTopDate = ref('')
+const showArchiveMonth = computed(() => viewMode.value === 'archive' && !!archiveMonth.value && (dayDetailScrolled.value || isBelowDesktopWidth.value))
+function updateArchiveMonth() {
   const root = dayDetailScrollRef.value
-  if (viewMode.value !== 'log' || !root) { logMonth.value = ''; logTopDate.value = ''; return }
+  if (viewMode.value !== 'archive' || !root) { archiveMonth.value = ''; archiveTopDate.value = ''; return }
   const top = root.getBoundingClientRect().top
-  const group = [...root.querySelectorAll<HTMLElement>('.log-group')].find(g => g.getBoundingClientRect().bottom > top + 1)
+  const group = [...root.querySelectorAll<HTMLElement>('.archive-group')].find(g => g.getBoundingClientRect().bottom > top + 1)
   const dateStr = group?.dataset.date
-  logTopDate.value = dateStr ?? ''
-  if (!dateStr) { logMonth.value = ''; return }
+  archiveTopDate.value = dateStr ?? ''
+  if (!dateStr) { archiveMonth.value = ''; return }
   const [y, m] = dateStr.split('-').map(Number)
-  logMonth.value = `${MONTH_LABELS[m - 1]} ${y}`
+  archiveMonth.value = `${MONTH_LABELS[m - 1]} ${y}`
 }
 
 const selectedDate = ref<string>(todayStr())
 
-// 'log' swaps the month grid + day detail for a flat list of every Done
-// todo (see logGroups below) — the calendar's own "look back" area, so no
+// 'archive' swaps the month grid + day detail for a flat list of every Done
+// todo (see archiveGroups below) — the calendar's own "look back" area, so no
 // separate route or nav entry. Owned by App.vue (see CalendarModeToggle.vue).
-const viewMode = inject<Ref<'calendar' | 'log'>>('calendarViewMode')!
-// Tablet and phone, log mode: the calendar box folds shut to a small
-// ink-filled icon box, the log's month marker next to it — two columns
-// side by side (tablet) or a calendar pinned over the log (phone) leave
-// the log too little room. Tapping it unfolds the box into the calendar,
-// on the month the log is currently at. It's a navigator there: picking a
-// day folds it back (the log is then at that day), and so does its own
-// fold icon. Paging months or scrolling the log leaves it open — folding
+const viewMode = inject<Ref<'journal' | 'archive'>>('calendarViewMode')!
+// Tablet and phone, archive mode: the calendar box folds shut to a small
+// ink-filled icon box, the archive's month marker next to it — two columns
+// side by side (tablet) or a calendar pinned over the archive (phone) leave
+// the archive too little room. Tapping it unfolds the box into the calendar,
+// on the month the archive is currently at. It's a navigator there: picking a
+// day folds it back (the archive is then at that day), and so does its own
+// fold icon. Paging months or scrolling the archive leaves it open — folding
 // on scroll was tried and felt abrupt. Desktop keeps the calendar out
 // regardless (CSS-only, the fold isn't shown there).
 const isBelowDesktopWidth = inject<Ref<boolean>>('isBelowDesktopWidth')!
-const logCalOpen = ref(false)
-watch(viewMode, () => { logCalOpen.value = false })
-function openLogCal() {
-  logCalOpen.value = true
-  calendarRef.value?.move(new Date((logTopDate.value || selectedDate.value) + 'T12:00:00'))
+const archiveCalOpen = ref(false)
+watch(viewMode, () => { archiveCalOpen.value = false })
+function openArchiveCal() {
+  archiveCalOpen.value = true
+  calendarRef.value?.move(new Date((archiveTopDate.value || selectedDate.value) + 'T12:00:00'))
 }
 
 
@@ -99,12 +99,12 @@ const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
 // Phone: the line above the bottom nav, ink while there's more to scroll
 // to — the same divider (and class, mobile.css) as App.vue's own, which
 // stays blank here since the page itself never scrolls on this route.
-// What scrolls is the board's stack — calendar mode only: the log scrolls
+// What scrolls is the board's stack — journal mode only: the archive scrolls
 // inside its own box, nothing runs past its edge. The stack's children
 // are watched too, so content growing or shrinking (another day) re-checks,
 // not just scrolling.
 const boardRestRef = ref<HTMLElement | null>(null)
-const boardScrollEl = computed<HTMLElement | null>(() => viewMode.value === 'log' ? null : boardRestRef.value)
+const boardScrollEl = computed<HTMLElement | null>(() => viewMode.value === 'archive' ? null : boardRestRef.value)
 const boardScrolledToBottom = ref(true)
 // Scrolled at all — the folded head's divider (phone, see .fold-head-divider).
 const boardScrolled = ref(false)
@@ -131,12 +131,12 @@ onBeforeUnmount(() => {
 
 // ── The calendar fold ──
 // One mechanism for both places the calendar box folds into a small
-// ink-filled icon square: tablet/phone log (toggled, see logCalOpen) and
-// phone calendar mode (scroll-driven, see below). --fold on the
+// ink-filled icon square: tablet/phone archive (toggled, see archiveCalOpen) and
+// phone journal mode (scroll-driven, see below). --fold on the
 // calendar's column, 0 = calendar, 1 = icon square, drives everything in
 // the CSS — size,
-// ink fill, which content shows. The log just sets 0 or 1 and lets it
-// animate; the phone's calendar mode follows the finger.
+// ink fill, which content shows. The archive just sets 0 or 1 and lets it
+// animate; the phone's journal mode follows the finger.
 // The box's open height is measured (CSS can't interpolate from auto).
 const calBoxRef = ref<HTMLElement | null>(null)
 const calInnerRef = ref<HTMLElement | null>(null)
@@ -158,7 +158,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => foldResizeObserver?.disconnect())
 
-// Phone, calendar mode: scrolling the day's stack down while it's at its
+// Phone, journal mode: scrolling the day's stack down while it's at its
 // top first folds the calendar away — stepless, with the finger — and
 // only then scrolls the stack; scrolling back up at its top unfolds it
 // again. The first FOLD_RESIST px of finger travel only move it a little
@@ -172,10 +172,10 @@ const calFold = ref(0)
 const calFoldDragging = ref(false)
 watch(viewMode, () => { calFold.value = 0 })
 
-const foldable = computed(() => foldOpenHeight.value > 0 && (viewMode.value === 'log' ? isBelowDesktopWidth.value : isPhoneWidth.value))
-const foldValue = computed(() => viewMode.value === 'log' ? (logCalOpen.value ? 0 : 1) : calFold.value)
+const foldable = computed(() => foldOpenHeight.value > 0 && (viewMode.value === 'archive' ? isBelowDesktopWidth.value : isPhoneWidth.value))
+const foldValue = computed(() => viewMode.value === 'archive' ? (archiveCalOpen.value ? 0 : 1) : calFold.value)
 const folded = computed(() => foldable.value && foldValue.value >= 0.5)
-// Set on the calendar's column and — phone calendar mode — on the day's
+// Set on the calendar's column and — phone journal mode — on the day's
 // stack too, which slides up beside the folded square (see the CSS).
 const foldClass = computed(() => ({ 'cal-foldable': foldable.value, 'cal-folded': folded.value, 'cal-fold-anim': !calFoldDragging.value }))
 const foldStyle = computed(() => foldable.value ? { '--fold': foldValue.value, '--fold-open-h': `${foldOpenHeight.value}px` } : undefined)
@@ -199,7 +199,7 @@ function settleFold(direction: number) {
   calFold.value = direction > 0 ? (f > 0.15 ? 1 : 0) : direction < 0 ? (f < 0.85 ? 0 : 1) : Math.round(f)
 }
 
-const phoneFoldActive = () => foldable.value && viewMode.value === 'calendar'
+const phoneFoldActive = () => foldable.value && viewMode.value === 'journal'
 let touchStartY = 0
 let touchStartFold = 0
 let touchLastY = 0
@@ -271,9 +271,9 @@ watch(boardRestRef, (el, oldEl) => {
 }, { flush: 'post' })
 onBeforeUnmount(() => { if (wheelSettleTimer) clearTimeout(wheelSettleTimer) })
 
-// The folded square: log → unfold to the log's month; calendar → unfold.
+// The folded square: archive → unfold to the archive's month; calendar → unfold.
 function onFoldToggle() {
-  if (viewMode.value === 'log') openLogCal()
+  if (viewMode.value === 'archive') openArchiveCal()
   else calFold.value = 0
 }
 
@@ -375,13 +375,13 @@ const attributes = computed(() => {
 
 function onDayClick(day: { id: string }) {
   selectedDate.value = day.id
-  // Tablet/phone log: the folding calendar has done its job (see logCalOpen).
-  if (viewMode.value === 'log') logCalOpen.value = false
+  // Tablet/phone archive: the folding calendar has done its job (see archiveCalOpen).
+  if (viewMode.value === 'archive') archiveCalOpen.value = false
 }
 
-// Switching between calendar and log drops the picked day — back to today,
+// Switching between journal and archive drops the picked day — back to today,
 // the calendar paged back with it. Nothing about a day picked in one mode
-// carries over: the log always opens at its top (today) instead of
+// carries over: the archive always opens at its top (today) instead of
 // visibly jumping to an old pick.
 watch(viewMode, async () => {
   selectedDate.value = todayStr()
@@ -390,14 +390,14 @@ watch(viewMode, async () => {
   checkDayDetailScrollState()
 })
 
-// The calendar stays next to the log too: picking a day there scrolls the
-// log to it (see scrollLogTo).
+// The calendar stays next to the archive too: picking a day there scrolls the
+// archive to it (see scrollArchiveTo).
 watch(selectedDate, (dateStr) => {
-  if (viewMode.value === 'log') scrollLogTo(dateStr, true)
+  if (viewMode.value === 'archive') scrollArchiveTo(dateStr, true)
 })
 
 // "Saturday, October 3, 2026" — the day detail's own heading and each of
-// the log's day groups.
+// the archive's day groups.
 function formatDayLabel(dateStr: string): string {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -406,10 +406,10 @@ function formatDayLabel(dateStr: string): string {
 
 const selectedDateLabel = computed(() => selectedDate.value ? formatDayLabel(selectedDate.value) : '')
 
-// The log view: every Done todo (store.completedTodos, newest first, deleted
+// The archive view: every Done todo (store.completedTodos, newest first, deleted
 // ones left out) grouped by its completion day — same day key completedOn
 // uses, so a todo sits under exactly the day the calendar shows it on.
-const logGroups = computed(() => {
+const archiveGroups = computed(() => {
   const groups: { dateStr: string; label: string; todos: Todo[] }[] = []
   for (const todo of store.completedTodos) {
     const dateStr = localDayOf(todo.completedAt!)
@@ -420,78 +420,78 @@ const logGroups = computed(() => {
   return groups
 })
 
-// The log only shows the last LOG_WINDOW_DAYS days (today included) at
-// first; scrolling past its end widens that window in LOG_WINDOW_DAYS
-// steps on its own (see logSentinelRef below) — far enough to always
+// The archive only shows the last ARCHIVE_WINDOW_DAYS days (today included) at
+// first; scrolling past its end widens that window in ARCHIVE_WINDOW_DAYS
+// steps on its own (see archiveSentinelRef below) — far enough to always
 // reach the next day that actually has entries, so a load never turns up
-// nothing. Display-only: nothing is persisted, and switching to the log
+// nothing. Display-only: nothing is persisted, and switching to the archive
 // again starts back at one window.
-const LOG_WINDOW_DAYS = 30
-const logWindows = ref(1)
+const ARCHIVE_WINDOW_DAYS = 30
+const archiveWindows = ref(1)
 // Groups that came in with the latest load — they domino in (see
-// .log-group--new), the ones already there stay put.
-const newLogDates = ref(new Set<string>())
+// .archive-group--new), the ones already there stay put.
+const newArchiveDates = ref(new Set<string>())
 watch(viewMode, (mode) => {
-  if (mode !== 'log') return
-  logWindows.value = 1
-  newLogDates.value = new Set()
-  fillLogOnOpen()
+  if (mode !== 'archive') return
+  archiveWindows.value = 1
+  newArchiveDates.value = new Set()
+  fillArchiveOnOpen()
 })
 
-const logCutoff = computed(() => addDaysStr(todayStr(), 1 - LOG_WINDOW_DAYS * logWindows.value))
-const visibleLogGroups = computed(() => logGroups.value.filter(g => g.dateStr >= logCutoff.value))
+const archiveCutoff = computed(() => addDaysStr(todayStr(), 1 - ARCHIVE_WINDOW_DAYS * archiveWindows.value))
+const visibleArchiveGroups = computed(() => archiveGroups.value.filter(g => g.dateStr >= archiveCutoff.value))
 // Newest group still hidden (groups are newest first), if any.
-const nextOlderLogGroup = computed(() => logGroups.value.find(g => g.dateStr < logCutoff.value))
+const nextOlderArchiveGroup = computed(() => archiveGroups.value.find(g => g.dateStr < archiveCutoff.value))
 
-// How many windows the log needs to reach back to dateStr.
-function logWindowsReaching(dateStr: string): number {
+// How many windows the archive needs to reach back to dateStr.
+function archiveWindowsReaching(dateStr: string): number {
   const today = new Date(todayStr() + 'T12:00:00')
   const daysBack = Math.round((today.getTime() - new Date(dateStr + 'T12:00:00').getTime()) / 86_400_000)
-  return Math.ceil((daysBack + 1) / LOG_WINDOW_DAYS)
+  return Math.ceil((daysBack + 1) / ARCHIVE_WINDOW_DAYS)
 }
 
 function showOlderLog() {
-  const next = nextOlderLogGroup.value
+  const next = nextOlderArchiveGroup.value
   if (!next) return
-  const before = new Set(visibleLogGroups.value.map(g => g.dateStr))
-  logWindows.value = logWindowsReaching(next.dateStr)
-  newLogDates.value = new Set(visibleLogGroups.value.map(g => g.dateStr).filter(d => !before.has(d)))
+  const before = new Set(visibleArchiveGroups.value.map(g => g.dateStr))
+  archiveWindows.value = archiveWindowsReaching(next.dateStr)
+  newArchiveDates.value = new Set(visibleArchiveGroups.value.map(g => g.dateStr).filter(d => !before.has(d)))
 }
 
-// Scrolls the log to a day: its group, or — on a day with nothing Done —
+// Scrolls the archive to a day: its group, or — on a day with nothing Done —
 // the next older one (groups are newest first). Older than the loaded
 // window, the window first widens to reach it (no domino, it's a jump,
 // not a load). A future day or today lands at the top.
-async function scrollLogTo(dateStr: string, smooth: boolean) {
-  logScrolledByUser = false
-  const groups = logGroups.value
+async function scrollArchiveTo(dateStr: string, smooth: boolean) {
+  archiveScrolledByUser = false
+  const groups = archiveGroups.value
   if (!groups.length) return
   const target = groups.find(g => g.dateStr <= dateStr) ?? groups[groups.length - 1]
-  if (target.dateStr < logCutoff.value) logWindows.value = logWindowsReaching(target.dateStr)
+  if (target.dateStr < archiveCutoff.value) archiveWindows.value = archiveWindowsReaching(target.dateStr)
   await nextTick()
   const root = dayDetailScrollRef.value
   if (!root) return
   const behavior = smooth ? 'smooth' : 'instant'
   if (target === groups[0]) { root.scrollTo({ top: 0, behavior }); return }
-  const el = root.querySelector<HTMLElement>(`.log-group[data-date="${target.dateStr}"]`)
+  const el = root.querySelector<HTMLElement>(`.archive-group[data-date="${target.dateStr}"]`)
   if (!el) return
-  // Scrolls the log box only — scrollIntoView would also scroll every
+  // Scrolls the archive box only — scrollIntoView would also scroll every
   // ancestor, the page's own (otherwise pinned, see layout.css) content
   // area included. The group lands where the box's padding starts.
   const top = el.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop
   root.scrollTo({ top: top - root.clientTop - parseFloat(getComputedStyle(root).paddingTop), behavior })
 }
 
-// Calendar and log run in sync, both ways. Paging the calendar to another
-// month scrolls the log there (its newest entry in that month, or the
-// next older one if it has none — see scrollLogTo). Scrolling the log by
+// Calendar and archive run in sync, both ways. Paging the calendar to another
+// month scrolls the archive there (its newest entry in that month, or the
+// next older one if it has none — see scrollArchiveTo). Scrolling the archive by
 // hand into another month pages the calendar along. Only by hand
-// (wheel/touch, logScrolledByUser): the log scrolling itself — to a picked
+// (wheel/touch, archiveScrolledByUser): the archive scrolling itself — to a picked
 // day or a paged month — never pages the calendar, or paging to an empty
-// month would land the calendar on the older month the log ended up at.
+// month would land the calendar on the older month the archive ended up at.
 // Each side skips a month the other already shows, so neither echoes back.
 const calPage = ref<{ month: number; year: number } | null>(null)
-let logScrolledByUser = false
+let archiveScrolledByUser = false
 
 function sameMonth(dateStr: string, page: { month: number; year: number } | null) {
   if (!dateStr || !page) return false
@@ -503,131 +503,131 @@ function onCalendarMove(pages: { month: number; year: number }[]) {
   const page = pages[0]
   if (!page) return
   calPage.value = { month: page.month, year: page.year }
-  if (viewMode.value !== 'log' || sameMonth(logTopDate.value, page)) return
-  scrollLogTo(localDateStr(new Date(page.year, page.month, 0)), true)
+  if (viewMode.value !== 'archive' || sameMonth(archiveTopDate.value, page)) return
+  scrollArchiveTo(localDateStr(new Date(page.year, page.month, 0)), true)
 }
 
-function followLogWithCalendar() {
-  if (!logScrolledByUser || viewMode.value !== 'log' || !logTopDate.value) return
-  if (sameMonth(logTopDate.value, calPage.value)) return
-  calendarRef.value?.move(new Date(logTopDate.value + 'T12:00:00'))
+function followArchiveWithCalendar() {
+  if (!archiveScrolledByUser || viewMode.value !== 'archive' || !archiveTopDate.value) return
+  if (sameMonth(archiveTopDate.value, calPage.value)) return
+  calendarRef.value?.move(new Date(archiveTopDate.value + 'T12:00:00'))
 }
 
-// Scrolling the log by hand lets the calendar page along (see above).
-function onLogScrolledByUser() {
-  logScrolledByUser = true
+// Scrolling the archive by hand lets the calendar page along (see above).
+function onArchiveScrolledByUser() {
+  archiveScrolledByUser = true
 }
 
-// The log's box is kept full: if the loaded entries don't reach its
+// The archive's box is kept full: if the loaded entries don't reach its
 // bottom and there are older ones, the next windows load straight in — no
-// load pause, no domino, it's how the log stands, not a load — until the
+// load pause, no domino, it's how the archive stands, not a load — until the
 // box is full or nothing older is left. On opening, and whenever the box
 // grows (tablet/phone: the calendar folds to its square right after
 // opening, so the box only gets its real height then; also rotating /
-// resizing). Measured on layout heights (the log fades in with a
-// transform), the endless-load run-out (.log-more) not counted. The
+// resizing). Measured on layout heights (the archive fades in with a
+// transform), the endless-load run-out (.archive-more) not counted. The
 // sentinel's own loading is held off meanwhile.
-let logFilling = false
-async function fillLogOnOpen() {
-  if (logFilling) return
-  logFilling = true
-  logLoading.value = true
+let archiveFilling = false
+async function fillArchiveOnOpen() {
+  if (archiveFilling) return
+  archiveFilling = true
+  archiveLoading.value = true
   try {
     for (let i = 0; i < 100; i++) {
       await nextTick()
       const root = dayDetailScrollRef.value
       const content = root?.querySelector<HTMLElement>('.day-detail-content')
-      const next = nextOlderLogGroup.value
+      const next = nextOlderArchiveGroup.value
       if (!root || !content || !next) return
-      const runOut = content.querySelector<HTMLElement>('.log-more')?.offsetHeight ?? 0
+      const runOut = content.querySelector<HTMLElement>('.archive-more')?.offsetHeight ?? 0
       const cs = getComputedStyle(root)
       const room = root.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
       if (content.offsetHeight - runOut >= room) return
-      logWindows.value = logWindowsReaching(next.dateStr)
+      archiveWindows.value = archiveWindowsReaching(next.dateStr)
     }
   } finally {
-    logLoading.value = false
-    logFilling = false
+    archiveLoading.value = false
+    archiveFilling = false
   }
 }
 
-let logBoxObserver: ResizeObserver | null = null
+let archiveBoxObserver: ResizeObserver | null = null
 watch(dayDetailScrollRef, (el) => {
-  logBoxObserver?.disconnect()
+  archiveBoxObserver?.disconnect()
   if (!el) return
-  logBoxObserver = new ResizeObserver(() => fillLogOnOpen())
-  logBoxObserver.observe(el)
+  archiveBoxObserver = new ResizeObserver(() => fillArchiveOnOpen())
+  archiveBoxObserver.observe(el)
 })
-onBeforeUnmount(() => logBoxObserver?.disconnect())
+onBeforeUnmount(() => archiveBoxObserver?.disconnect())
 
-// Also when the calendar opens straight into the log (the mode is kept).
-onMounted(() => { if (viewMode.value === 'log') fillLogOnOpen() })
+// Also when the calendar opens straight into the archive (the mode is kept).
+onMounted(() => { if (viewMode.value === 'archive') fillArchiveOnOpen() })
 
-// The log opens at its top — today (see the viewMode watcher above).
-function onLogShown() {
-  updateLogMonth()
+// The archive opens at its top — today (see the viewMode watcher above).
+function onArchiveShown() {
+  updateArchiveMonth()
 }
 
 // Domino order for a new group's label and entries: one running index
 // across everything that came in with the load, so the rows tip in one
 // after another top to bottom. Capped so a big load doesn't keep the last
 // rows waiting for seconds.
-const LOG_DOMINO_CAP = 14
-const logDominoStart = computed(() => {
+const ARCHIVE_DOMINO_CAP = 14
+const archiveDominoStart = computed(() => {
   const start = new Map<string, number>()
   let i = 0
-  for (const g of visibleLogGroups.value) {
-    if (!newLogDates.value.has(g.dateStr)) continue
+  for (const g of visibleArchiveGroups.value) {
+    if (!newArchiveDates.value.has(g.dateStr)) continue
     start.set(g.dateStr, i)
     i += g.todos.length + 1
   }
   return start
 })
-function logDomino(dateStr: string, k: number) {
-  const start = logDominoStart.value.get(dateStr)
-  return start === undefined ? undefined : { '--i': Math.min(start + k, LOG_DOMINO_CAP) }
+function archiveDomino(dateStr: string, k: number) {
+  const start = archiveDominoStart.value.get(dateStr)
+  return start === undefined ? undefined : { '--i': Math.min(start + k, ARCHIVE_DOMINO_CAP) }
 }
 
-// Endless log: the list ends in a bit of empty run-out (.log-more) you can
+// Endless archive: the list ends in a bit of empty run-out (.archive-more) you can
 // scroll on into, past the last entry. Its far end carries an invisible
-// marker — once that's in view, the log holds for a beat (so it reads as
+// marker — once that's in view, the archive holds for a beat (so it reads as
 // "reached the end, fetching more" rather than an unexplained stop) and
 // then the next part dominoes in. Watched against the viewport (root
 // null) rather than the scroll container, so it works whichever element
 // actually scrolls on the current layout. Re-observed after every load:
 // an observer only reports changes, so a marker that's still in view (a
-// short log that doesn't fill the screen yet) would otherwise never fire
+// short archive that doesn't fill the screen yet) would otherwise never fire
 // again.
-const LOG_LOAD_PAUSE_MS = 350
-const logSentinelRef = ref<HTMLElement | null>(null)
-const logLoading = ref(false)
-let logLoadTimer: ReturnType<typeof setTimeout> | null = null
-const logObserver = typeof IntersectionObserver !== 'undefined'
+const ARCHIVE_LOAD_PAUSE_MS = 350
+const archiveSentinelRef = ref<HTMLElement | null>(null)
+const archiveLoading = ref(false)
+let archiveLoadTimer: ReturnType<typeof setTimeout> | null = null
+const archiveObserver = typeof IntersectionObserver !== 'undefined'
   ? new IntersectionObserver(entries => {
-      if (logLoading.value || !entries.some(e => e.isIntersecting)) return
-      logLoading.value = true
-      logLoadTimer = setTimeout(() => {
-        logLoading.value = false
+      if (archiveLoading.value || !entries.some(e => e.isIntersecting)) return
+      archiveLoading.value = true
+      archiveLoadTimer = setTimeout(() => {
+        archiveLoading.value = false
         showOlderLog()
-      }, LOG_LOAD_PAUSE_MS)
+      }, ARCHIVE_LOAD_PAUSE_MS)
     })
   : null
-watch([logSentinelRef, () => visibleLogGroups.value.length], async ([el]) => {
-  logObserver?.disconnect()
+watch([archiveSentinelRef, () => visibleArchiveGroups.value.length], async ([el]) => {
+  archiveObserver?.disconnect()
   if (!el) return
   await nextTick()
-  logObserver?.observe(el)
+  archiveObserver?.observe(el)
 })
-// Content changes (switching to the log, a load) move what's on top too.
-watch([viewMode, () => visibleLogGroups.value.length], async () => {
+// Content changes (switching to the archive, a load) move what's on top too.
+watch([viewMode, () => visibleArchiveGroups.value.length], async () => {
   await nextTick()
-  // The log fades in (unfold transition) — wait for its groups to exist.
-  requestAnimationFrame(updateLogMonth)
+  // The archive fades in (unfold transition) — wait for its groups to exist.
+  requestAnimationFrame(updateArchiveMonth)
 }, { immediate: true })
 
 onBeforeUnmount(() => {
-  logObserver?.disconnect()
-  if (logLoadTimer) clearTimeout(logLoadTimer)
+  archiveObserver?.disconnect()
+  if (archiveLoadTimer) clearTimeout(archiveLoadTimer)
 })
 
 const doneOnDay = computed(() => selectedDate.value ? store.completedOn(selectedDate.value) : [])
@@ -748,7 +748,7 @@ const todoFontMap = computed(() => assignFonts([
 ].map(e => e.todo.id).concat(
   missedOnDay.value.map(t => t.id),
   plannedOnDay.value.map(t => t.id),
-  visibleLogGroups.value.flatMap(g => g.todos.map(t => t.id)),
+  visibleArchiveGroups.value.flatMap(g => g.todos.map(t => t.id)),
 )))
 function todoFont(id: string) {
   return { fontFamily: todoFontMap.value.get(id) }
@@ -765,15 +765,15 @@ function todoFont(id: string) {
     <!-- Control board: every part of the day in its own box. Desktop:
          calendar | done + checks | planned (past: not done). Tablet: the
          calendar left, the rest stacked on the right. Phone: one column,
-         the calendar pinned, the boxes scrolling under it. In log mode the
-         calendar stays, the log takes the place of the other boxes. The
+         the calendar pinned, the boxes scrolling under it. In archive mode the
+         calendar stays, the archive takes the place of the other boxes. The
          placement per layout lives in the CSS (grid areas). Notes go under
          the calendar, on the phone last in the scrolling stack. -->
     <motion.div
       class="calendar-board"
       :class="{
-        'calendar-board--log': viewMode === 'log',
-        'calendar-board--cal-closed': viewMode === 'log' && !logCalOpen,
+        'calendar-board--archive': viewMode === 'archive',
+        'calendar-board--cal-closed': viewMode === 'archive' && !archiveCalOpen,
       }"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
@@ -800,17 +800,17 @@ function todoFont(id: string) {
                 @did-move="onCalendarMove"
               />
             </div>
-            <p v-if="viewMode === 'calendar' && !isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
-            <button v-if="viewMode === 'log'" type="button" class="icon-circle-btn cal-fold-btn" v-tooltip="'hide calendar'" @click="logCalOpen = false">
+            <p v-if="viewMode === 'journal' && !isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
+            <button v-if="viewMode === 'archive'" type="button" class="icon-circle-btn cal-fold-btn" v-tooltip="'hide calendar'" @click="archiveCalOpen = false">
               <ChevronUp :size="12" />
             </button>
           </div>
         </section>
-        <ScrollDivider v-if="foldable && viewMode === 'calendar'" class="fold-head-divider" :visible="folded && boardScrolled" />
-        <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
+        <ScrollDivider v-if="foldable && viewMode === 'journal'" class="fold-head-divider" :visible="folded && boardScrolled" />
+        <DayNotes v-if="viewMode === 'journal' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
-      <div v-if="viewMode === 'calendar'" ref="boardRestRef" class="board-rest" :class="foldClass" :style="foldStyle">
+      <div v-if="viewMode === 'journal'" ref="boardRestRef" class="board-rest" :class="foldClass" :style="foldStyle">
         <!-- The spans are the fold's spacers (see .day-label-spacer). -->
         <p v-if="isPhoneWidth" class="day-label"><span class="day-label-spacer" />{{ selectedDateLabel }}<span class="day-label-spacer day-label-spacer--end" /></p>
         <!-- A future day has nothing done or ticked yet — its plan moves up
@@ -919,39 +919,39 @@ function todoFont(id: string) {
         <DayNotes v-if="isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
-      <div v-else class="board-log">
-        <!-- The log's month marker: desktop right above the box, tablet/
+      <div v-else class="board-archive">
+        <!-- The archive's month marker: desktop right above the box, tablet/
              phone next to the folded calendar (see the CSS at the end). -->
-        <div class="log-month-row">
-          <Transition name="log-month" mode="out-in">
-            <span v-if="showLogMonth" :key="logMonth" class="log-month">{{ logMonth }}</span>
+        <div class="archive-month-row">
+          <Transition name="archive-month" mode="out-in">
+            <span v-if="showArchiveMonth" :key="archiveMonth" class="archive-month">{{ archiveMonth }}</span>
           </Transition>
         </div>
 
-        <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll" @wheel.passive="onLogScrolledByUser" @touchmove.passive="onLogScrolledByUser">
+        <div ref="dayDetailScrollRef" class="board-box day-detail-scroll" @scroll="onDayDetailScroll" @wheel.passive="onArchiveScrolledByUser" @touchmove.passive="onArchiveScrolledByUser">
           <div ref="dayDetailRef" class="day-detail">
             <transition
               name="unfold"
-              @after-enter="onLogShown"
+              @after-enter="onArchiveShown"
               appear
               appear-active-class="unfold-appear-active"
               appear-from-class="unfold-appear-from"
             >
               <div class="day-detail-content">
-                <template v-if="logGroups.length">
-                  <p v-if="!visibleLogGroups.length" class="no-activity">Nothing completed in the last {{ LOG_WINDOW_DAYS }} days.</p>
-                  <div v-for="group in visibleLogGroups" :key="group.dateStr" :data-date="group.dateStr" class="log-group" :class="{ 'log-group--new': newLogDates.has(group.dateStr) }">
-                    <p class="board-box-label" :style="logDomino(group.dateStr, 0)">{{ group.label }}</p>
+                <template v-if="archiveGroups.length">
+                  <p v-if="!visibleArchiveGroups.length" class="no-activity">Nothing completed in the last {{ ARCHIVE_WINDOW_DAYS }} days.</p>
+                  <div v-for="group in visibleArchiveGroups" :key="group.dateStr" :data-date="group.dateStr" class="archive-group" :class="{ 'archive-group--new': newArchiveDates.has(group.dateStr) }">
+                    <p class="board-box-label" :style="archiveDomino(group.dateStr, 0)">{{ group.label }}</p>
                     <div class="day-items">
-                      <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="logDomino(group.dateStr, i + 1)">
+                      <div v-for="(todo, i) in group.todos" :key="todo.id" class="day-item" :style="archiveDomino(group.dateStr, i + 1)">
                         <span class="icon"><CircleCheckIcon double :filled="todo.tags.includes(PRIORITY_TAG_ID)" size="1em" /></span>
                         <span class="day-item-title" :style="todoFont(todo.id)">{{ todo.title }}</span>
                         <span class="day-undo-slot"><UndoDoneButton :todo-id="todo.id" /></span>
                       </div>
                     </div>
                   </div>
-                  <div v-if="nextOlderLogGroup" class="log-more" aria-hidden="true">
-                    <div ref="logSentinelRef" class="log-sentinel" />
+                  <div v-if="nextOlderArchiveGroup" class="archive-more" aria-hidden="true">
+                    <div ref="archiveSentinelRef" class="archive-sentinel" />
                   </div>
                 </template>
                 <p v-else class="no-activity">Nothing completed yet.</p>
@@ -987,7 +987,7 @@ function todoFont(id: string) {
 }
 
 /* Desktop: calendar with notes under it | done + checks | planned (a
-   future day's plan moves into done's place). The log spans both
+   future day's plan moves into done's place). The archive spans both
    right-hand columns, so the calendar keeps its width switching modes. On
    very wide screens the board stops growing and sits centered, instead
    of stretching edge to edge. */
@@ -1005,13 +1005,13 @@ function todoFont(id: string) {
   gap: var(--board-gap);
 }
 
-.calendar-board--log {
-  grid-template-areas: "cal log log";
+.calendar-board--archive {
+  grid-template-areas: "cal archive archive";
 }
 
 .board-col--cal { grid-area: cal; }
 .board-rest { grid-area: rest; }
-.board-log { grid-area: log; }
+.board-archive { grid-area: archive; }
 
 .board-rest {
   min-height: 0;
@@ -1071,7 +1071,7 @@ function todoFont(id: string) {
 }
 
 /* The gap between grid and day label sits on the folding content, not the
-   box: folded shut (tablet/phone log), nothing of it may stay behind. */
+   box: folded shut (tablet/phone archive), nothing of it may stay behind. */
 .board-box--cal {
   gap: 0;
   padding: 10px 10px 16px;
@@ -1087,7 +1087,7 @@ function todoFont(id: string) {
   gap: 14px;
 }
 
-/* A box's title (done / checks / planned …) and the log's day labels.
+/* A box's title (done / checks / planned …) and the archive's day labels.
    :deep for DayNotes.vue's label. */
 .calendar-view :deep(.board-box-label) {
   font-size: 12px;
@@ -1170,7 +1170,7 @@ function todoFont(id: string) {
 }
 
 /* ── The calendar fold (see --fold in the script) ──
-   Tablet/phone log and phone calendar mode: the calendar box folds into a
+   Tablet/phone archive and phone journal mode: the calendar box folds into a
    small ink-filled square with the calendar icon in --bg. --fold 0 → 1:
    the height shrinks the whole way (content rolls up, clipped) while the
    calendar fades out over the first half; the width only narrows in the
@@ -1258,7 +1258,7 @@ function todoFont(id: string) {
   align-self: center;
 }
 
-/* Phone, calendar mode: as the calendar folds, the day's stack slides up
+/* Phone, journal mode: as the calendar folds, the day's stack slides up
    into the folded square's row (by the column's height plus the gap,
    over the second half, with the square's shrinking), and the day label
    heading it moves in beside the square and stays put there (sticky) —
@@ -1520,14 +1520,31 @@ function todoFont(id: string) {
   margin-top: 6px;
 }
 
-/* ── Log ── one big box, centered at reading width, scrolling inside. */
-/* The log's place on the board, next to the calendar — its box scrolls
+/* ── Archive ── one big box, centered at reading width, scrolling inside. */
+/* The archive's place on the board, next to the calendar — its box scrolls
    on its own, left-aligned at a readable width. */
-.board-log {
+.board-archive {
   min-height: 0;
   display: flex;
   flex-direction: column;
   padding-right: var(--board-shadow-room);
+}
+
+/* Desktop: the archive box grows right up to where the space beside it
+   mirrors the space left of the calendar (screen edge to the calendar,
+   the side menu included). The board is shifted left by --calendar-shift
+   (layout.css, #app.is-calendar .main-content), so that space is the side
+   column minus twice the shift, measured from the board's edge — the
+   shadow room included. Its month row goes with it (no 720px cap). */
+@media (min-width: 1025px) {
+  .board-archive {
+    padding-right: calc(var(--side-col) - 2 * var(--calendar-shift));
+  }
+
+  .board-archive .day-detail-scroll,
+  .board-archive .archive-month-row {
+    max-width: none;
+  }
 }
 
 .day-detail-scroll {
@@ -1554,17 +1571,17 @@ function todoFont(id: string) {
   width: 100%;
 }
 
-.log-group {
+.archive-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
   width: 100%;
 }
 
-/* Month + year of the log's topmost group in view (see updateLogMonth),
+/* Month + year of the archive's topmost group in view (see updateArchiveMonth),
    hanging up out of a zero-height row above the box, right-aligned with
-   it. Phone: right end of the calendar | log row instead. */
-.log-month-row {
+   it. Phone: right end of the journal | archive row instead. */
+.archive-month-row {
   position: relative;
   flex-shrink: 0;
   height: 0;
@@ -1572,14 +1589,14 @@ function todoFont(id: string) {
   max-width: 720px;
 }
 
-.log-month-row .log-month {
+.archive-month-row .archive-month {
   position: absolute;
   bottom: 8px;
   line-height: 1;
   right: 0;
 }
 
-.log-month {
+.archive-month {
   color: var(--ink);
   font-size: var(--date-label-font-size);
   line-height: 1.2;
@@ -1588,45 +1605,45 @@ function todoFont(id: string) {
   white-space: nowrap;
 }
 
-.log-month-enter-active,
-.log-month-leave-active {
+.archive-month-enter-active,
+.archive-month-leave-active {
   transition: opacity 0.15s, transform 0.15s;
 }
 
-.log-month-enter-from,
-.log-month-leave-to {
+.archive-month-enter-from,
+.archive-month-leave-to {
   opacity: 0;
 }
 
-.log-month-enter-from {
+.archive-month-enter-from {
   transform: translateY(4px);
 }
 
-.log-month-leave-to {
+.archive-month-leave-to {
   transform: translateY(-4px);
 }
 
-/* Run-out past the last entry (see logSentinelRef) — room to scroll on
+/* Run-out past the last entry (see archiveSentinelRef) — room to scroll on
    into before the next part loads, the marker at its far end. */
-.log-more {
+.archive-more {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   height: 120px;
 }
 
-.log-sentinel {
+.archive-sentinel {
   height: 1px;
 }
 
-/* A loaded part tips in row by row (index from logDomino). */
-.log-group--new .board-box-label,
-.log-group--new .day-item {
-  animation: log-domino 0.34s var(--ease-pop) backwards;
+/* A loaded part tips in row by row (index from archiveDomino). */
+.archive-group--new .board-box-label,
+.archive-group--new .day-item {
+  animation: archive-domino 0.34s var(--ease-pop) backwards;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 
-@keyframes log-domino {
+@keyframes archive-domino {
   from {
     opacity: 0;
     transform: translateY(14px) scale(0.96);
@@ -1638,12 +1655,12 @@ function todoFont(id: string) {
 .unfold-enter-from,
 .unfold-leave-to { opacity: 0; }
 
-/* First mount only (switching into the log) — timed to the board's own
+/* First mount only (switching into the archive) — timed to the board's own
    entrance spring. */
 .unfold-appear-active { transition: opacity 0.32s var(--ease-pop), transform 0.32s var(--ease-pop); }
 .unfold-appear-from { opacity: 0; transform: translateY(8px); }
 
-/* calendar | log switch for phone — desktop shows it in App.vue's left
+/* journal | archive switch for phone — desktop shows it in App.vue's left
    sidebar, tablet in App.vue's header row instead. */
 .view-toggle {
   display: none;
@@ -1662,7 +1679,7 @@ function todoFont(id: string) {
 }
 
 /* Tablet: two equal columns — the calendar with notes under it, every
-   other box stacked in one scrolling column next to it (the log alike).
+   other box stacked in one scrolling column next to it (the archive alike).
    The phone below builds on this. */
 @media (max-width: 1024px) {
   /* Everything a size smaller (the phone shares these) — two columns
@@ -1724,8 +1741,8 @@ function todoFont(id: string) {
     grid-template-areas: "cal rest";
   }
 
-  .calendar-board--log {
-    grid-template-areas: "cal log";
+  .calendar-board--archive {
+    grid-template-areas: "cal archive";
   }
 
   .board-rest {
@@ -1760,7 +1777,7 @@ function todoFont(id: string) {
     margin-bottom: 14px;
   }
 
-  .log-month-row {
+  .archive-month-row {
     display: none;
   }
 
@@ -1790,37 +1807,37 @@ function todoFont(id: string) {
   }
 
   .board-rest,
-  .board-log {
+  .board-archive {
     flex: 1;
     padding-top: 2px;
   }
 }
 
-/* Tablet and phone, log mode: the calendar box on top left, folded shut
-   to a small ink-filled icon square unless logCalOpen, the log's month
-   marker top right next to it, the log filling the rest (the fold itself:
+/* Tablet and phone, archive mode: the calendar box on top left, folded shut
+   to a small ink-filled icon square unless archiveCalOpen, the archive's month
+   marker top right next to it, the archive filling the rest (the fold itself:
    see "The calendar fold" further up). Open, the box grows to at most
    --cal-fold-max wide (a calendar stretched across a
    tablet looks off); the marker stays, its bottom level with the box's
    bottom edge (folded or open — it rides along as the box unfolds; phone:
    under the open box, see below). The
-   board turns into a grid with .board-log dissolved into it (display:
+   board turns into a grid with .board-archive dissolved into it (display:
    contents), so its month row can sit up there without a second copy.
    After the phone block so it wins over its rules. */
 @media (max-width: 1024px) {
-  .calendar-board--log {
+  .calendar-board--archive {
     --cal-fold-max: 360px;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas: "top" "log";
+    grid-template-areas: "top" "archive";
   }
 
-  .calendar-board--log .board-log {
+  .calendar-board--archive .board-archive {
     display: contents;
   }
 
-  .calendar-board--log .board-col--cal {
+  .calendar-board--archive .board-col--cal {
     grid-area: top;
     z-index: 1;
     flex-shrink: 0;
@@ -1828,34 +1845,34 @@ function todoFont(id: string) {
     overflow: visible;
   }
 
-  .calendar-board--log .board-box--cal {
+  .calendar-board--archive .board-box--cal {
     --fold-open-w: min(var(--cal-fold-max), 100%);
   }
 
-  .calendar-board--log .cal-fold-btn {
+  .calendar-board--archive .cal-fold-btn {
     display: flex;
   }
 
-  .calendar-board--log .log-month-row {
+  .calendar-board--archive .archive-month-row {
     grid-area: top;
     align-self: end;
     display: flex;
     justify-content: flex-end;
-    /* Desktop's row is 0 tall (the marker hangs above the log box there);
+    /* Desktop's row is 0 tall (the marker hangs above the archive box there);
        here it's the marker's own height, so its bottom is the box's. */
     height: auto;
     max-width: none;
     padding-right: var(--board-shadow-room);
   }
 
-  .calendar-board--log .log-month-row .log-month {
+  .calendar-board--archive .archive-month-row .archive-month {
     position: static;
   }
 
   /* Full width — desktop's 720px cap would leave the month marker (full
      width up top) hanging past the box's right edge. */
-  .calendar-board--log .day-detail-scroll {
-    grid-area: log;
+  .calendar-board--archive .day-detail-scroll {
+    grid-area: archive;
     width: auto;
     max-width: none;
     margin-right: var(--board-shadow-room);
@@ -1864,12 +1881,12 @@ function todoFont(id: string) {
 /* Phone: an unfolded calendar takes the whole width — the month marker
    moves to its own row under it instead of next to it. */
 @media (max-width: 700px) {
-  .calendar-board--log:not(.calendar-board--cal-closed) {
+  .calendar-board--archive:not(.calendar-board--cal-closed) {
     grid-template-rows: auto auto minmax(0, 1fr);
-    grid-template-areas: "top" "month" "log";
+    grid-template-areas: "top" "month" "archive";
   }
 
-  .calendar-board--log:not(.calendar-board--cal-closed) .log-month-row {
+  .calendar-board--archive:not(.calendar-board--cal-closed) .archive-month-row {
     grid-area: month;
   }
 }

@@ -10,11 +10,20 @@
    made room for Current's own second header row, a back/next Date-List
    browser, since replaced by the date pill — kept as breathing room.) */
 #app {
+  /* Side column width and the app's outer side padding — as variables so
+     the calendar board's centering (see #app.is-calendar below) reads the
+     same values the layout itself is built from. */
+  --side-col: 230px;
+  --app-pad-x: 36px;
+  /* .sidebar's padding and the calendar's journal | archive buttons'
+     width (.calendar-mode-btn), likewise. */
+  --sidebar-pad: 16px;
+  --calendar-mode-btn-w: 84px;
   display: grid;
-  grid-template-columns: 230px 1fr 230px;
+  grid-template-columns: var(--side-col) 1fr var(--side-col);
   grid-template-rows: 130px 1fr;
   height: 100svh;
-  padding: 36px 36px 0 36px;
+  padding: 36px var(--app-pad-x) 0 var(--app-pad-x);
 }
 
 /* Narrow desktop — same breakpoint as TodoCard.vue's own tier (see its
@@ -29,7 +38,7 @@
    this range instead of needing as aggressive a per-card shrink. */
 @media (min-width: 1025px) and (max-width: 1400px) {
   #app {
-    grid-template-columns: 150px 1fr 150px;
+    --side-col: 150px;
   }
 
   /* Narrowing the column alone left its contents at full desktop size —
@@ -82,11 +91,11 @@
     width: 64px;
   }
 
-/* Calendar's calendar | log switch (CalendarModeToggle.vue) — same look as
-   the Date-List nav's today/tomorrow, just wide enough for "calendar". */
-.date-nav-btn.calendar-mode-btn {
-  width: 100px;
-}
+  /* Calendar's journal | archive switch: a bit wider at this tier (see
+     .calendar-mode-btn below). */
+  #app {
+    --calendar-mode-btn-w: 100px;
+  }
 
   .sidebar .tag-x {
     font-size: 12px;
@@ -98,7 +107,15 @@
   }
 }
 
-/* Calendar's calendar | log switch: row wrapper wherever it isn't inside
+/* Calendar's journal | archive switch (CalendarModeToggle.vue) — same look as
+   the Date-List nav's today/tomorrow buttons, at its own width
+   (--calendar-mode-btn-w on #app — the calendar board's centering reads
+   it too). */
+.date-nav-btn.calendar-mode-btn {
+  width: var(--calendar-mode-btn-w);
+}
+
+/* Calendar's journal | archive switch: row wrapper wherever it isn't inside
    the sidebar's own .tag-list (tablet header, phone's in-view copy in
    Calendar.vue). Deliberately outside any media query — both rules here
    have to hold at every width. */
@@ -741,7 +758,7 @@
 .sidebar {
   grid-column: 1;
   grid-row: 2;
-  padding: 16px;
+  padding: var(--sidebar-pad);
   /* Neither sidebar should stretch all the way down the row (grid-row: 2
      is 1fr, whose own bottom edge already sits flush with the viewport's,
      #app having no bottom padding) just because the grid track happens to
@@ -1360,7 +1377,7 @@
   padding: 36px 20px 0;
 }
 
-/* Calendar: the board stays put; only its columns (or the log's box)
+/* Calendar: the board stays put; only its columns (or the archive's box)
    scroll on their own (see Calendar.vue). The outer page scroll
    is disabled so the calendar itself never travels off-screen — on any
    viewport width, not just mobile. */
@@ -1373,9 +1390,9 @@
 }
 
 /* Desktop: the calendar view starts closer to the top than the todo views
-   — nothing above it to clear. Still leaves the room the log's month
+   — nothing above it to clear. Still leaves the room the archive's month
    marker hangs up into, right above its divider (Calendar.vue's
-   .log-month-row). */
+   .archive-month-row). */
 @media (min-width: 1025px) {
   #app.is-calendar .content-inner {
     padding-top: 30px;
@@ -1385,6 +1402,14 @@
      there on this route (its header row only holds the settings icon). */
   #app.is-calendar .main-content {
     grid-column: 2 / 4;
+    /* Centered between the journal | archive switch and the screen's right
+       edge: left of the board sits the side column's unused rest (past the
+       switch's buttons), right of it only the app's side padding and the
+       boxes' shadow room — so the board moves left by half the
+       difference. Same in both modes. */
+    --calendar-shift: calc((var(--side-col) - var(--sidebar-pad) - var(--calendar-mode-btn-w) - var(--app-pad-x) - var(--card-shadow-offset)) / 2);
+    margin-left: calc(-1 * var(--calendar-shift));
+    margin-right: var(--calendar-shift);
   }
 }
 

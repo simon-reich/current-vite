@@ -72,7 +72,7 @@ let lastMainViewPath = viewOrder.includes(route.path) ? route.path : '/all'
 
 // Where leaving Settings returns to — like lastMainViewPath, but Calendar
 // counts too, so a Calendar → Settings → back round-trip lands on Calendar
-// again (in whichever calendar/log mode it was, persisted in the theme
+// again (in whichever journal/archive mode it was, persisted in the theme
 // store). Calendar's own toggle keeps using lastMainViewPath.
 const settingsReturnPaths = [...viewOrder, '/calendar']
 let settingsReturnPath = settingsReturnPaths.includes(route.path) ? route.path : lastMainViewPath
@@ -226,17 +226,11 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // L — Calendar: toggle between its calendar and log modes (C still
-  // leaves Calendar entirely, from either mode). Overview: opens the
-  // Focus-Date-Pille (the "plan ahead" date picker) — clicks the real
-  // button rather than reaching into the component, so this needs nothing
-  // exposed from FocusDateWidget.vue itself.
+  // L — Overview/Current: opens the Focus-Date-Pille (the "plan ahead"
+  // date picker) — clicks the real button rather than reaching into the
+  // component, so this needs nothing exposed from FocusDateWidget.vue
+  // itself.
   if (key === 'l') {
-    if (route.path === '/calendar') {
-      e.preventDefault()
-      calendarViewMode.value = calendarViewMode.value === 'calendar' ? 'log' : 'calendar'
-      return
-    }
     if ((route.path !== '/all' && route.path !== '/current') || !themeStore.dateListsEnabled) return
     e.preventDefault()
     visibleFocusDatePill()?.click()
@@ -261,9 +255,16 @@ function onGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  // A — the All filter (clears every active tag/prio/loop filter at
-  // once). Overview-only, like every other filter shortcut — Current can't
-  // be filtered at all.
+  // A or J — Calendar: toggle between its journal and archive modes (C
+  // still leaves Calendar entirely, from either mode); either letter, one
+  // per mode name. Overview: A is the All filter (clears every active
+  // tag/prio/loop filter at once) — filter shortcuts are Overview-only,
+  // Current can't be filtered at all.
+  if ((key === 'a' || key === 'j') && route.path === '/calendar') {
+    e.preventDefault()
+    calendarViewMode.value = calendarViewMode.value === 'journal' ? 'archive' : 'journal'
+    return
+  }
   if (key === 'a') {
     if (route.path !== '/all') return
     e.preventDefault()
@@ -442,7 +443,7 @@ const calendarHintParts: HintPart[] = [
   { text: '↑↓', kind: 'key' }, { text: '(week)', kind: 'label' },
 ]
 
-// L in Calendar (calendar | log switch) — left-aligned just above the
+// A / J in Calendar (journal | archive switch) — left-aligned just above the
 // switch's first button in the desktop sidebar, same placement as the
 // Date-List nav's ↑↓ hint.
 const calendarModeHintPos = ref<{ x: number; y: number } | null>(null)
@@ -541,18 +542,19 @@ function computeShortcutHints() {
     }
   }
 
-  // Calendar's arrow-key navigation — see calendarHintPos/calendarHintParts
-  // above — floated above the calendar grid itself.
+  // Calendar's arrow-key navigation (calendarHintPos/calendarHintParts
+  // above), centered over the calendar's box — not the grid inside it,
+  // measured off the grid the hint would sit right on the box's frame —
+  // and A / J over the journal | archive switch. Both on one line: the
+  // higher of the two spots, so neither touches what it sits above.
   calendarHintPos.value = null
-  if (route.path === '/calendar') {
-    const calRect = document.querySelector('.calendar-view .cal')?.getBoundingClientRect()
-    if (calRect) calendarHintPos.value = { x: calRect.left + calRect.width / 2, y: calRect.top - 13 }
-  }
-
   calendarModeHintPos.value = null
   if (route.path === '/calendar') {
-    const firstRect = calendarModeToggleRef.value?.querySelector('.calendar-mode-btn')?.getBoundingClientRect()
-    if (firstRect) calendarModeHintPos.value = { x: firstRect.left, y: firstRect.top - 13 }
+    const calRect = document.querySelector('.calendar-view .board-box--cal')?.getBoundingClientRect()
+    const modeRect = calendarModeToggleRef.value?.querySelector('.calendar-mode-btn')?.getBoundingClientRect()
+    const y = Math.min(calRect?.top ?? Infinity, modeRect?.top ?? Infinity) - 13
+    if (calRect) calendarHintPos.value = { x: calRect.left + calRect.width / 2, y }
+    if (modeRect) calendarModeHintPos.value = { x: modeRect.left, y }
   }
 
   dateListNavHintPos.value = null
@@ -1357,7 +1359,7 @@ provide('listsPanelOpen', listsPanelOpen)
 const viewingDate = ref<string | null>(themeStore.dateListsEnabled ? todayStr() : null)
 provide('viewingDate', viewingDate)
 
-// Calendar view's calendar | log switch (see CalendarModeToggle.vue) —
+// Calendar view's journal | archive switch (see CalendarModeToggle.vue) —
 // provided from here because its desktop buttons sit in this file's left
 // sidebar; the state itself lives (persisted) in the theme store.
 const { calendarViewMode } = storeToRefs(themeStore)
@@ -1478,7 +1480,7 @@ watch(() => route.path, (path, prevPath) => {
 // see mobileTodoInputRef) is actually the visible one.
 const PHONE_BREAKPOINT = 700
 const isPhoneWidth = ref(window.innerWidth <= PHONE_BREAKPOINT)
-// Tablet or phone — e.g. Calendar's log folding its calendar away.
+// Tablet or phone — e.g. Calendar's archive folding its calendar away.
 const isBelowDesktopWidth = ref(window.innerWidth <= DESKTOP_BREAKPOINT)
 function updateIsPhoneWidth() {
   isPhoneWidth.value = window.innerWidth <= PHONE_BREAKPOINT
@@ -1830,7 +1832,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
             </template>
           </div>
 
-          <!-- Tablet Calendar — the calendar | log switch takes the same
+          <!-- Tablet Calendar — the journal | archive switch takes the same
                left slot of the second header row that Overview's icons and
                Current's subs-toggle use. Hidden outside tablet (desktop has
                it in the left sidebar, phone hides .main-head on Calendar
@@ -2165,7 +2167,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
           <RouterLink ref="focusNavRef" to="/current" class="nav-icon" v-tooltip="'current todos'">
             <LinesIcon :size="27" />
           </RouterLink>
-          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" v-tooltip="'calendar and log'">
+          <RouterLink ref="calendarNavRef" to="/calendar" class="nav-icon" v-tooltip="'journal and archive'">
             <CalendarIcon :size="27" />
           </RouterLink>
         </nav>
@@ -2225,7 +2227,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       </div>
     </aside>
 
-    <!-- ══ DESKTOP: Sidebar body — Calendar's calendar | log switch ══ -->
+    <!-- ══ DESKTOP: Sidebar body — Calendar's journal | archive switch ══ -->
     <aside v-if="route.path === '/calendar'" class="sidebar desktop-only">
       <div class="sidebar-scroll">
         <div ref="calendarModeToggleRef" class="tag-list">
@@ -2450,7 +2452,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         <RouterLink to="/current" class="nav-icon" v-tooltip="'current todos'" @click="showMobileTags = false">
           <LinesIcon :size="24" />
         </RouterLink>
-        <RouterLink to="/calendar" class="nav-icon" v-tooltip="'calendar and log'" @click="showMobileTags = false">
+        <RouterLink to="/calendar" class="nav-icon" v-tooltip="'journal and archive'" @click="showMobileTags = false">
           <CalendarIcon :size="24" />
         </RouterLink>
       </div>
@@ -2515,13 +2517,13 @@ function onSheetHandlePointerUp(e: PointerEvent) {
       >{{ part.text }}</span>
     </div>
 
-    <!-- L in Calendar — left-aligned just above the calendar | log switch,
+    <!-- A / J in Calendar — left-aligned just above the journal | archive switch,
          see calendarModeHintPos. -->
     <div
       v-if="calendarModeHintPos"
       class="shortcut-hint shortcut-hint--above-left"
       :style="{ left: calendarModeHintPos.x + 'px', top: calendarModeHintPos.y + 'px' }"
-    >L</div>
+    >A / J</div>
 
     <!-- ↑/↓ (Date-List cycling) — left-aligned just above the "today"
          entry, see dateListNavHintPos. -->
