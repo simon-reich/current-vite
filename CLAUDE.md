@@ -326,8 +326,7 @@ Alle Einzeltasten-Shortcuts (O/S/L/G/N/T/A/P/X) greifen nicht, während in einem
 
 | Branch | Zweck |
 |---|---|
-| `design/calendar` | Kalender/Log-Redesign (Control Board, Tagesnotizen, `missedDates`). Noch nicht nach `main` gemergt und nicht gepusht; Cloudflare deployt nur `main` produktiv. |
-| `main` | Aktuelles Design: Neo-brutalist, keine runden Ecken, Flächen statt Borders, kräftige Farben (Orange-Rot, Gelb, Teal), harte Drop-Shadows. Ehemals auf `design/poppy` entwickelt, per Fast-Forward-Merge übernommen. |
+| `main` | Cloudflare deployt nur `main` produktiv. Aktuelles Design: Neo-brutalist, keine runden Ecken, Flächen statt Borders, kräftige Farben (Orange-Rot, Gelb, Teal), harte Drop-Shadows. Ehemals auf `design/poppy` entwickelt, per Fast-Forward-Merge übernommen; das Kalender/Log-Redesign (Control Board) ebenso von `design/calendar` (2026-11-08, Branch danach gelöscht). |
 
 Das ursprüngliche minimalistische Design (Phase 1–8, vor dem Poppy-Redesign) ist über die Git-Historie weiterhin erreichbar (z.B. `git log` vor dem Merge-Commit, oder ein Tag darauf, falls gewünscht).
 
