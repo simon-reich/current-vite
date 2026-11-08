@@ -91,6 +91,11 @@ function openLogCal() {
   calendarRef.value?.move(new Date((logTopDate.value || selectedDate.value) + 'T12:00:00'))
 }
 
+
+// The notes box sits under the calendar, except on the phone: there the
+// calendar is pinned, so the notes go last in the scrolling stack instead.
+const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
+
 // Phone: the line above the bottom nav, ink while there's more to scroll
 // to — the same divider (and class, mobile.css) as App.vue's own, which
 // stays blank here since the page itself never scrolls on this route.
@@ -99,26 +104,179 @@ function openLogCal() {
 // are watched too, so content growing or shrinking (another day) re-checks,
 // not just scrolling.
 const boardRestRef = ref<HTMLElement | null>(null)
-const boardScrollEl = computed(() => boardRestRef.value)
+const boardScrollEl = computed<HTMLElement | null>(() => viewMode.value === 'log' ? null : boardRestRef.value)
 const boardScrolledToBottom = ref(true)
+// Scrolled at all — the folded head's divider (phone, see .fold-head-divider).
+const boardScrolled = ref(false)
 function checkBoardBottom() {
   const el = boardScrollEl.value
   boardScrolledToBottom.value = !el || el.scrollTop + el.clientHeight >= el.scrollHeight - 2
+  boardScrolled.value = !!el && el.scrollTop > 0
 }
 let boardResizeObserver: ResizeObserver | null = null
-watch(boardScrollEl, (el) => {
+watch(boardScrollEl, (el, oldEl) => {
   boardResizeObserver?.disconnect()
+  oldEl?.removeEventListener('scroll', checkBoardBottom)
   checkBoardBottom()
   if (!el) return
+  el.addEventListener('scroll', checkBoardBottom, { passive: true })
   boardResizeObserver = new ResizeObserver(checkBoardBottom)
   boardResizeObserver.observe(el)
   for (const child of el.children) boardResizeObserver.observe(child)
 }, { flush: 'post' })
-onBeforeUnmount(() => boardResizeObserver?.disconnect())
+onBeforeUnmount(() => {
+  boardResizeObserver?.disconnect()
+  boardScrollEl.value?.removeEventListener('scroll', checkBoardBottom)
+})
 
-// The notes box sits under the calendar, except on the phone: there the
-// calendar is pinned, so the notes go last in the scrolling stack instead.
-const isPhoneWidth = inject<Ref<boolean>>('isPhoneWidth')!
+// ── The calendar fold ──
+// One mechanism for both places the calendar box folds into a small
+// ink-filled icon square: tablet/phone log (toggled, see logCalOpen) and
+// phone calendar mode (scroll-driven, see below). --fold on the
+// calendar's column, 0 = calendar, 1 = icon square, drives everything in
+// the CSS — size,
+// ink fill, which content shows. The log just sets 0 or 1 and lets it
+// animate; the phone's calendar mode follows the finger.
+// The box's open height is measured (CSS can't interpolate from auto).
+const calBoxRef = ref<HTMLElement | null>(null)
+const calInnerRef = ref<HTMLElement | null>(null)
+const foldOpenHeight = ref(0)
+function measureFold() {
+  const box = calBoxRef.value
+  const inner = calInnerRef.value
+  if (!box || !inner) return
+  const cs = getComputedStyle(box)
+  const frame = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+    .reduce((sum, k) => sum + parseFloat(cs[k as any]), 0)
+  foldOpenHeight.value = inner.offsetHeight + frame
+}
+let foldResizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  foldResizeObserver = new ResizeObserver(measureFold)
+  if (calInnerRef.value) foldResizeObserver.observe(calInnerRef.value)
+  measureFold()
+})
+onBeforeUnmount(() => foldResizeObserver?.disconnect())
+
+// Phone, calendar mode: scrolling the day's stack down while it's at its
+// top first folds the calendar away — stepless, with the finger — and
+// only then scrolls the stack; scrolling back up at its top unfolds it
+// again. The first FOLD_RESIST px of finger travel only move it a little
+// (FOLD_RESIST_RATE), the bit of resistance before it gives; then it
+// follows 1:1 (the box's bottom edge stays under the finger). Let go
+// midway and it settles in the direction it was going. Tapping the
+// folded square unfolds it straight away.
+const FOLD_RESIST = 40
+const FOLD_RESIST_RATE = 0.25
+const calFold = ref(0)
+const calFoldDragging = ref(false)
+watch(viewMode, () => { calFold.value = 0 })
+
+const foldable = computed(() => foldOpenHeight.value > 0 && (viewMode.value === 'log' ? isBelowDesktopWidth.value : isPhoneWidth.value))
+const foldValue = computed(() => viewMode.value === 'log' ? (logCalOpen.value ? 0 : 1) : calFold.value)
+const folded = computed(() => foldable.value && foldValue.value >= 0.5)
+// Set on the calendar's column and — phone calendar mode — on the day's
+// stack too, which slides up beside the folded square (see the CSS).
+const foldClass = computed(() => ({ 'cal-foldable': foldable.value, 'cal-folded': folded.value, 'cal-fold-anim': !calFoldDragging.value }))
+const foldStyle = computed(() => foldable.value ? { '--fold': foldValue.value, '--fold-open-h': `${foldOpenHeight.value}px` } : undefined)
+
+function foldSize(): number {
+  const box = calBoxRef.value
+  return box ? parseFloat(getComputedStyle(box).getPropertyValue('--cal-fold-size')) || 44 : 44
+}
+// How far the finger has to travel (past the resistance) for a full fold.
+function foldTravel(): number {
+  return Math.max(1, foldOpenHeight.value - foldSize())
+}
+function resisted(dy: number): number {
+  const a = Math.abs(dy)
+  const eased = a < FOLD_RESIST ? a * FOLD_RESIST_RATE : FOLD_RESIST * FOLD_RESIST_RATE + (a - FOLD_RESIST)
+  return Math.sign(dy) * eased
+}
+function settleFold(direction: number) {
+  calFoldDragging.value = false
+  const f = calFold.value
+  calFold.value = direction > 0 ? (f > 0.15 ? 1 : 0) : direction < 0 ? (f < 0.85 ? 0 : 1) : Math.round(f)
+}
+
+const phoneFoldActive = () => foldable.value && viewMode.value === 'calendar'
+let touchStartY = 0
+let touchStartFold = 0
+let touchLastY = 0
+let touchDirection = 0
+let touchTracking: boolean | null = null
+function onStackTouchStart(e: TouchEvent) {
+  if (!phoneFoldActive()) return
+  touchStartY = touchLastY = e.touches[0].clientY
+  touchStartFold = calFold.value
+  touchDirection = 0
+  touchTracking = null
+}
+function onStackTouchMove(e: TouchEvent) {
+  if (!phoneFoldActive() || touchTracking === false) return
+  const stack = boardRestRef.value
+  const y = e.touches[0].clientY
+  const dy = touchStartY - y // > 0: finger up, i.e. scrolling down
+  if (touchTracking === null) {
+    const atTop = !stack || stack.scrollTop <= 0
+    touchTracking = atTop && ((dy > 0 && touchStartFold < 1) || (dy < 0 && touchStartFold > 0))
+    if (!touchTracking) return
+  }
+  e.preventDefault()
+  if (y !== touchLastY) touchDirection = Math.sign(touchLastY - y)
+  touchLastY = y
+  calFoldDragging.value = true
+  const travel = foldTravel()
+  const moved = resisted(dy)
+  calFold.value = Math.min(1, Math.max(0, touchStartFold + moved / travel))
+  // Fully folded and still going: the rest of the stroke scrolls the stack.
+  const past = moved - (1 - touchStartFold) * travel
+  if (stack && past > 0) stack.scrollTop = past
+}
+function onStackTouchEnd() {
+  if (!touchTracking) return
+  touchTracking = null
+  settleFold(touchDirection)
+}
+
+// Same with a mouse wheel / trackpad (a narrow desktop window), settling
+// once the wheel has been still for a moment.
+let wheelSettleTimer: ReturnType<typeof setTimeout> | null = null
+function onStackWheel(e: WheelEvent) {
+  if (!phoneFoldActive()) return
+  const stack = boardRestRef.value
+  const atTop = !stack || stack.scrollTop <= 0
+  const f = calFold.value
+  if (!atTop || !((e.deltaY > 0 && f < 1) || (e.deltaY < 0 && f > 0))) return
+  e.preventDefault()
+  calFoldDragging.value = true
+  calFold.value = Math.min(1, Math.max(0, f + e.deltaY / foldTravel()))
+  const direction = Math.sign(e.deltaY)
+  if (wheelSettleTimer) clearTimeout(wheelSettleTimer)
+  wheelSettleTimer = setTimeout(() => settleFold(direction), 140)
+}
+// Non-passive: these have to be able to keep the stack from scrolling.
+watch(boardRestRef, (el, oldEl) => {
+  oldEl?.removeEventListener('touchstart', onStackTouchStart)
+  oldEl?.removeEventListener('touchmove', onStackTouchMove)
+  oldEl?.removeEventListener('touchend', onStackTouchEnd)
+  oldEl?.removeEventListener('touchcancel', onStackTouchEnd)
+  oldEl?.removeEventListener('wheel', onStackWheel)
+  if (!el) return
+  el.addEventListener('touchstart', onStackTouchStart, { passive: true })
+  el.addEventListener('touchmove', onStackTouchMove, { passive: false })
+  el.addEventListener('touchend', onStackTouchEnd, { passive: true })
+  el.addEventListener('touchcancel', onStackTouchEnd, { passive: true })
+  el.addEventListener('wheel', onStackWheel, { passive: false })
+}, { flush: 'post' })
+onBeforeUnmount(() => { if (wheelSettleTimer) clearTimeout(wheelSettleTimer) })
+
+// The folded square: log → unfold to the log's month; calendar → unfold.
+function onFoldToggle() {
+  if (viewMode.value === 'log') openLogCal()
+  else calFold.value = 0
+}
+
 
 onMounted(async () => {
   await nextTick()
@@ -567,41 +725,48 @@ function todoFont(id: string) {
          the calendar, on the phone last in the scrolling stack. -->
     <motion.div
       class="calendar-board"
-      :class="{ 'calendar-board--log': viewMode === 'log', 'calendar-board--cal-closed': viewMode === 'log' && !logCalOpen }"
+      :class="{
+        'calendar-board--log': viewMode === 'log',
+        'calendar-board--cal-closed': viewMode === 'log' && !logCalOpen,
+      }"
       :initial="{ opacity: 0, scale: 0.96 }"
       :animate="{ opacity: 1, scale: 1 }"
       :transition="{ type: 'spring', stiffness: 380, damping: 26, mass: 0.8 }"
     >
-      <div class="board-col board-col--cal">
-        <section class="board-box board-box--cal">
-          <button v-if="viewMode === 'log'" type="button" class="cal-toggle" aria-label="show calendar" @click="openLogCal">
+      <div
+        class="board-col board-col--cal"
+        :class="foldClass"
+        :style="foldStyle"
+      >
+        <section ref="calBoxRef" class="board-box board-box--cal">
+          <button v-if="foldable" type="button" class="cal-toggle" aria-label="show calendar" :tabindex="folded ? 0 : -1" @click="onFoldToggle">
             <CalendarIcon :size="20" />
           </button>
-          <div class="cal-collapse">
-            <div class="cal-collapse-inner">
-              <div class="cal">
-                <VCalendar
-                  ref="calendarRef"
-                  :attributes="attributes"
-                  expanded
-                  locale="en"
-                  :first-day-of-week="2"
-                  @dayclick="onDayClick"
-                  @did-move="onCalendarMove"
-                />
-              </div>
-              <p v-if="viewMode === 'calendar' && !isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
-              <button v-if="viewMode === 'log'" type="button" class="icon-circle-btn cal-fold-btn" v-tooltip="'hide calendar'" @click="logCalOpen = false">
-                <ChevronUp :size="12" />
-              </button>
+          <div ref="calInnerRef" class="cal-collapse-inner">
+            <div class="cal">
+              <VCalendar
+                ref="calendarRef"
+                :attributes="attributes"
+                expanded
+                locale="en"
+                :first-day-of-week="2"
+                @dayclick="onDayClick"
+                @did-move="onCalendarMove"
+              />
             </div>
+            <p v-if="viewMode === 'calendar' && !isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
+            <button v-if="viewMode === 'log'" type="button" class="icon-circle-btn cal-fold-btn" v-tooltip="'hide calendar'" @click="logCalOpen = false">
+              <ChevronUp :size="12" />
+            </button>
           </div>
         </section>
+        <ScrollDivider v-if="foldable && viewMode === 'calendar'" class="fold-head-divider" :visible="folded && boardScrolled" />
         <DayNotes v-if="viewMode === 'calendar' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
-      <div v-if="viewMode === 'calendar'" ref="boardRestRef" class="board-rest" @scroll="checkBoardBottom">
-        <p v-if="isPhoneWidth" class="day-label">{{ selectedDateLabel }}</p>
+      <div v-if="viewMode === 'calendar'" ref="boardRestRef" class="board-rest" :class="foldClass" :style="foldStyle">
+        <!-- The spans are the fold's spacers (see .day-label-spacer). -->
+        <p v-if="isPhoneWidth" class="day-label"><span class="day-label-spacer" />{{ selectedDateLabel }}<span class="day-label-spacer day-label-spacer--end" /></p>
         <!-- A future day has nothing done or ticked yet — its plan moves up
              into this spot instead. -->
         <div v-if="!isFutureDate" class="board-col">
@@ -958,38 +1123,157 @@ function todoFont(id: string) {
   font-family: var(--font-playful, sans-serif);
 }
 
-/* Tablet/phone log mode only (see the media block at the end): the
-   calendar box folded shut — a small ink-filled square, just the calendar
-   icon in --bg. Tapping it unfolds the same box into the calendar; the
-   fold icon under the grid folds it back. */
+/* ── The calendar fold (see --fold in the script) ──
+   Tablet/phone log and phone calendar mode: the calendar box folds into a
+   small ink-filled square with the calendar icon in --bg. --fold 0 → 1:
+   the height shrinks the whole way (content rolls up, clipped) while the
+   calendar fades out over the first half; the width only narrows in the
+   second half (--fold-w), once nothing's left to squeeze, and the ink
+   fill and icon come in with it — by opacity, transparent → opaque,
+   never by blending colors. Registered so it can animate. */
+@property --fold {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.cal-foldable {
+  --cal-fold-size: 44px;
+  --fold-w: clamp(0, calc((var(--fold) - 0.5) * 2), 1);
+}
+
+.cal-fold-anim {
+  transition: --fold 0.3s ease;
+}
+
+.cal-foldable .board-box--cal {
+  --fold-open-w: 100%;
+  position: relative;
+  overflow: hidden;
+  max-width: 100%;
+  width: calc(var(--fold-open-w) - (var(--fold-open-w) - var(--cal-fold-size)) * var(--fold-w));
+  height: calc(var(--fold-open-h) - (var(--fold-open-h) - var(--cal-fold-size)) * var(--fold));
+  /* Not a blend of two colors: the ink shadow stays, the square's
+     priority-style shadow lies over it, transparent → opaque with the
+     fold (same as the ink fill below). */
+  box-shadow:
+    var(--card-shadow-offset) var(--card-shadow-offset) 0 color-mix(in srgb, var(--priority-shadow) calc(var(--fold-w) * 100%), transparent),
+    var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--ink);
+}
+
+.cal-foldable .board-box--cal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--ink);
+  opacity: var(--fold-w);
+  pointer-events: none;
+}
+
+/* Keeps its natural height inside the shrinking box (that's what gets
+   measured), clipped by it. */
+.cal-collapse-inner {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-foldable .cal-collapse-inner {
+  opacity: clamp(0, calc(1 - var(--fold) * 2), 1);
+}
+
+.cal-folded .cal-collapse-inner {
+  pointer-events: none;
+}
+
 .cal-toggle {
-  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
   padding: 0;
   background: none;
   border: none;
-  color: inherit;
+  color: var(--bg);
   cursor: pointer;
+  opacity: var(--fold-w);
+  pointer-events: none;
 }
 
-/* The calendar's content, folding away (0fr ↔ 1fr) — only in use on
-   tablet/phone log mode. */
-.cal-collapse {
-  display: grid;
-  grid-template-rows: 1fr;
-}
-
-.cal-collapse-inner {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.cal-folded .cal-toggle {
+  pointer-events: auto;
 }
 
 .cal-fold-btn {
   display: none;
   align-self: center;
+}
+
+/* Phone, calendar mode: as the calendar folds, the day's stack slides up
+   into the folded square's row (by the column's height plus the gap,
+   over the second half, with the square's shrinking), and the day label
+   heading it moves in beside the square and stays put there (sticky) —
+   the rest of the day scrolls on under both. The label carries --bg so
+   nothing shows through it; the square's column sits above the stack. */
+.board-col--cal.cal-foldable {
+  position: relative;
+  z-index: 2;
+}
+
+.board-rest.cal-foldable {
+  margin-top: calc(-1 * (var(--cal-fold-size) + var(--board-shadow-room) + var(--board-gap)) * var(--fold-w));
+}
+
+.board-rest.cal-foldable > .day-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  min-height: calc(var(--cal-fold-size) * var(--fold-w));
+  padding-left: calc((var(--cal-fold-size) + var(--board-gap)) * var(--fold-w));
+}
+
+/* Centered at rest, flush right once folded, smoothly in between: the free
+   space on the label's left keeps its share, the right one's runs out
+   with the fold. */
+.board-rest.cal-foldable > .day-label > .day-label-spacer {
+  flex: 1 1 0;
+}
+
+.board-rest.cal-foldable > .day-label > .day-label-spacer--end {
+  flex-grow: calc(1 - var(--fold-w));
+}
+
+/* The head's bottom line once the day scrolls under it — the app's usual
+   scroll divider, at the label backdrop's bottom edge (below): the
+   square's height plus the gap under the label. Hung off the calendar's
+   column rather than the stack, which clips at its own edges — the column
+   doesn't, so the line runs the whole viewport width (the column's
+   padding box is centered in it). */
+.fold-head-divider {
+  position: absolute;
+  top: calc(var(--cal-fold-size) + var(--board-gap));
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+}
+
+/* The label's backdrop: --bg out past every edge of the stack (its own
+   padding, the boxes' shadow room — clipped by the stack itself), so
+   nothing scrolling under it peeks out anywhere — and down through the
+   gap under the label (empty at rest anyway), so content disappears a
+   bit below the square, its shadow and the label, not right at their
+   edge. */
+.board-rest.cal-foldable > .day-label::before {
+  content: '';
+  position: absolute;
+  inset: -40px -40px calc(-1 * var(--board-gap) * var(--fold-w));
+  z-index: -1;
+  background: var(--bg);
 }
 
 /* ── Entries ── */
@@ -1468,8 +1752,9 @@ function todoFont(id: string) {
 
 /* Tablet and phone, log mode: the calendar box on top left, folded shut
    to a small ink-filled icon square unless logCalOpen, the log's month
-   marker top right next to it, the log filling the rest. Open, the box
-   grows to at most --cal-fold-max wide (a calendar stretched across a
+   marker top right next to it, the log filling the rest (the fold itself:
+   see "The calendar fold" further up). Open, the box grows to at most
+   --cal-fold-max wide (a calendar stretched across a
    tablet looks off); the marker stays, its bottom level with the box's
    bottom edge (folded or open — it rides along as the box unfolds; phone:
    under the open box, see below). The
@@ -1478,7 +1763,6 @@ function todoFont(id: string) {
    After the phone block so it wins over its rules. */
 @media (max-width: 1024px) {
   .calendar-board--log {
-    --cal-fold-size: 44px;
     --cal-fold-max: 360px;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -1499,39 +1783,11 @@ function todoFont(id: string) {
   }
 
   .calendar-board--log .board-box--cal {
-    width: var(--cal-fold-max);
-    max-width: 100%;
-    transition: width 0.3s ease, background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease;
-  }
-
-  .calendar-board--log .cal-collapse {
-    transition: grid-template-rows 0.3s ease;
-  }
-
-  .calendar-board--log .cal-collapse-inner {
-    overflow: hidden;
+    --fold-open-w: min(var(--cal-fold-max), 100%);
   }
 
   .calendar-board--log .cal-fold-btn {
     display: flex;
-  }
-
-  .calendar-board--cal-closed .board-box--cal {
-    width: var(--cal-fold-size);
-    padding: 0;
-    background: var(--ink);
-    color: var(--bg);
-    box-shadow: var(--card-shadow-offset) var(--card-shadow-offset) 0 var(--priority-shadow);
-  }
-
-  .calendar-board--cal-closed .cal-toggle {
-    display: flex;
-    /* The box's 2px border on either side makes up the rest. */
-    height: calc(var(--cal-fold-size) - 4px);
-  }
-
-  .calendar-board--cal-closed .cal-collapse {
-    grid-template-rows: 0fr;
   }
 
   .calendar-board--log .log-month-row {
