@@ -172,6 +172,14 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
   if (e.key === 'Tab') {
     if (isTypingTarget(e.target)) return
+    // From Calendar always the next one round the nav's order — Tab to
+    // Overview, Shift+Tab back to Current — not whichever of the two was
+    // last open (that read as random).
+    if (route.path === '/calendar') {
+      e.preventDefault()
+      router.push(e.shiftKey ? '/current' : '/all')
+      return
+    }
     if (currentViewIdx === -1) return
     e.preventDefault()
     currentViewIdx = (currentViewIdx + (e.shiftKey ? -1 : 1) + viewOrder.length) % viewOrder.length
@@ -502,7 +510,11 @@ function computeShortcutHints() {
   // that used to span all three (back when Tab cycled through Calendar
   // too). Only `.top`/`.left`/`.width` are read below, so a plain object
   // stands in fine for the real DOMRect the others use.
-  if (allNavRef.value && focusNavRef.value) {
+  // In Calendar, though, Tab always goes to Overview (see the Tab handler)
+  // — the hint sits over just that icon there.
+  if (route.path === '/calendar' && allNavRef.value) {
+    measured.push({ key: 'Tab', rect: allNavRef.value.$el.getBoundingClientRect() })
+  } else if (allNavRef.value && focusNavRef.value) {
     const a = allNavRef.value.$el.getBoundingClientRect()
     const f = focusNavRef.value.$el.getBoundingClientRect()
     measured.push({
