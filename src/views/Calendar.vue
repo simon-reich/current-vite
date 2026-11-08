@@ -194,7 +194,13 @@ function onDayClick(day: { id: string }) {
   if (viewMode.value === 'log') logCalOpen.value = false
 }
 
+// Switching between calendar and log drops the picked day — back to today,
+// the calendar paged back with it. Nothing about a day picked in one mode
+// carries over: the log always opens at its top (today) instead of
+// visibly jumping to an old pick.
 watch(viewMode, async () => {
+  selectedDate.value = todayStr()
+  calendarRef.value?.move(new Date(todayStr() + 'T12:00:00'))
   await nextTick()
   checkDayDetailScrollState()
 })
@@ -326,9 +332,8 @@ function onLogScrolledByUser() {
   logScrolledByUser = true
 }
 
-// Opening the log starts at the selected day.
+// The log opens at its top — today (see the viewMode watcher above).
 function onLogShown() {
-  scrollLogTo(selectedDate.value, false)
   updateLogMonth()
 }
 
