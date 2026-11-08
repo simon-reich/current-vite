@@ -11,7 +11,7 @@ import CheckModal from '../components/CheckModal.vue'
 import AllChecksModal from '../components/AllChecksModal.vue'
 import ListsPanel from '../components/ListsPanel.vue'
 import IconLabelButton from '../components/IconLabelButton.vue'
-import { assignFonts } from '../composables/useTodoFonts'
+import { todoFont } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { burstCheckbox, burstSparks } from '../composables/useCheckboxBurst'
 import { useCheckToggle } from '../composables/useCheckToggle'
@@ -94,7 +94,6 @@ function onListSelected(dateStr: string | null) {
   listsPanelOpen.value = false
 }
 
-const fontMap = computed(() => assignFonts(displayedTodos.value.map(t => t.id)))
 const siblingIds = computed(() => displayedTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
@@ -153,10 +152,6 @@ const leftovers = computed(() =>
     : []
 )
 
-// Each title in its own todo font, same as on a card — assignFonts over
-// this little list keeps the "no two neighbors alike" rule within it.
-const leftoverFontMap = computed(() => assignFonts(leftovers.value.map(t => t.id)))
-
 // Phone: the ellipsis rides at the end of the title's last line — when a
 // title just about fills its line, the icon would drop onto a line of its
 // own. Such a title shrinks a little (shared shrinkFontToFit) until the
@@ -200,7 +195,9 @@ watch(leftoverFrameRef, (frame, _, onCleanup) => {
   document.fonts?.ready.then(fitLeftoverTitles)
   onCleanup(() => observer.disconnect())
 })
-watch(() => [leftovers.value.map(t => t.title).join('\n'), leftoverFontMap.value], () => nextTick(fitLeftoverTitles))
+// Titles and their fonts (todoFont, same as on a card) both come from the
+// todos themselves, so the list of them is all there is to watch.
+watch(() => leftovers.value.map(t => t.id + t.title).join('\n'), () => nextTick(fitLeftoverTitles))
 
 // Both backdated so the calendar files them under yesterday, the day they
 // actually belonged to. Done-for-now leaves the todo in the pool, same as
@@ -546,7 +543,7 @@ function editFromAllChecks(check: CheckItem) {
         :key="todo.id"
         :data-flip-id="todo.id"
         :todo="todo"
-        :font="fontMap.get(todo.id)"
+        :font="todoFont(todo.id)"
         :sibling-ids="siblingIds"
         :index="index"
         :force-expand-subs="themeStore.expandCurrentSubs"
@@ -599,7 +596,7 @@ function editFromAllChecks(check: CheckItem) {
         <TransitionGroup tag="div" class="leftover-list" :css="false" @leave="onLeftoverLeave">
           <div v-for="todo in leftovers" :key="todo.id" :data-id="todo.id" class="leftover-item" :class="{ open: openLeftover?.id === todo.id }">
             <div class="leftover-main">
-              <span class="check-label leftover-title" :style="{ fontFamily: leftoverFontMap.get(todo.id) }">{{ todo.title }}</span>
+              <span class="check-label leftover-title" :style="{ fontFamily: todoFont(todo.id) }">{{ todo.title }}</span>
               <div class="leftover-actions leftover-actions--full">
                 <button type="button" class="icon-circle-btn leftover-toggle" v-tooltip="'done yesterday'" @click="toggleLeftover(todo.id, 'done')">
                   <Check :size="10" />

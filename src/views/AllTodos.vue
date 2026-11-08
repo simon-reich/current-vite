@@ -6,7 +6,7 @@ import { useThemeStore } from '../stores/theme'
 import { ZoomIn, ZoomOut } from '@lucide/vue'
 import TodoCard, { closeActiveCard } from '../components/TodoCard.vue'
 import ActiveFilterChips from '../components/ActiveFilterChips.vue'
-import { assignFonts } from '../composables/useTodoFonts'
+import { todoFont } from '../composables/useTodoFonts'
 import { useListFlip } from '../composables/useListFlip'
 import { nextLoopDue, isLoopSettledToday } from '../composables/useLoopSchedule'
 import { lastTouched } from '../composables/useTodoSort'
@@ -208,7 +208,6 @@ const filterChipsIndex = computed(() => {
 const { formatPresetDate } = useFocusDateNav()
 const selectedListLabel = computed(() => formatPresetDate(themeStore.selectedFocusDate))
 
-const fontMap = computed(() => assignFonts(filteredTodos.value.map(t => t.id)))
 const siblingIds = computed(() => filteredTodos.value.map(t => t.id))
 
 useListFlip(() => siblingIds.value, '.todo-wrap')
@@ -269,7 +268,7 @@ function unassignFocusDate(id: string) {
       <TodoCard
         :data-flip-id="todo.id"
         :todo="todo"
-        :font="fontMap.get(todo.id)"
+        :font="todoFont(todo.id)"
         :sibling-ids="siblingIds"
         :index="index"
         :grid-mode="true"

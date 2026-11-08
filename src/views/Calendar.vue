@@ -14,7 +14,7 @@ import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
 import DayNotes from '../components/DayNotes.vue'
-import { assignFonts } from '../composables/useTodoFonts'
+import { todoFont as todoFontFamily } from '../composables/useTodoFonts'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import CalendarIcon from '../components/icons/CalendarIcon.vue'
 import { useCheckToggle } from '../composables/useCheckToggle'
@@ -740,18 +740,9 @@ const dayEntries = computed<DayEntry[]>(() => {
 const priorityEntries = computed(() => dayEntries.value.filter(e => e.todo.tags.includes(PRIORITY_TAG_ID)))
 const otherEntries = computed(() => dayEntries.value.filter(e => !e.todo.tags.includes(PRIORITY_TAG_ID)))
 
-// TRIAL: each todo title in its own todo font, as on its card — one
-// assignFonts pass over everything the board shows, in display order, so
-// neighbours never share a font.
-const todoFontMap = computed(() => assignFonts([
-  ...priorityEntries.value, ...otherEntries.value,
-].map(e => e.todo.id).concat(
-  missedOnDay.value.map(t => t.id),
-  plannedOnDay.value.map(t => t.id),
-  visibleArchiveGroups.value.flatMap(g => g.todos.map(t => t.id)),
-)))
+// TRIAL: each todo title in its own todo font, the same as on its card.
 function todoFont(id: string) {
-  return { fontFamily: todoFontMap.value.get(id) }
+  return { fontFamily: todoFontFamily(id) }
 }
 </script>
 

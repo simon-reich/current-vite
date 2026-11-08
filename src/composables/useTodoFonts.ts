@@ -29,24 +29,14 @@ function hashId(id: string): number {
 }
 
 /**
- * Given an ordered list of todo IDs, return a Map from id → font-family.
- * No two adjacent entries will share the same font. The assignment is
- * deterministic (same IDs → same fonts), so it's stable across re-renders.
+ * A todo's font-family — from its ID alone, so the same todo shows in the
+ * same font everywhere (Overview, Current, Calendar) and never changes
+ * with the list around it. There used to be a "no two neighbours share a
+ * font" shift on top, but that made a todo's font depend on who stood
+ * above it: re-sorting a list (e.g. Overview's selected Date List moving
+ * to the front) or another view swapped fonts on unchanged todos. Two
+ * neighbours sharing a font now and then is the price.
  */
-export function assignFonts(ids: string[]): Map<string, string> {
-  const result = new Map<string, string>()
-  const n = TODO_FONTS.length
-  let prevFont = ''
-
-  for (const id of ids) {
-    const base = hashId(id) % n
-    let font = TODO_FONTS[base]
-    if (font === prevFont) {
-      font = TODO_FONTS[(base + 1) % n]
-    }
-    result.set(id, font)
-    prevFont = font
-  }
-
-  return result
+export function todoFont(id: string): string {
+  return TODO_FONTS[hashId(id) % TODO_FONTS.length]
 }
