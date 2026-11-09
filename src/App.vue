@@ -256,8 +256,20 @@ function onGlobalKeydown(e: KeyboardEvent) {
 
   // N — jump into the add-todo input ("new"). Valid on Overview and Current,
   // the only views where that input is actually enabled (dimmed/inert on
-  // Settings and Calendar).
+  // Settings and Calendar). Calendar's journal instead: into the day's
+  // notes (NotesBox.vue), caret at the end, ready to type on — Escape
+  // hands the focus back to the days.
   if (key === 'n') {
+    if (route.path === '/calendar') {
+      const note = calendarViewMode.value === 'journal'
+        ? document.querySelector<HTMLTextAreaElement>('textarea.day-note')
+        : null
+      if (!note) return
+      e.preventDefault()
+      note.focus()
+      note.setSelectionRange(note.value.length, note.value.length)
+      return
+    }
     if (route.path !== '/all' && route.path !== '/current') return
     e.preventDefault()
     todoInputRef.value?.focus()
@@ -568,6 +580,15 @@ function computeShortcutHints() {
     const y = Math.min(calRect?.top ?? Infinity, modeRect?.top ?? Infinity) - 13
     if (calRect) calendarHintPos.value = { x: calRect.left + calRect.width / 2, y }
     if (modeRect) calendarModeHintPos.value = { x: modeRect.left, y }
+    // N (into the day's notes, journal only) — right beside the box's own
+    // "notes" label, vertically centered on it, like T next to its tag
+    // button: above the box it would sit on the calendar box's frame.
+    const notesLabelRect = calendarViewMode.value === 'journal'
+      ? document.querySelector('.calendar-view .board-box--notes .board-box-label')?.getBoundingClientRect()
+      : null
+    if (notesLabelRect) {
+      hints.push({ key: 'N', x: notesLabelRect.right + 10, y: notesLabelRect.top + notesLabelRect.height / 2, anchor: 'right' })
+    }
   }
 
   dateListNavHintPos.value = null

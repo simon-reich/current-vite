@@ -297,7 +297,7 @@ Alle Shortcuts leben in **einem einzigen** globalen `keydown`-Listener in `App.v
 - **S** – Subs-Toggle togglen (nur wenn Subs aktiv sind), Overview und Current – ruft `toggleDesktopSubs()` auf, genau wie der Header-Icon-Klick selbst (route-abhängig: `expandOverviewSubs`/`expandCurrentSubs`). Sonst No-Op.
 - **L** – Öffnet die Focus-Date-Pille (in Overview den "plan ahead"-Datepicker) durch einen synthetischen Klick auf die echte Pille (`.focus-date-widget`, per `querySelector` über `focusDateWidgetSlotRef`) – bewusst kein Component-Ref/`defineExpose` auf FocusDateWidget.vue, um dessen internem State-Handling nicht in die Quere zu kommen. Overview und Current mit aktiven Date Lists (in Current wählt die Pille die angezeigte Date List), sonst No-Op.
 - **G** – Grid/List togglen. Nur Overview, sonst No-Op.
-- **N** – Fokus ins Add-Todo-Feld ("new"). Overview + Current.
+- **N** – Fokus ins Add-Todo-Feld ("new"). Overview + Current. Im Calendar (nur Journal) stattdessen in die *notes* des gewählten Tages, Schreibmarke ans Ende – direkt weitertippen; Escape gibt den Fokus an den Kalender zurück.
 - **T** – Fokus ins Tag-Input in der Sidebar. Nur Overview – Current ist nicht filterbar, das Tag-/Filter-Menü wird dort gar nicht erst gerendert (kein ausgegrautes Fallback mehr).
 - **A** / **J** – Im Calendar (beide gleich, je ein Buchstabe pro Modusname): zwischen `journal` und `archive` umschalten (`themeStore.calendarViewMode`, persistiert – C bringt einen zurück in den zuletzt genutzten Modus; **C** selbst verlässt Calendar aus beiden Modi; vormals **L**). In Overview: **A** ist der All-Filter (löscht jeden aktiven Tag-/Prio-/Date-Filter auf einmal).
 - **P** – Prio-Filter togglen. Nur Overview.
