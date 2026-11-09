@@ -99,6 +99,7 @@ export function useStorage() {
       tags: store.tags,
       checks: checksStore.checks,
       notes: notesStore.notes,
+      listNote: notesStore.listNote,
     }
     await writeJsonFile(payload, `todos-${todayStr()}.json`)
   }
@@ -122,8 +123,9 @@ export function useStorage() {
       // Absent in files exported before Checks existed — leave whatever's
       // already there instead of wiping it out.
       if (Array.isArray(data.checks)) checksStore.importChecks(data.checks)
-      // Same for the calendar's day notes.
+      // Same for the day notes and Current's list note.
       if (isNoteMap(data.notes)) notesStore.importNotes(data.notes)
+      if (typeof data.listNote === 'string') notesStore.setListNote(data.listNote)
     } catch {
       alert('Import failed: invalid or corrupted JSON file.')
     }
@@ -179,6 +181,7 @@ export function useStorage() {
       tags: store.tags,
       checks: checksStore.checks,
       notes: notesStore.notes,
+      listNote: notesStore.listNote,
       themes: themeStore.savedThemes,
       activeBg: themeStore.activeBg,
       activeGray: themeStore.activeGray,
@@ -210,8 +213,9 @@ export function useStorage() {
       // Absent in backups made before Checks existed — leave whatever's
       // already there instead of wiping it out.
       if (Array.isArray(data.checks)) checksStore.importChecks(data.checks)
-      // Same for the calendar's day notes.
+      // Same for the day notes and Current's list note.
       if (isNoteMap(data.notes)) notesStore.importNotes(data.notes)
+      if (typeof data.listNote === 'string') notesStore.setListNote(data.listNote)
       if (Array.isArray(data.themes)) themeStore.savedThemes = data.themes
       if (typeof data.activeBg === 'string' && typeof data.activeGray === 'string') {
         themeStore.apply(data.activeBg, data.activeGray)

@@ -117,6 +117,10 @@
      (e.g. Overview's phone zoom icon) uses the same strength. */
   --pale-fill-opacity: 0.35;
 
+  /* Gap between a board box's label row and its content — Calendar's
+     boxes (.board-box) and the notes wherever they sit (NotesBox.vue). */
+  --board-box-gap: 14px;
+
   /* A check's paleness (box + title together): open, ticked, hovered.
      Current's .check-pill and the calendar's checks box both read these. */
   --check-opacity: 0.55;
@@ -321,4 +325,26 @@ input::placeholder, textarea::placeholder {
 
 .check-box.checked {
   background: var(--ink);
+}
+
+/* A board box's title (Calendar: done / checks / planned …, the archive's
+   day labels; the notes in Calendar and Current) — global since the notes
+   (NotesBox.vue) live in both views. */
+.board-box-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-family: var(--font-mono, monospace);
+}
+
+/* A box head: label left, an icon on the right (Calendar's checks
+   switch, the notes' done tick while typing). */
+.board-box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }

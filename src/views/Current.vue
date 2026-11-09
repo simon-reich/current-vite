@@ -8,6 +8,7 @@ import { useChecksStore, type Check as CheckItem } from '../stores/checks'
 import { useThemeStore } from '../stores/theme'
 import TodoCard from '../components/TodoCard.vue'
 import CheckModal from '../components/CheckModal.vue'
+import NotesBox from '../components/NotesBox.vue'
 import AllChecksModal from '../components/AllChecksModal.vue'
 import ListsPanel from '../components/ListsPanel.vue'
 import IconLabelButton from '../components/IconLabelButton.vue'
@@ -680,6 +681,13 @@ function editFromAllChecks(check: CheckItem) {
         </button>
       </div>
     </div>
+
+    <!-- This list's notes. With Date Lists the list is a day, so they're
+         that day's — the same ones (and look) as in Calendar's journal.
+         Without, Current's own list note, which carries on like the list
+         does (see stores/notes.ts). Under the checks; beside the todos on
+         a wide desktop (see .notes-section). -->
+    <NotesBox class="notes-section" :date-str="themeStore.dateListsEnabled ? checkDisplayDate : null" auto-grow />
   </div>
 
   <CheckModal
@@ -708,8 +716,14 @@ function editFromAllChecks(check: CheckItem) {
 
 <style scoped>
 .current-view {
+  /* Space above each lower-weight section under the todos (checks,
+     notes) — see .checks-section. */
+  --current-section-gap: 66px;
+  /* The list's width cap — also where the wide desktop's notes start
+     (.notes-section). */
+  --current-list-w: 800px;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--current-list-w);
 }
 
 .todo-wrap {
@@ -726,7 +740,7 @@ function editFromAllChecks(check: CheckItem) {
    as its own content needs. Lives inside the child component, hence
    :deep(). */
 .todo-wrap :deep(.todo-card) {
-  max-width: 800px;
+  max-width: var(--current-list-w);
 }
 
 /* Pale and set back, like Calendar's empty-state messages — a placeholder,
@@ -765,8 +779,45 @@ function editFromAllChecks(check: CheckItem) {
    closer — it's still the same kind of thing as the todos (a list
    carried over), so on purpose not tied to Checks' value. */
 .checks-section {
-  margin-top: 66px;
+  margin-top: var(--current-section-gap);
 }
+
+/* The notes (NotesBox.vue): under the checks, same distance, same left
+   inset as the checks (where a card's shadow starts). Wide desktop:
+   beside the todos instead, top-aligned with the list (the content's own
+   top padding), from 72px right of the list out to where the settings
+   icon ends. Positioned against the content box
+   (layout.css, #app.is-current .content-inner), which keeps the list
+   centered where it always was while the main column reaches over the
+   empty right-hand column: the list's right edge sits half its width
+   right of that box's center, the box ends one side column short of the
+   app's edge. That room only exists from 1600px — below, the notes stay
+   under the checks: (1600 − 2·36 app padding − 2·230 side columns − 2·20
+   content padding − 800) / 2 + 230 + 20 = 364 px right of the list. */
+.notes-section {
+  margin-top: var(--current-section-gap);
+  margin-left: var(--card-shadow-offset);
+}
+
+@media (min-width: 1600px) {
+  .notes-section {
+    position: absolute;
+    top: var(--content-pad-top);
+    left: calc(50% + var(--current-list-w) / 2 + 72px);
+    /* Out to the settings icon's right edge: one side column past this
+       box, back in by the icon's head and button padding and the bit of
+       air inside the gear glyph itself (Lucide's Settings ends at ~22.15
+       of its 24 units, stroke included — ~2.3px at the icon's 30px). */
+    right: calc(var(--settings-head-pad-x) + var(--settings-btn-pad) + 2.3px - var(--side-col));
+    margin: 0;
+    /* Outside the content's flow, so the main column's bottom breathing
+       spacer doesn't count it: a long note keeps the same room below it
+       (as padding — part of what scrolls) instead of running into the
+       screen's bottom edge. */
+    padding-bottom: var(--main-bottom-gap);
+  }
+}
+
 
 .leftovers-section {
   margin-top: 48px;

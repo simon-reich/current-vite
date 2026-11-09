@@ -80,7 +80,7 @@ export function enterSandbox(): boolean {
   sandboxData.clear()
   sandboxData.set('todos', JSON.stringify({ todos: [], tags: [] }))
   sandboxData.set('checks', JSON.stringify({ checks: [] }))
-  sandboxData.set('notes', JSON.stringify({ notes: {} }))
+  sandboxData.set('notes', JSON.stringify({ notes: {}, listNote: '' }))
   sandboxData.set('theme', JSON.stringify({ ...realTheme, ...TUTORIAL_FEATURES, selectedFocusDate: todayStr() }))
   sandboxActive.value = true
   hydrateAll()

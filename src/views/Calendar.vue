@@ -13,7 +13,7 @@ import { arrowKeyDayDelta } from '../composables/useCalendarKeys'
 import UndoDoneButton from '../components/UndoDoneButton.vue'
 import CalendarModeToggle from '../components/CalendarModeToggle.vue'
 import CircleCheckIcon from '../components/icons/CircleCheckIcon.vue'
-import DayNotes from '../components/DayNotes.vue'
+import NotesBox from '../components/NotesBox.vue'
 import { todoFont as todoFontFamily } from '../composables/useTodoFonts'
 import ScrollDivider from '../components/ScrollDivider.vue'
 import CalendarIcon from '../components/icons/CalendarIcon.vue'
@@ -798,7 +798,7 @@ function todoFont(id: string) {
           </div>
         </section>
         <ScrollDivider v-if="foldable && viewMode === 'journal'" class="fold-head-divider" :visible="folded && boardScrolled" />
-        <DayNotes v-if="viewMode === 'journal' && !isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
+        <NotesBox v-if="viewMode === 'journal' && !isPhoneWidth" class="board-box board-box--notes" :date-str="selectedDate" @leave="viewRef?.focus()" />
       </div>
 
       <div v-if="viewMode === 'journal'" ref="boardRestRef" class="board-rest" :class="foldClass" :style="foldStyle">
@@ -907,7 +907,7 @@ function todoFont(id: string) {
           </section>
         </div>
 
-        <DayNotes v-if="isPhoneWidth" :date-str="selectedDate" @leave="viewRef?.focus()" />
+        <NotesBox v-if="isPhoneWidth" class="board-box board-box--notes" :date-str="selectedDate" auto-grow @leave="viewRef?.focus()" />
       </div>
 
       <div v-else class="board-archive">
@@ -1052,7 +1052,7 @@ function todoFont(id: string) {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--board-box-gap);
   --board-box-pad-bottom: 18px;
   padding: 16px 18px var(--board-box-pad-bottom);
   background: var(--bg);
@@ -1078,31 +1078,12 @@ function todoFont(id: string) {
   gap: 14px;
 }
 
-/* A box's title (done / checks / planned …) and the archive's day labels.
-   :deep for DayNotes.vue's label. */
-.calendar-view :deep(.board-box-label) {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-  opacity: 0.5;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  font-family: var(--font-mono, monospace);
-}
-
-/* A box head: label left, an icon on the right — checks' done ↔ open
-   switch (a two-arrow "other side" icon that turns half a round per
-   flip) and the notes' done tick while typing. :deep for DayNotes.vue.
-   The switch sits in the label's own paleness; off ("done") it's paler
-   again on top of that, on ("open", label then reads "open checks") it
-   reads like the label itself. */
-.calendar-view :deep(.board-box-head) {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
+/* A box's title and a box head (label + icon) are global (base.css,
+   .board-box-label/.board-box-head) — the notes share them in Current.
+   The checks box's switch: it sits in the label's own paleness; off
+   ("done") it's paler again on top of that, on ("open", label then reads
+   "open checks") it reads like the label itself — a two-arrow "other
+   side" icon that turns half a round per flip. */
 .board-box-switch {
   display: flex;
 }
@@ -1786,7 +1767,7 @@ function todoFont(id: string) {
     padding-bottom: var(--board-shadow-room);
   }
 
-  /* Grows with the note's text (DayNotes.vue) rather than shrinking to fit
+  /* Grows with the note's text (NotesBox.vue) rather than shrinking to fit
      and scrolling inside — the stack it sits in scrolls instead. */
   .board-box.board-box--notes {
     flex: 1 0 auto;

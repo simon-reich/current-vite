@@ -1532,6 +1532,11 @@ onUnmounted(() => {
 })
 
 // ── Scroll dividers ──
+// Room kept below the main content once it scrolls (the breathing spacer
+// below). Also handed to CSS (--main-bottom-gap on #app) for what sits
+// outside the content's flow and so isn't covered by the spacer —
+// Current's notes beside the list on a wide desktop.
+const MAIN_BOTTOM_GAP = 60
 const mainContentRef = useTemplateRef<HTMLElement>('mainContent')
 const contentInnerRef = useTemplateRef<HTMLElement>('contentInner')
 const bottomSpacerRef = useTemplateRef<HTMLElement>('bottomSpacer')
@@ -1540,7 +1545,7 @@ const {
   scrolledToBottom: isScrolledToBottom,
   spacerHeight: mainContentSpacerHeight,
   check: checkScrollState,
-} = useScrollTracking({ scrollEl: mainContentRef, contentEl: contentInnerRef, spacerEl: bottomSpacerRef, targetGap: 60 })
+} = useScrollTracking({ scrollEl: mainContentRef, contentEl: contentInnerRef, spacerEl: bottomSpacerRef, targetGap: MAIN_BOTTOM_GAP })
 
 function onScroll() { checkScrollState() }
 
@@ -1698,6 +1703,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
 <template>
   <div
     id="app"
+    :style="{ '--main-bottom-gap': `${MAIN_BOTTOM_GAP}px` }"
     :class="{
       'is-settings': route.path === '/settings',
       'is-calendar': route.path === '/calendar',
