@@ -434,14 +434,11 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
       phone: { importer: () => import('../assets/animations/svg/orca-01_486.svg?raw'), fallbackCycleMs: 8760 },
     },
   },
-  // Temporary, work in progress — only a 1920 export exists so far, so
-  // tablet/phone reuse it (cover scaling still fits it to each viewport)
-  // until their own exports are done. Not svgo-optimized yet either.
   palmLeaf: {
     variants: {
-      desktop: { importer: () => import('../assets/animations/svg/palm-leaf_1920.svg?raw'), fallbackCycleMs: 1000 },
-      tablet: { importer: () => import('../assets/animations/svg/palm-leaf_1920.svg?raw'), fallbackCycleMs: 1000 },
-      phone: { importer: () => import('../assets/animations/svg/palm-leaf_1920.svg?raw'), fallbackCycleMs: 1000 },
+      desktop: { importer: () => import('../assets/animations/svg/palmleaf-01_1920.svg?raw'), fallbackCycleMs: 5500 },
+      tablet: { importer: () => import('../assets/animations/svg/palmleaf-01_810.svg?raw'), fallbackCycleMs: 5500 },
+      phone: { importer: () => import('../assets/animations/svg/palmleaf-01_486.svg?raw'), fallbackCycleMs: 5500 },
     },
   },
   lavaLamp: {
