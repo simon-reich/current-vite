@@ -1168,7 +1168,7 @@ function editFromAllChecks(check: CheckItem) {
 
 .check-label {
   /* No truncation — Checks stack one per line now (no fixed column width
-     to fit), so the full CHECK_TITLE_MAX_LENGTH (60 chars) just gets to
+     to fit), so the full CHECK_TITLE_MAX_LENGTH (textLimits.ts) just gets to
      wrap onto a second line instead of being cut off. word-break matches
      TodoCard's own title rule — without it, a title long/dense enough to
      not hit a natural space before running out of row width (easy to hit

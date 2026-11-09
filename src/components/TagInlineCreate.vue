@@ -10,6 +10,7 @@
 import { ref, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { Plus } from '@lucide/vue'
 import { useTodosStore, type Tag } from '../stores/todos'
+import { TAG_LABEL_MAX_LENGTH, tagLabel } from '../textLimits'
 
 const store = useTodosStore()
 const emit = defineEmits<{ created: [tag: Tag], 'focus-inside': [], exit: [] }>()
@@ -66,7 +67,7 @@ function cancel() {
 }
 
 function commit() {
-  const label = draft.value.trim()
+  const label = tagLabel(draft.value)
   if (!label) { cancel(); return }
   // Same "don't duplicate" rule as the sidebar's bulk tag input
   // (handleTagKey in App.vue) — reuse the existing tag instead of making a
@@ -110,6 +111,7 @@ function onKeydown(e: KeyboardEvent) {
       ref="inputRef"
       v-model="draft"
       class="tag-row-add-field"
+      :maxlength="TAG_LABEL_MAX_LENGTH"
       :size="Math.max(1, draft.length)"
       @focus="emit('focus-inside')"
       @keydown="onKeydown"

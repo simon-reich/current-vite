@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useNotesStore, NOTE_MAX_LENGTH } from '../stores/notes'
+import { useNotesStore } from '../stores/notes'
+import { NOTE_MAX_LENGTH } from '../textLimits'
 import { canHover } from '../composables/useTooltip'
 import { Check } from '@lucide/vue'
 
@@ -53,7 +54,7 @@ function leave() {
 // click lands — otherwise the blur would hide the button first.
 const focused = ref(false)
 
-// Nearing the cap (NOTE_MAX_LENGTH, stores/notes.ts): from 90% on, a small
+// Nearing the cap (NOTE_MAX_LENGTH, textLimits.ts): from 90% on, a small
 // "used / cap" hint right under the line being typed in, starting at the
 // caret (the room kept below the notes — --main-bottom-gap, App.vue — keeps
 // it clear of the screen's edge at the text's end). Where the caret is

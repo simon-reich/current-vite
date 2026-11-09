@@ -10,6 +10,7 @@ import FocusDateWidget from './components/FocusDateWidget.vue'
 import FocusDateNav from './components/FocusDateNav.vue'
 import CalendarModeToggle from './components/CalendarModeToggle.vue'
 import { useTodosStore, PRIORITY_TAG_ID, LOOP_TAG_ID, type LoopInterval, type Todo, type Tag as TagModel } from './stores/todos'
+import { TODO_TITLE_MAX_LENGTH, SUB_TITLE_MAX_LENGTH, TAG_INPUT_MAX_LENGTH, tagLabel } from './textLimits'
 import { useThemeStore } from './stores/theme'
 import { useChecksStore } from './stores/checks'
 import { useScrollTracking } from './composables/useScrollTracking'
@@ -775,7 +776,7 @@ function handleTagKey(e: KeyboardEvent) {
     return
   }
   if (e.key !== 'Enter') return
-  const labels = tagInput.value.split(',').map(s => s.trim()).filter(Boolean)
+  const labels = tagInput.value.split(',').map(tagLabel).filter(Boolean)
   // Anchored to whichever tag input was actually typed in — its column
   // flips sides with Date Lists (see tagSidebarOnLeft), so a fixed
   // position would point at the wrong sidebar half the time.
@@ -1893,6 +1894,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
               ref="todoInputRef"
               v-model="todoInput"
               class="add-input"
+              :maxlength="TODO_TITLE_MAX_LENGTH"
               placeholder="todo + enter"
               @focus="onTodoFocus"
               @input="onTodoInput"
@@ -1932,6 +1934,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                       ref="newSubInputRef"
                       v-model="newSubDraft"
                       class="add-sub-input"
+                      :maxlength="SUB_TITLE_MAX_LENGTH"
                       placeholder="sub + enter"
                       @focus="keepTodoModalOpen"
                       @blur="onTodoBlur"
@@ -2065,6 +2068,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                   ref="mobileTodoInputRef"
                   v-model="todoInput"
                   class="add-input"
+                  :maxlength="TODO_TITLE_MAX_LENGTH"
                   placeholder="todo + enter"
                   @blur="onTodoBlur"
                   @keydown.enter.prevent="onTodoTitleEnter"
@@ -2106,6 +2110,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                       ref="mobileSubInputRef"
                       v-model="newSubDraft"
                       class="add-sub-input"
+                      :maxlength="SUB_TITLE_MAX_LENGTH"
                       placeholder="sub + enter"
                       @focus="keepTodoModalOpen"
                       @blur="onTodoBlur"
@@ -2323,6 +2328,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
                   ref="tagInputRef"
                   v-model="tagInput"
                   class="tag-new-input tag-new-input--inline"
+                  :maxlength="TAG_INPUT_MAX_LENGTH"
                   placeholder="tag, ... + enter"
                   @keydown="handleTagKey"
                   @blur="onTagInputBlur"
@@ -2388,6 +2394,7 @@ function onSheetHandlePointerUp(e: PointerEvent) {
         <input
           v-model="tagInput"
           class="tag-new-input"
+          :maxlength="TAG_INPUT_MAX_LENGTH"
           placeholder="tag, ... + enter"
           @keydown="handleTagKey"
         />

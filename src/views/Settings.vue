@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { THEME_NAME_MAX_LENGTH } from '../textLimits'
 import { inject, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { motion } from 'motion-v'
@@ -100,7 +101,7 @@ watch(deleteThemeConfirm, (open) => {
           v-model="themeName"
           class="name-input"
           placeholder="theme name + enter"
-          maxlength="32"
+          :maxlength="THEME_NAME_MAX_LENGTH"
           @keydown.enter="saveTheme"
         />
       </div>

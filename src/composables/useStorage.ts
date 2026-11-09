@@ -1,4 +1,5 @@
 import { useTodosStore } from '../stores/todos'
+import { THEME_NAME_MAX_LENGTH, clipText } from '../textLimits'
 import { useThemeStore } from '../stores/theme'
 import { useChecksStore } from '../stores/checks'
 import { useNotesStore } from '../stores/notes'
@@ -155,7 +156,7 @@ export function useStorage() {
       const existingIds = new Set(themeStore.savedThemes.map(t => t.id))
       incoming.forEach((t: any) => {
         if (t.id && t.name && t.bg && t.gray && !existingIds.has(t.id)) {
-          themeStore.savedThemes.push(t)
+          themeStore.savedThemes.push({ ...t, name: clipText(String(t.name), THEME_NAME_MAX_LENGTH) })
         }
       })
     } catch {
@@ -216,7 +217,7 @@ export function useStorage() {
       // Same for the day notes and Current's list note.
       if (isNoteMap(data.notes)) notesStore.importNotes(data.notes)
       if (typeof data.listNote === 'string') notesStore.setListNote(data.listNote)
-      if (Array.isArray(data.themes)) themeStore.savedThemes = data.themes
+      if (Array.isArray(data.themes)) themeStore.savedThemes = data.themes.map((t: any) => ({ ...t, name: typeof t.name === 'string' ? clipText(t.name, THEME_NAME_MAX_LENGTH) : t.name }))
       if (typeof data.activeBg === 'string' && typeof data.activeGray === 'string') {
         themeStore.apply(data.activeBg, data.activeGray)
       }

@@ -610,6 +610,7 @@ import { ref, reactive, computed, watch, nextTick, onMounted, onUnmounted, injec
 import { CirclePlus, CircleMinus, CircleArrowRight, Trash2, CheckCheck, Clock, Check, Flag, RefreshCw, GripVertical, X, ChevronUp, ChevronDown, ArrowUpRight } from '@lucide/vue'
 import { motion, useMotionValue, useTransform, useMotionValueEvent, animate, type PanInfo } from 'motion-v'
 import { useTodosStore, type Todo, type Sub, type LoopInterval, type Tag, PRIORITY_TAG_ID, LOOP_TAG_ID } from '../stores/todos'
+import { TODO_TITLE_MAX_LENGTH, SUB_TITLE_MAX_LENGTH } from '../textLimits'
 import { useThemeStore } from '../stores/theme'
 import { onQuickExpandEnter, onQuickExpandLeave } from '../composables/useQuickExpand'
 import { activeModal } from '../composables/useModalGuard'
@@ -2808,6 +2809,7 @@ onUnmounted(() => {
             ref="editInputRef"
             v-model="editTitle"
             class="title-input"
+            :maxlength="TODO_TITLE_MAX_LENGTH"
             rows="1"
             :style="font ? { fontFamily: font } : {}"
             @keydown.enter.prevent.stop="acceptEdit"
@@ -2927,6 +2929,7 @@ onUnmounted(() => {
                 :ref="(el) => { editSubInputRef = el as HTMLTextAreaElement | null }"
                 v-model="editSubTitle"
                 class="sub-input"
+                :maxlength="SUB_TITLE_MAX_LENGTH"
                 rows="1"
                 :style="font ? { fontFamily: font } : {}"
                 @input="autoGrowEditSub"
@@ -3007,6 +3010,7 @@ onUnmounted(() => {
                   ref="newSubInputRef"
                   v-model="newSubTitle"
                   class="sub-input sub-input--new"
+                  :maxlength="SUB_TITLE_MAX_LENGTH"
                   rows="1"
                   placeholder="add sub + enter"
                   :style="font ? { fontFamily: font } : {}"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
-import { useChecksStore, CHECK_TITLE_MAX_LENGTH, type Check, type CheckSchedule } from '../stores/checks'
+import { useChecksStore, type Check, type CheckSchedule } from '../stores/checks'
+import { CHECK_TITLE_MAX_LENGTH } from '../textLimits'
 import type { LoopInterval } from '../stores/todos'
 import { registerModalGuard } from '../composables/useModalGuard'
 import { todayStr } from '../composables/useToday'

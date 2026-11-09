@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { TODO_TITLE_MAX_LENGTH, SUB_TITLE_MAX_LENGTH, TAG_LABEL_MAX_LENGTH, clipLine, clipText, tagLabel } from '../textLimits'
 import { ref, computed } from 'vue'
 import { drawCelebrationKey, type CelebrationKey } from '../composables/useCelebrations'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
@@ -8,6 +9,10 @@ import { useThemeStore } from './theme'
 
 export const PRIORITY_TAG_ID = '__priority__'
 export const LOOP_TAG_ID = '__loop__'
+
+// Length caps: see textLimits.ts.
+const todoTitle = (text: string) => clipLine(text, TODO_TITLE_MAX_LENGTH)
+const subTitle = (text: string) => clipLine(text, SUB_TITLE_MAX_LENGTH)
 
 export interface Tag {
   id: string
@@ -292,11 +297,11 @@ export const useTodosStore = defineStore('todos', () => {
   function addTodo(title: string, extra: Partial<Pick<Todo, 'tags' | 'loopInterval'>> & { subs?: string[] } = {}): Todo {
     const todo: Todo = {
       id: uuid(),
-      title: title.trim(),
+      title: todoTitle(title),
       tags: extra.tags ?? [],
       createdAt: new Date().toISOString(),
       inCurrent: false,
-      subs: (extra.subs ?? []).map(subTitle => ({ id: uuid(), title: subTitle.trim() })).filter(s => s.title),
+      subs: (extra.subs ?? []).map(text => ({ id: uuid(), title: subTitle(text) })).filter(s => s.title),
       workLog: [],
       loopInterval: extra.loopInterval,
     }
@@ -371,7 +376,7 @@ export const useTodosStore = defineStore('todos', () => {
   // ones instead of joining the still-open group it actually belongs to.
   function addSub(todoId: string, title: string): Sub | undefined {
     const todo = todos.value.find(t => t.id === todoId)
-    const trimmed = title.trim()
+    const trimmed = subTitle(title)
     if (!todo || !trimmed) return
     const sub: Sub = { id: uuid(), title: trimmed }
     const firstCompletedIndex = todo.subs.findIndex(s => s.completedAt)
@@ -412,7 +417,7 @@ export const useTodosStore = defineStore('todos', () => {
 
   function updateSub(todoId: string, subId: string, title: string) {
     const sub = todos.value.find(t => t.id === todoId)?.subs.find(s => s.id === subId)
-    const trimmed = title.trim()
+    const trimmed = subTitle(title)
     if (!sub || !trimmed) return
     sub.title = trimmed
   }
@@ -431,7 +436,7 @@ export const useTodosStore = defineStore('todos', () => {
   function updateTodo(id: string, patch: Partial<Pick<Todo, 'title' | 'tags' | 'loopInterval' | 'celebration'>>) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
-    if (patch.title !== undefined) todo.title = patch.title.trim()
+    if (patch.title !== undefined) todo.title = todoTitle(patch.title)
     if (patch.tags !== undefined) todo.tags = patch.tags
     if ('loopInterval' in patch) todo.loopInterval = patch.loopInterval
     if (patch.celebration !== undefined) todo.celebration = patch.celebration
@@ -777,7 +782,7 @@ export const useTodosStore = defineStore('todos', () => {
 
   // ── Tag Actions ──
   function addTag(label: string): Tag {
-    const tag: Tag = { id: uuid(), label: label.trim() }
+    const tag: Tag = { id: uuid(), label: tagLabel(label) }
     tags.value.push(tag)
     return tag
   }
@@ -797,8 +802,13 @@ export const useTodosStore = defineStore('todos', () => {
   // mentions that isn't in the imported todos themselves.
   function importData(data: { todos: Todo[]; tags: Tag[]; history?: { todoId: string; title: string; date: string; type: 'done' | 'worklog' }[] }) {
     // Absent in files exported before Subs existed — default to none.
-    todos.value = data.todos.map(t => ({ ...t, subs: t.subs ?? [] }))
-    tags.value = data.tags
+    // Caps apply to imported text too (older files, edited files).
+    todos.value = data.todos.map(t => ({
+      ...t,
+      title: typeof t.title === 'string' ? clipText(t.title, TODO_TITLE_MAX_LENGTH) : t.title,
+      subs: (t.subs ?? []).map(sub => ({ ...sub, title: typeof sub.title === 'string' ? clipText(sub.title, SUB_TITLE_MAX_LENGTH) : sub.title })),
+    }))
+    tags.value = data.tags.map(tag => ({ ...tag, label: typeof tag.label === 'string' ? clipText(tag.label, TAG_LABEL_MAX_LENGTH) : tag.label }))
     if (data.history?.length) {
       const byTodo = new Map<string, { title: string; done?: string; workLog: string[] }>()
       for (const h of data.history) {

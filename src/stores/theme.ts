@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { THEME_NAME_MAX_LENGTH, clipLine } from '../textLimits'
 import { ref } from 'vue'
 import { applyTheme } from '../composables/useTheme'
 import { todayStr } from '../composables/useToday'
@@ -129,7 +130,7 @@ export const useThemeStore = defineStore('theme', () => {
   function saveTheme(name: string) {
     savedThemes.value.push({
       id: uuid(),
-      name: name.trim() || 'Theme',
+      name: clipLine(name, THEME_NAME_MAX_LENGTH) || 'Theme',
       bg: activeBg.value,
       gray: activeGray.value,
     })

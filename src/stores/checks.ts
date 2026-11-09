@@ -4,12 +4,9 @@ import type { LoopUnit } from './todos'
 import { isLoopDueToday } from '../composables/useLoopSchedule'
 import { todayStr } from '../composables/useToday'
 import { uuid } from '../composables/useId'
+import { CHECK_TITLE_MAX_LENGTH, clipLine, clipText } from '../textLimits'
 
-// Short reminder phrases only, not full todo-length titles — Current's
-// check-row now stacks them one per line (see Current.vue) instead of side
-// by side, so this only needs to stay a single readable line rather than
-// fit two columns.
-export const CHECK_TITLE_MAX_LENGTH = 50
+// Title length cap: CHECK_TITLE_MAX_LENGTH, see textLimits.ts.
 
 // Deliberately its own, narrower type rather than reusing Todo's
 // LoopInterval directly: a Check is always recurring (no 'once' — see
@@ -110,7 +107,7 @@ export const useChecksStore = defineStore('checks', () => {
   function addCheck(title: string, schedule: CheckSchedule): Check {
     const check: Check = {
       id: uuid(),
-      title: title.trim().slice(0, CHECK_TITLE_MAX_LENGTH),
+      title: clipLine(title, CHECK_TITLE_MAX_LENGTH),
       schedule,
       createdAt: new Date().toISOString(),
       completedDates: [],
@@ -122,7 +119,7 @@ export const useChecksStore = defineStore('checks', () => {
   function updateCheck(id: string, patch: Partial<Pick<Check, 'title' | 'schedule'>>) {
     const check = checks.value.find(c => c.id === id)
     if (!check) return
-    if (patch.title !== undefined) check.title = patch.title.trim().slice(0, CHECK_TITLE_MAX_LENGTH)
+    if (patch.title !== undefined) check.title = clipLine(patch.title, CHECK_TITLE_MAX_LENGTH)
     if (patch.schedule !== undefined) check.schedule = patch.schedule
   }
 
@@ -154,7 +151,10 @@ export const useChecksStore = defineStore('checks', () => {
   // Full-replace restore for useStorage.ts's import/import-everything —
   // mirrors useTodosStore.importData's semantics (replaces, doesn't merge).
   function importChecks(data: Check[]) {
-    checks.value = data
+    checks.value = data.map(check => ({
+      ...check,
+      title: typeof check.title === 'string' ? clipText(check.title, CHECK_TITLE_MAX_LENGTH) : check.title,
+    }))
   }
 
   return {
