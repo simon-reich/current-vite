@@ -509,6 +509,16 @@ export const useTodosStore = defineStore('todos', () => {
     todo.missedDates = [...new Set([...(todo.missedDates ?? []), ...days])].sort()
   }
 
+  // A yesterday leftover (see leftoversFrom) moved on by hand — to today,
+  // or back to the pool — leaves a past list before rolloverExpiredFocusDates
+  // gets to record it, so it's recorded here: it wasn't done on that day
+  // either. Only for past lists; done/done for now take other paths.
+  function recordLeftoverMissed(todo: Todo, dateStr: string) {
+    if (dateStr < todayStr() && !todo.completedAt && !todo.deletedAt && todo.focusDates?.includes(dateStr)) {
+      recordMissed(todo.id, [dateStr])
+    }
+  }
+
   function missedOn(dateStr: string): Todo[] {
     return todos.value.filter(t => !t.deletedAt && t.missedDates?.includes(dateStr))
   }
@@ -646,6 +656,7 @@ export const useTodosStore = defineStore('todos', () => {
   function moveFocusDateToNextDay(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
+    recordLeftoverMissed(todo, dateStr)
     unassignFocusDate(id, dateStr)
     assignFocusDate(id, addDaysStr(dateStr, 1))
   }
@@ -671,6 +682,7 @@ export const useTodosStore = defineStore('todos', () => {
   function releaseToPool(id: string, dateStr: string) {
     const todo = todos.value.find(t => t.id === id)
     if (!todo) return
+    recordLeftoverMissed(todo, dateStr)
     unassignFocusDate(id, dateStr)
     if (!todo.focusDates?.includes(todayStr())) todo.poolBumpedAt = new Date().toISOString()
   }

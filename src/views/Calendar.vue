@@ -651,12 +651,15 @@ const plannedOnDay = computed(() => {
 })
 
 // A past day's open leftovers — recorded at the day change (Todo.missedDates,
-// see rolloverExpiredFocusDates/runLoopSchedule), never derived. Anything
-// that did get done/worked on that day after all is left out.
+// see rolloverExpiredFocusDates/runLoopSchedule), never derived. Plus,
+// with yesterday leftovers on, what still sits on that day's list: kept
+// there one extra day, so it isn't recorded yet (store.leftoversFrom).
+// Anything that did get done/worked on that day after all is left out.
 const missedOnDay = computed(() => {
   if (!isPastDate.value) return []
   const handled = new Set(dayEntries.value.filter(e => e.kind === 'done' || e.worked).map(e => e.todo.id))
-  return store.missedOn(selectedDate.value).filter(t => !handled.has(t.id))
+  const missed = [...new Set([...store.missedOn(selectedDate.value), ...store.leftoversFrom(selectedDate.value)])]
+  return missed.filter(t => !handled.has(t.id))
 })
 
 // The day's Checks, one side at a time: ticked ones by default, or —
