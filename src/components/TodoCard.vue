@@ -445,7 +445,7 @@ const ALL_CELEBRATIONS: Record<CelebrationKey, CelebrationConfig> = {
     variants: {
       desktop: { importer: () => import('../assets/animations/svg/lavalamp-01_1920.svg?raw'), fallbackCycleMs: 7830 },
       tablet: { importer: () => import('../assets/animations/svg/lavalamp-01_810.svg?raw'), fallbackCycleMs: 7830 },
-      phone: { importer: () => import('../assets/animations/svg/lavalamp-01_486.svg?raw'), fallbackCycleMs: 4320 },
+      phone: { importer: () => import('../assets/animations/svg/lavalamp-01_486.svg?raw'), fallbackCycleMs: 4410 },
     },
   },
 }
