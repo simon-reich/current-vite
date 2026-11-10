@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useNotesStore } from '../stores/notes'
 import { NOTE_MAX_LENGTH } from '../textLimits'
+import { literaryTypography } from '../typography'
 import { canHover } from '../composables/useTooltip'
 import { Check } from '@lucide/vue'
 
@@ -53,6 +54,15 @@ function leave() {
 // changes height. pointerdown.prevent keeps the field focused until the
 // click lands — otherwise the blur would hide the button first.
 const focused = ref(false)
+
+// Quotes and dashes are set literary once the field is left (typography.ts)
+// — typed or pasted alike. Not while typing: rewriting the field's text
+// mid-edit would break its undo (Cmd+Z).
+function onBlur() {
+  focused.value = false
+  const text = literaryTypography(note.value)
+  if (text !== note.value) note.value = text
+}
 
 // Nearing the cap (NOTE_MAX_LENGTH, textLimits.ts): from 90% on, a small
 // "used / cap" hint right under the line being typed in, starting at the
@@ -117,7 +127,7 @@ watch(showLimitHint, () => nextTick(placeLimitHint))
         :maxlength="NOTE_MAX_LENGTH"
         spellcheck="false"
         @focus="focused = true"
-        @blur="focused = false"
+        @blur="onBlur"
         @keydown.escape="leave"
         @input="nextTick(placeLimitHint)"
         @keyup="placeLimitHint"
